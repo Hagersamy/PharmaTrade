@@ -308,9 +308,9 @@ private fun AnalyticsPendingCard(
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 AnalyticsInfoRow(Icons.Filled.Phone, "Phone", user.phone)
                 if (user.email.isNotBlank()) AnalyticsInfoRow(Icons.Filled.Email, "Email", user.email)
-                if (!user.licenceNumber.isNullOrBlank()) AnalyticsInfoRow(Icons.Filled.Badge, "Licence", user.licenceNumber)
-                if (!user.zoneId.isNullOrBlank()) AnalyticsInfoRow(Icons.Filled.LocationCity, "Zone", user.zoneId)
-                if (!user.address.isNullOrBlank()) AnalyticsInfoRow(Icons.Filled.LocationOn, "Address", user.address)
+                user.licenceNumber?.takeIf { it.isNotBlank() }?.let { AnalyticsInfoRow(Icons.Filled.Badge, "Licence", it) }
+                user.zoneId?.takeIf { it.isNotBlank() }?.let { AnalyticsInfoRow(Icons.Filled.LocationCity, "Zone", it) }
+                user.address?.takeIf { it.isNotBlank() }?.let { AnalyticsInfoRow(Icons.Filled.LocationOn, "Address", it) }
                 if (user.userType == UserType.SELLER) {
                     if (!user.minOrderValue.isNullOrBlank()) AnalyticsInfoRow(Icons.Filled.Payments, "Min Order", "EGP ${user.minOrderValue}")
                     if (user.additionalZoneIds.isNotEmpty()) AnalyticsInfoRow(Icons.Filled.Map, "Extra Zones", user.additionalZoneIds.joinToString(", "))

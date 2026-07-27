@@ -784,12 +784,15 @@ private fun PendingUserCard(
                 InfoRow(Icons.Filled.Phone,      "Phone",         user.phone)
                 if (user.email.isNotBlank())
                     InfoRow(Icons.Filled.Email,  "Email",         user.email)
-                if (!user.licenceNumber.isNullOrBlank())
-                    InfoRow(Icons.Filled.Badge,  "Licence No.",   user.licenceNumber)
-                if (!user.zoneId.isNullOrBlank())
-                    InfoRow(Icons.Filled.LocationCity, "Zone ID", user.zoneId)
-                if (!user.address.isNullOrBlank())
-                    InfoRow(Icons.Filled.LocationOn, "Address",   user.address)
+                user.licenceNumber?.takeIf { it.isNotBlank() }?.let {
+                    InfoRow(Icons.Filled.Badge, "Licence No.", it)
+                }
+                user.zoneId?.takeIf { it.isNotBlank() }?.let {
+                    InfoRow(Icons.Filled.LocationCity, "Zone ID", it)
+                }
+                user.address?.takeIf { it.isNotBlank() }?.let {
+                    InfoRow(Icons.Filled.LocationOn, "Address", it)
+                }
             }
 
             // ── Licence Images ──────────────────────────────────────────────
@@ -813,8 +816,9 @@ private fun PendingUserCard(
                 CardSection(title = "Supplier Details") {
                     if (!user.minOrderValue.isNullOrBlank())
                         InfoRow(Icons.Filled.Payments,  "Min Order Value", "EGP ${user.minOrderValue}")
-                    if (!user.minOrderQty.isNullOrBlank())
-                        InfoRow(Icons.Filled.Inventory2,"Min Order Qty",   user.minOrderQty)
+                    user.minOrderQty?.takeIf { it.isNotBlank() }?.let {
+                        InfoRow(Icons.Filled.Inventory2, "Min Order Qty", it)
+                    }
                     if (user.additionalZoneIds.isNotEmpty())
                         InfoRow(Icons.Filled.Map, "Delivery Zones",
                             user.additionalZoneIds.joinToString(", "))
