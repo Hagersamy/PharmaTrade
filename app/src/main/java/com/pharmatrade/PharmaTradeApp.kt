@@ -1,8 +1,9 @@
 package com.pharmatrade
 
 import android.app.Application
-import coil.Coil
-import coil.ImageLoader
+import coil3.ImageLoader
+import coil3.SingletonImageLoader
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.di.AppContainer
 import com.russhwolf.settings.SharedPreferencesSettings
@@ -35,10 +36,12 @@ class PharmaTradeApp : Application() {
             }
             .build()
 
-        Coil.setImageLoader(
-            ImageLoader.Builder(this)
-                .okHttpClient(client)
+        SingletonImageLoader.setSafe { context ->
+            ImageLoader.Builder(context)
+                .components {
+                    add(OkHttpNetworkFetcherFactory(callFactory = { client }))
+                }
                 .build()
-        )
+        }
     }
 }

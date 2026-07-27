@@ -892,7 +892,7 @@ private fun LicenceImageBox(url: String?, label: String, modifier: Modifier = Mo
             contentAlignment = Alignment.Center
         ) {
             if (!url.isNullOrBlank()) {
-                coil.compose.SubcomposeAsyncImage(
+                coil3.compose.SubcomposeAsyncImage(
                     model = url,
                     contentDescription = "Licence $label",
                     contentScale = ContentScale.Crop,

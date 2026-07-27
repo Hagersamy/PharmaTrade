@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.theme.*
 
 @Composable
@@ -124,7 +125,7 @@ fun RatingRow(rating: Float, modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.width(2.dp))
         Text(
-            text = String.format("%.1f", rating),
+            text = formatDecimal(rating.toDouble(), 1),
             style = MaterialTheme.typography.labelMedium,
             color = TextSecondary
         )
@@ -221,12 +222,12 @@ fun MinimumOrderWarning(
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text = "Current: EGP ${String.format("%.2f", currentAmount)} / Minimum: EGP ${String.format("%.2f", minimumAmount)}",
+                text = "Current: EGP ${formatDecimal(currentAmount, 2)} / Minimum: EGP ${formatDecimal(minimumAmount, 2)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF92400E)
             )
             Text(
-                text = "Add EGP ${String.format("%.2f", shortfall)} more from this seller",
+                text = "Add EGP ${formatDecimal(shortfall, 2)} more from this seller",
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF92400E)

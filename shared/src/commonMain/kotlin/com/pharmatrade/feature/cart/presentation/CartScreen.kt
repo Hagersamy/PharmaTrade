@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.feature.cart.domain.model.CartItem
 import com.pharmatrade.feature.cart.domain.model.OrderValidation
 import com.pharmatrade.core.ui.components.*
@@ -139,7 +140,7 @@ fun CartScreen(
                         Column {
                             Text("Order Total", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                             Text(
-                                "EGP ${String.format("%.2f", uiState.cart.getTotalAmount())}",
+                                "EGP ${formatDecimal(uiState.cart.getTotalAmount(), 2)}",
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimary
@@ -200,14 +201,14 @@ private fun SellerGroupHeader(
                     color = if (isBelowMinimum) Color(0xFF92400E) else SecondaryGreenDark
                 )
                 Text(
-                    "Min. order: EGP ${String.format("%.0f", minimumOrder)}",
+                    "Min. order: EGP ${formatDecimal(minimumOrder, 0)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = if (isBelowMinimum) Color(0xFF92400E) else SecondaryGreenDark
                 )
             }
         }
         Text(
-            "EGP ${String.format("%.2f", subtotal)}",
+            "EGP ${formatDecimal(subtotal, 2)}",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = if (isBelowMinimum) WarningAmber else SecondaryGreenDark
@@ -243,13 +244,13 @@ private fun CartItemCard(
                 Text(item.listing.drug.genericName, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "EGP ${String.format("%.2f", item.listing.finalPrice)} × ${item.quantity}",
+                        "EGP ${formatDecimal(item.listing.finalPrice, 2)} × ${item.quantity}",
                         style = MaterialTheme.typography.bodySmall,
                         color = PrimaryBlue,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        " = EGP ${String.format("%.2f", item.subtotal)}",
+                        " = EGP ${formatDecimal(item.subtotal, 2)}",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
