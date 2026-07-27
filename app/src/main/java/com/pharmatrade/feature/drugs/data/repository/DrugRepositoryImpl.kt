@@ -4,30 +4,29 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
-import com.google.gson.JsonParser
 import com.pharmatrade.core.common.model.Drug
 import com.pharmatrade.core.common.result.Result
-import com.pharmatrade.core.network.RetrofitClient
-import com.pharmatrade.feature.drugs.data.remote.DrugApiService
+import com.pharmatrade.core.network.FormFile
+import com.pharmatrade.feature.drugs.data.remote.DrugApi
 import com.pharmatrade.feature.drugs.data.remote.dto.CreateDrugRequest
-import com.pharmatrade.feature.drugs.data.remote.dto.InventoryItemDto
 import com.pharmatrade.feature.drugs.data.remote.dto.InventoryItemRequest
-import com.pharmatrade.feature.drugs.data.remote.dto.InventoryPageDto
-import com.pharmatrade.feature.drugs.data.remote.dto.InventoryResponseDto
-import com.pharmatrade.feature.drugs.data.remote.dto.LastUploadDto
 import com.pharmatrade.feature.drugs.domain.model.InventoryData
 import com.pharmatrade.feature.drugs.domain.model.InventoryItem
 import com.pharmatrade.feature.drugs.domain.model.UploadHistory
 import com.pharmatrade.feature.drugs.domain.repository.DrugRepository
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.toRequestBody
-import retrofit2.HttpException
+import io.ktor.client.plugins.ResponseException
+import io.ktor.client.statement.bodyAsText
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.net.SocketTimeoutException
 
-class DrugRepositoryImpl(private val context: Context) : DrugRepository {
-
-    private val api = RetrofitClient.create<DrugApiService>()
+class DrugRepositoryImpl(
+    private val context: Context,
+    private val api: DrugApi = DrugApi()
+) : DrugRepository {
 
     override suspend fun getDrugs(search: String?, dosageForm: String?, perPage: Int?): Result<List<Drug>> = try {
         val response = api.getDrugs(search = search, dosageForm = dosageForm, perPage = perPage)
@@ -35,9 +34,9 @@ class DrugRepositoryImpl(private val context: Context) : DrugRepository {
         val drugs = response.data?.data?.map { it.toDomain() } ?: emptyList()
         Log.d(TAG, "getDrugs mapped ${drugs.size} drugs: $drugs")
         Result.Success(drugs)
-    } catch (e: HttpException) {
-        Log.e(TAG, "getDrugs failed: HTTP ${e.code()}", e)
-        Result.Error("Server error (${e.code()})", e)
+    } catch (e: ResponseException) {
+        Log.e(TAG, "getDrugs failed: HTTP ${e.response.status.value}", e)
+        Result.Error("Server error (${e.response.status.value})", e)
     } catch (e: Exception) {
         Log.e(TAG, "getDrugs failed: ${e.message}", e)
         Result.Error(e.message ?: "Failed to load drugs", e)
@@ -48,8 +47,8 @@ class DrugRepositoryImpl(private val context: Context) : DrugRepository {
         val drug = response.data?.toDomain()
             ?: return Result.Error("Drug not found")
         Result.Success(drug)
-    } catch (e: HttpException) {
-        Result.Error("Server error (${e.code()})", e)
+    } catch (e: ResponseException) {
+        Result.Error("Server error (${e.response.status.value})", e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to load drug details", e)
     }
@@ -57,8 +56,8 @@ class DrugRepositoryImpl(private val context: Context) : DrugRepository {
     override suspend fun getDosageForms(): Result<List<String>> = try {
         val response = api.getDosageForms()
         Result.Success(response.data ?: emptyList())
-    } catch (e: HttpException) {
-        Result.Error("Server error (${e.code()})", e)
+    } catch (e: ResponseException) {
+        Result.Error("Server error (${e.response.status.value})", e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to load dosage forms", e)
     }
@@ -81,15 +80,13 @@ class DrugRepositoryImpl(private val context: Context) : DrugRepository {
             else   -> context.contentResolver.getType(uri) ?: "application/octet-stream"
         }
 
-        val body = bytes.toRequestBody(mime.toMediaTypeOrNull())
-        val part = MultipartBody.Part.createFormData("file", resolvedName, body)
-        val response = api.uploadInventory(part)
+        val response = api.uploadInventory(FormFile(bytes = bytes, fileName = resolvedName, mimeType = mime))
         val history = response.data?.toDomain()
             ?: UploadHistory("", resolvedName, "success", "", 0, 0, 0)
         Result.Success(history)
-    } catch (e: HttpException) {
-        val errorBody = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
-        Result.Error(parseHttpError(e.code(), errorBody))
+    } catch (e: ResponseException) {
+        val errorBody = runCatching { e.response.bodyAsText() }.getOrNull()
+        Result.Error(parseHttpError(e.response.status.value, errorBody))
     } catch (_: SocketTimeoutException) {
         Result.Error("Connection timed out. Make sure the server is running.")
     } catch (e: Exception) {
@@ -107,13 +104,12 @@ class DrugRepositoryImpl(private val context: Context) : DrugRepository {
     private fun parseHttpError(code: Int, body: String?): String {
         if (body.isNullOrBlank()) return "Server error ($code)"
         return runCatching {
-            val json = JsonParser.parseString(body).asJsonObject
+            val json = Json.parseToJsonElement(body).jsonObject
             // Laravel returns { message: "...", errors: { field: [...] } }
-            val message = json.get("message")?.asString
-            val errors = json.getAsJsonObject("errors")
-            if (errors != null && errors.size() > 0) {
-                val first = errors.entrySet().first()
-                val fieldMsg = first.value.asJsonArray.firstOrNull()?.asString
+            val message = json["message"]?.jsonPrimitive?.contentOrNull
+            val errors = json["errors"]?.jsonObject
+            if (errors != null && errors.isNotEmpty()) {
+                val fieldMsg = errors.values.firstOrNull()?.jsonArray?.firstOrNull()?.jsonPrimitive?.contentOrNull
                 "Validation error: $fieldMsg"
             } else {
                 message ?: "Server error ($code)"
@@ -124,8 +120,8 @@ class DrugRepositoryImpl(private val context: Context) : DrugRepository {
     override suspend fun getUploadHistory(): Result<List<UploadHistory>> = try {
         val response = api.getUploadHistory()
         Result.Success(response.data?.map { it.toDomain() } ?: emptyList())
-    } catch (e: HttpException) {
-        Result.Error("Server error (${e.code()})")
+    } catch (e: ResponseException) {
+        Result.Error("Server error (${e.response.status.value})")
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to load upload history")
     }
@@ -150,7 +146,7 @@ class DrugRepositoryImpl(private val context: Context) : DrugRepository {
 
         // Log raw backend fields next to the mapped domain values per drug, so a mismatch
         // between "what the backend sent" and "what Home displays" is visible in logcat
-        // instead of having to diff the full OkHttp body dump by hand.
+        // instead of having to diff the full HTTP body dump by hand.
         rawItems.zip(items).forEach { (raw, mapped) ->
             Log.d(
                 TAG,
@@ -173,9 +169,9 @@ class DrugRepositoryImpl(private val context: Context) : DrugRepository {
                 lastUpload = lastUpload
             )
         )
-    } catch (e: HttpException) {
-        Log.e(TAG, "getInventory failed: HTTP ${e.code()}", e)
-        Result.Error("Server error (${e.code()})")
+    } catch (e: ResponseException) {
+        Log.e(TAG, "getInventory failed: HTTP ${e.response.status.value}", e)
+        Result.Error("Server error (${e.response.status.value})")
     } catch (e: Exception) {
         Log.e(TAG, "getInventory failed: ${e.message}", e)
         Result.Error(e.message ?: "Failed to load inventory")
@@ -202,9 +198,9 @@ class DrugRepositoryImpl(private val context: Context) : DrugRepository {
         val response = api.createSupplierDrug(request)
         val drug = response.data?.toDomain() ?: return Result.Error("Server did not return the created drug")
         Result.Success(drug)
-    } catch (e: HttpException) {
-        val errorBody = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
-        Result.Error(parseHttpError(e.code(), errorBody))
+    } catch (e: ResponseException) {
+        val errorBody = runCatching { e.response.bodyAsText() }.getOrNull()
+        Result.Error(parseHttpError(e.response.status.value, errorBody))
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to add drug")
     }
@@ -226,9 +222,9 @@ class DrugRepositoryImpl(private val context: Context) : DrugRepository {
         val response = api.createInventoryItem(request)
         val item = response.data?.toDomain() ?: return Result.Error("Server did not return the created item")
         Result.Success(item)
-    } catch (e: HttpException) {
-        val errorBody = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
-        Result.Error(parseHttpError(e.code(), errorBody))
+    } catch (e: ResponseException) {
+        val errorBody = runCatching { e.response.bodyAsText() }.getOrNull()
+        Result.Error(parseHttpError(e.response.status.value, errorBody))
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to add drug to inventory")
     }
@@ -251,9 +247,9 @@ class DrugRepositoryImpl(private val context: Context) : DrugRepository {
         val response = api.updateInventoryItem(id, request)
         val item = response.data?.toDomain() ?: return Result.Error("Server did not return the updated item")
         Result.Success(item)
-    } catch (e: HttpException) {
-        val errorBody = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
-        Result.Error(parseHttpError(e.code(), errorBody))
+    } catch (e: ResponseException) {
+        val errorBody = runCatching { e.response.bodyAsText() }.getOrNull()
+        Result.Error(parseHttpError(e.response.status.value, errorBody))
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to update inventory item")
     }
