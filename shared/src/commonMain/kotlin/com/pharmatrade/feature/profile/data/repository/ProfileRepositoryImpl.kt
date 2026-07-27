@@ -1,10 +1,8 @@
 package com.pharmatrade.feature.profile.data.repository
 
-import com.google.gson.Gson
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.core.common.session.SessionManager
-import com.pharmatrade.core.network.RetrofitClient
-import com.pharmatrade.feature.profile.data.remote.ProfileApiService
+import com.pharmatrade.feature.profile.data.remote.ProfileApi
 import com.pharmatrade.feature.profile.data.remote.dto.ChangePasswordRequest
 import com.pharmatrade.feature.profile.data.remote.dto.DeactivateAccountRequest
 import com.pharmatrade.feature.profile.data.remote.dto.RequestZoneUpdateRequest
@@ -15,11 +13,18 @@ import com.pharmatrade.feature.profile.domain.model.ProfileInfo
 import com.pharmatrade.feature.profile.domain.model.SupplierProfile
 import com.pharmatrade.feature.profile.domain.model.ZoneUpdateRequest
 import com.pharmatrade.feature.profile.domain.repository.ProfileRepository
-import retrofit2.HttpException
+import io.ktor.client.plugins.ResponseException
+import io.ktor.client.statement.bodyAsText
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
-class ProfileRepositoryImpl : ProfileRepository {
-
-    private val api = RetrofitClient.create<ProfileApiService>()
+class ProfileRepositoryImpl(
+    private val api: ProfileApi = ProfileApi()
+) : ProfileRepository {
 
     override suspend fun getProfile(): Result<ProfileInfo> = try {
         val response = api.getProfile()
@@ -27,7 +32,7 @@ class ProfileRepositoryImpl : ProfileRepository {
             ?: return Result.Error(response.errorMessage ?: "Profile not found")
         syncSession(profile)
         Result.Success(profile)
-    } catch (e: HttpException) {
+    } catch (e: ResponseException) {
         Result.Error(parseHttpError(e), e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to load profile", e)
@@ -39,7 +44,7 @@ class ProfileRepositoryImpl : ProfileRepository {
         phone: String?,
         password: String
     ): Result<ProfileInfo> = try {
-        val body = mutableMapOf<String, Any>("password" to password)
+        val body = mutableMapOf("password" to password)
         if (name != null) body["name"] = name
         if (email != null) body["email"] = email
         if (phone != null) body["phone"] = phone
@@ -49,7 +54,7 @@ class ProfileRepositoryImpl : ProfileRepository {
             ?: return Result.Error(response.errorMessage ?: "Failed to update profile")
         syncSession(profile)
         Result.Success(profile)
-    } catch (e: HttpException) {
+    } catch (e: ResponseException) {
         Result.Error(parseHttpError(e), e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to update profile", e)
@@ -71,7 +76,7 @@ class ProfileRepositoryImpl : ProfileRepository {
         )
         if (response.isSuccessful) Result.Success(Unit)
         else Result.Error(response.errorMessage ?: "Failed to change password")
-    } catch (e: HttpException) {
+    } catch (e: ResponseException) {
         Result.Error(parseHttpError(e), e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to change password", e)
@@ -96,7 +101,7 @@ class ProfileRepositoryImpl : ProfileRepository {
             )
         }
         Result.Success(supplier)
-    } catch (e: HttpException) {
+    } catch (e: ResponseException) {
         Result.Error(parseHttpError(e), e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to update supplier info", e)
@@ -118,7 +123,7 @@ class ProfileRepositoryImpl : ProfileRepository {
             )
         }
         Result.Success(branch)
-    } catch (e: HttpException) {
+    } catch (e: ResponseException) {
         Result.Error(parseHttpError(e), e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to update branch", e)
@@ -132,7 +137,7 @@ class ProfileRepositoryImpl : ProfileRepository {
         } else {
             Result.Error(response.errorMessage ?: "Failed to deactivate account")
         }
-    } catch (e: HttpException) {
+    } catch (e: ResponseException) {
         Result.Error(parseHttpError(e), e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to deactivate account", e)
@@ -143,7 +148,7 @@ class ProfileRepositoryImpl : ProfileRepository {
         val request = response.data?.toDomain()
             ?: return Result.Error(response.errorMessage ?: "Failed to submit zone update request")
         Result.Success(request)
-    } catch (e: HttpException) {
+    } catch (e: ResponseException) {
         Result.Error(parseHttpError(e), e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to submit zone update request", e)
@@ -167,20 +172,18 @@ class ProfileRepositoryImpl : ProfileRepository {
         )
     }
 
-    private fun parseHttpError(e: HttpException): String {
-        val code = e.code()
+    private suspend fun parseHttpError(e: ResponseException): String {
+        val code = e.response.status.value
         return try {
-            val raw = e.response()?.errorBody()?.string() ?: return "Server error ($code)"
-            @Suppress("UNCHECKED_CAST")
-            val json = Gson().fromJson(raw, Map::class.java) as? Map<String, Any>
-                ?: return "Server error ($code)"
-            val errors = json["errors"]
-            if (errors is Map<*, *>) {
-                (errors.values.firstOrNull() as? List<*>)?.firstOrNull()?.toString()
-                    ?: json["message"]?.toString()
+            val raw = runCatching { e.response.bodyAsText() }.getOrNull() ?: return "Server error ($code)"
+            val json = Json.parseToJsonElement(raw).jsonObject
+            val errors = json["errors"] as? JsonObject
+            if (errors != null && errors.isNotEmpty()) {
+                errors.values.firstOrNull()?.jsonArray?.firstOrNull()?.jsonPrimitive?.contentOrNull
+                    ?: json["message"]?.jsonPrimitive?.contentOrNull
                     ?: "Server error ($code)"
             } else {
-                json["message"]?.toString() ?: "Server error ($code)"
+                json["message"]?.jsonPrimitive?.contentOrNull ?: "Server error ($code)"
             }
         } catch (_: Exception) {
             "Server error ($code)"
