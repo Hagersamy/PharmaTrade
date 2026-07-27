@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pharmatrade.core.common.model.Drug
 import com.pharmatrade.core.common.model.SellerListing
+import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.*
 import com.pharmatrade.core.ui.theme.*
 
@@ -174,7 +175,7 @@ private fun DrugCatalogSearchCard(
                     }
                     if (existingListing != null) {
                         Text(
-                            "Already listed · EGP ${String.format("%.2f", existingListing.finalPrice)}",
+                            "Already listed · EGP ${formatDecimal(existingListing.finalPrice, 2)}",
                             style = MaterialTheme.typography.labelSmall,
                             color = SecondaryGreenDark,
                             fontWeight = FontWeight.SemiBold
@@ -256,7 +257,7 @@ private fun SellerListingSearchCard(listing: SellerListing, onEdit: () -> Unit) 
                         color = TextSecondary
                     )
                     Text(
-                        "EGP ${String.format("%.2f", listing.finalPrice)}  ·  ${listing.quantityAvailable} ${listing.unit}",
+                        "EGP ${formatDecimal(listing.finalPrice, 2)}  ·  ${listing.quantityAvailable} ${listing.unit}",
                         style = MaterialTheme.typography.labelSmall,
                         color = PrimaryBlue,
                         fontWeight = FontWeight.SemiBold

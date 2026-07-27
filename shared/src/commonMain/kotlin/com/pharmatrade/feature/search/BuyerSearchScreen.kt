@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pharmatrade.core.common.model.Seller
 import com.pharmatrade.core.common.model.SellerListing
+import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.*
 import com.pharmatrade.core.ui.theme.*
 
@@ -354,7 +355,7 @@ private fun DrugResultCard(listing: SellerListing, onSellerClick: () -> Unit) {
             Column(horizontalAlignment = Alignment.End) {
                 if (listing.hasDiscount) DiscountBadge(listing.discountPercentage)
                 Text(
-                    "EGP ${String.format("%.2f", listing.finalPrice)}",
+                    "EGP ${formatDecimal(listing.finalPrice, 2)}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = PrimaryBlue
