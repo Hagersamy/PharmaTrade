@@ -1,6 +1,7 @@
 package com.pharmatrade.di
 
 import android.content.Context
+import com.pharmatrade.core.io.PlatformFileReader
 import com.pharmatrade.feature.admin.data.repository.AdminRepositoryImpl
 import com.pharmatrade.feature.admin.domain.repository.AdminRepository
 import com.pharmatrade.feature.admin.domain.usecase.ApproveRequestUseCase
@@ -55,14 +56,14 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
 
     // Repositories (singletons)
-    val authRepository: AuthRepository by lazy { AuthRepositoryImpl(appContext) }
+    val authRepository: AuthRepository by lazy { AuthRepositoryImpl(PlatformFileReader(appContext)) }
     val zoneRepository: ZoneRepository by lazy { ZoneRepositoryImpl() }
     val adminRepository: AdminRepository by lazy { AdminRepositoryImpl() }
     val sellerRepository: SellerRepository by lazy { SellerRepositoryImpl() }
     val catalogRepository: CatalogRepository by lazy { CatalogRepositoryImpl() }
     val cartRepository: CartRepository by lazy { CartRepositoryImpl() }
-    val drugRepository: DrugRepository by lazy { DrugRepositoryImpl(appContext) }
-    val pharmacyOrderRepository: PharmacyOrderRepository by lazy { PharmacyOrderRepositoryImpl(appContext) }
+    val drugRepository: DrugRepository by lazy { DrugRepositoryImpl(PlatformFileReader(appContext)) }
+    val pharmacyOrderRepository: PharmacyOrderRepository by lazy { PharmacyOrderRepositoryImpl(PlatformFileReader(appContext)) }
     val supplierOrderRepository: SupplierOrderRepository by lazy { SupplierOrderRepositoryImpl() }
     val profileRepository: ProfileRepository by lazy { ProfileRepositoryImpl() }
 

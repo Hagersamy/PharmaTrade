@@ -33,6 +33,7 @@ kotlin {
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.ktor.client.logging)
             implementation(libs.multiplatform.settings)
+            implementation(libs.coil.compose)
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
