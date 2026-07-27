@@ -1,11 +1,10 @@
 package com.pharmatrade.feature.drugs.data.repository
 
 import android.content.Context
-import android.net.Uri
-import android.provider.OpenableColumns
 import android.util.Log
 import com.pharmatrade.core.common.model.Drug
 import com.pharmatrade.core.common.result.Result
+import com.pharmatrade.core.io.PlatformFileReader
 import com.pharmatrade.core.network.FormFile
 import com.pharmatrade.feature.drugs.data.remote.DrugApi
 import com.pharmatrade.feature.drugs.data.remote.dto.CreateDrugRequest
@@ -24,9 +23,11 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.net.SocketTimeoutException
 
 class DrugRepositoryImpl(
-    private val context: Context,
+    context: Context,
     private val api: DrugApi = DrugApi()
 ) : DrugRepository {
+
+    private val fileReader = PlatformFileReader(context)
 
     override suspend fun getDrugs(search: String?, dosageForm: String?, perPage: Int?): Result<List<Drug>> = try {
         val response = api.getDrugs(search = search, dosageForm = dosageForm, perPage = perPage)
@@ -63,24 +64,18 @@ class DrugRepositoryImpl(
     }
 
     override suspend fun uploadInventory(fileUri: String, fileName: String): Result<UploadHistory> = try {
-        val uri = Uri.parse(fileUri)
-
-        // Resolve the real display name so the server can detect the file type by extension
-        val resolvedName = resolveFileName(uri).ifBlank { fileName }
-
-        val stream = context.contentResolver.openInputStream(uri)
-            ?: return Result.Error("Could not read the selected file.")
-        val bytes = stream.use { it.readBytes() }
+        val info = fileReader.read(fileUri) ?: return Result.Error("Could not read the selected file.")
+        val resolvedName = info.displayName.ifBlank { fileName }
 
         val ext = resolvedName.substringAfterLast('.', "").lowercase()
         val mime = when (ext) {
             "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             "xls"  -> "application/vnd.ms-excel"
             "csv"  -> "text/csv"
-            else   -> context.contentResolver.getType(uri) ?: "application/octet-stream"
+            else   -> info.mimeType ?: "application/octet-stream"
         }
 
-        val response = api.uploadInventory(FormFile(bytes = bytes, fileName = resolvedName, mimeType = mime))
+        val response = api.uploadInventory(FormFile(bytes = info.bytes, fileName = resolvedName, mimeType = mime))
         val history = response.data?.toDomain()
             ?: UploadHistory("", resolvedName, "success", "", 0, 0, 0)
         Result.Success(history)
@@ -91,14 +86,6 @@ class DrugRepositoryImpl(
         Result.Error("Connection timed out. Make sure the server is running.")
     } catch (e: Exception) {
         Result.Error(e.message ?: "Upload failed")
-    }
-
-    private fun resolveFileName(uri: Uri): String {
-        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            val col = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (col != -1 && cursor.moveToFirst()) return cursor.getString(col)
-        }
-        return uri.lastPathSegment?.substringAfterLast('/') ?: ""
     }
 
     private fun parseHttpError(code: Int, body: String?): String {

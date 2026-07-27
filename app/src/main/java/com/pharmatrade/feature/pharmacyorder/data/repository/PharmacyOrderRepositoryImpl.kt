@@ -1,9 +1,8 @@
 package com.pharmatrade.feature.pharmacyorder.data.repository
 
 import android.content.Context
-import android.net.Uri
-import android.provider.OpenableColumns
 import com.pharmatrade.core.common.result.Result
+import com.pharmatrade.core.io.PlatformFileReader
 import com.pharmatrade.core.network.FormFile
 import com.pharmatrade.feature.pharmacyorder.data.remote.PharmacyOrderApi
 import com.pharmatrade.feature.pharmacyorder.data.remote.dto.AddItemRequest
@@ -31,9 +30,11 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.net.SocketTimeoutException
 
 class PharmacyOrderRepositoryImpl(
-    private val context: Context,
+    context: Context,
     private val api: PharmacyOrderApi = PharmacyOrderApi()
 ) : PharmacyOrderRepository {
+
+    private val fileReader = PlatformFileReader(context)
 
     override suspend fun getBranch(): Result<Branch> = try {
         val response = api.getBranch()
@@ -135,22 +136,18 @@ class PharmacyOrderRepositoryImpl(
     }
 
     override suspend fun uploadItemsFile(orderId: String, fileUri: String, fileName: String): Result<UploadItemsResult> = try {
-        val uri = Uri.parse(fileUri)
-        val resolvedName = resolveFileName(uri).ifBlank { fileName }
-
-        val stream = context.contentResolver.openInputStream(uri)
-            ?: return Result.Error("Could not read the selected file.")
-        val bytes = stream.use { it.readBytes() }
+        val info = fileReader.read(fileUri) ?: return Result.Error("Could not read the selected file.")
+        val resolvedName = info.displayName.ifBlank { fileName }
 
         val ext = resolvedName.substringAfterLast('.', "").lowercase()
         val mime = when (ext) {
             "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             "xls" -> "application/vnd.ms-excel"
             "csv" -> "text/csv"
-            else -> context.contentResolver.getType(uri) ?: "application/octet-stream"
+            else -> info.mimeType ?: "application/octet-stream"
         }
 
-        val response = api.uploadItems(orderId, FormFile(bytes = bytes, fileName = resolvedName, mimeType = mime))
+        val response = api.uploadItems(orderId, FormFile(bytes = info.bytes, fileName = resolvedName, mimeType = mime))
         val result = response.data?.toDomain() ?: UploadItemsResult(addedCount = 0)
         Result.Success(result)
     } catch (e: ResponseException) {
@@ -209,14 +206,6 @@ class PharmacyOrderRepositoryImpl(
         Result.Error(parseHttpError(e), e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to mark order as delivered", e)
-    }
-
-    private fun resolveFileName(uri: Uri): String {
-        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            val col = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (col != -1 && cursor.moveToFirst()) return cursor.getString(col)
-        }
-        return uri.lastPathSegment?.substringAfterLast('/') ?: ""
     }
 
     private suspend fun parseHttpError(e: ResponseException): String {

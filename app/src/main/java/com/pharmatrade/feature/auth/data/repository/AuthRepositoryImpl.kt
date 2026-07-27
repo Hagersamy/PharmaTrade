@@ -1,12 +1,12 @@
 package com.pharmatrade.feature.auth.data.repository
 
 import android.content.Context
-import android.net.Uri
 import android.util.Log
 import com.pharmatrade.core.common.model.User
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.core.common.session.SessionManager
+import com.pharmatrade.core.io.PlatformFileReader
 import com.pharmatrade.core.network.FormFile
 import com.pharmatrade.feature.auth.data.remote.AuthApi
 import com.pharmatrade.feature.auth.data.remote.dto.LoginRequest
@@ -21,9 +21,11 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.net.SocketTimeoutException
 
 class AuthRepositoryImpl(
-    private val context: Context,
+    context: Context,
     private val api: AuthApi = AuthApi()
 ) : AuthRepository {
+
+    private val fileReader = PlatformFileReader(context)
 
     override suspend fun login(phone: String, password: String): Result<User> {
         return try {
@@ -171,31 +173,14 @@ class AuthRepositoryImpl(
     // --- Helpers ---
 
     private fun String.uriToFormFile(fieldName: String): FormFile? {
-        return try {
-            val uri = Uri.parse(this)
-            val stream = context.contentResolver.openInputStream(uri)
-            if (stream == null) {
-                Log.e(
-                    "AuthRepo",
-                    "uriToFormFile: openInputStream returned null for $fieldName | uri=$this"
-                )
-                return null
-            }
-            val bytes = stream.use { it.readBytes() }
-            if (bytes.isEmpty()) {
-                Log.e("AuthRepo", "uriToFormFile: read 0 bytes for $fieldName | uri=$this")
-                return null
-            }
-            val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
-            Log.d("AuthRepo", "uriToFormFile: $fieldName | mime=$mime | size=${bytes.size}B")
-            FormFile(bytes = bytes, fileName = "upload.jpg", mimeType = mime)
-        } catch (e: Exception) {
-            Log.e(
-                "AuthRepo",
-                "uriToFormFile: failed for $fieldName | ${e::class.simpleName}: ${e.message}"
-            )
-            null
+        val info = fileReader.read(this)
+        if (info == null) {
+            Log.e("AuthRepo", "uriToFormFile: failed to read $fieldName | uri=$this")
+            return null
         }
+        val mime = info.mimeType ?: "image/jpeg"
+        Log.d("AuthRepo", "uriToFormFile: $fieldName | mime=$mime | size=${info.bytes.size}B")
+        return FormFile(bytes = info.bytes, fileName = "upload.jpg", mimeType = mime)
     }
 
     private fun parseHttpError(raw: String?, code: Int): String {
