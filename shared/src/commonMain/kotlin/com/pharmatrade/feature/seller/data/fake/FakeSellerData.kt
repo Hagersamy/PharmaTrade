@@ -1,6 +1,7 @@
 package com.pharmatrade.feature.seller.data.fake
 
 import com.pharmatrade.core.common.model.*
+import kotlinx.datetime.Clock
 
 object FakeSellerData {
 
@@ -123,5 +124,5 @@ object FakeSellerData {
     fun getSellerById(id: String) = sellers.find { it.id == id }
     fun getListingsBySellerIdl(sellerId: String) = listings.filter { it.seller.id == sellerId }
     fun getListingById(id: String) = listings.find { it.id == id }
-    fun generateListingId() = "l_${System.currentTimeMillis()}"
+    fun generateListingId() = "l_${Clock.System.now().toEpochMilliseconds()}"
 }

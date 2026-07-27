@@ -6,6 +6,7 @@ import com.pharmatrade.feature.cart.domain.model.Cart
 import com.pharmatrade.feature.cart.domain.model.CartItem
 import com.pharmatrade.feature.cart.domain.repository.CartRepository
 import kotlinx.coroutines.delay
+import kotlinx.datetime.Clock
 
 class CartRepositoryImpl : CartRepository {
 
@@ -38,17 +39,25 @@ class CartRepositoryImpl : CartRepository {
                 break
             }
         }
-        items.entries.removeIf { it.value.isEmpty() }
+        removeEmptySellers()
         return getCart()
     }
 
     override fun removeItem(listingId: String): Cart {
         for ((_, sellerItems) in items) {
-            val removed = sellerItems.removeIf { it.listing.id == listingId }
-            if (removed) break
+            val index = sellerItems.indexOfFirst { it.listing.id == listingId }
+            if (index >= 0) {
+                sellerItems.removeAt(index)
+                break
+            }
         }
-        items.entries.removeIf { it.value.isEmpty() }
+        removeEmptySellers()
         return getCart()
+    }
+
+    private fun removeEmptySellers() {
+        val emptySellerIds = items.filterValues { it.isEmpty() }.keys.toList()
+        emptySellerIds.forEach { items.remove(it) }
     }
 
     override fun clearCart(): Cart {
@@ -58,7 +67,7 @@ class CartRepositoryImpl : CartRepository {
 
     override suspend fun placeOrder(cart: Cart): Result<String> {
         delay(1500) // Simulate API call
-        val orderId = "ORD-${System.currentTimeMillis()}"
+        val orderId = "ORD-${Clock.System.now().toEpochMilliseconds()}"
         items.clear()
         return Result.Success(orderId)
     }
