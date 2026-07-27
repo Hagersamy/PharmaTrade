@@ -41,8 +41,10 @@ class SellerRepositoryImpl : SellerRepository {
 
     override suspend fun deleteListing(listingId: String): Result<Unit> {
         delay(600)
-        val removed = FakeSellerData.listings.removeIf { it.id == listingId }
-        return if (removed) Result.Success(Unit) else Result.Error("Listing not found")
+        val index = FakeSellerData.listings.indexOfFirst { it.id == listingId }
+        if (index == -1) return Result.Error("Listing not found")
+        FakeSellerData.listings.removeAt(index)
+        return Result.Success(Unit)
     }
 
     override suspend fun updateMinimumOrderAmount(sellerId: String, amount: Double): Result<Seller> {
