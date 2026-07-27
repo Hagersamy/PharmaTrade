@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pharmatrade.core.common.model.Seller
 import com.pharmatrade.core.common.model.SellerListing
+import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.*
 import com.pharmatrade.core.ui.theme.*
 
@@ -206,7 +207,7 @@ private fun SellerCard(seller: Seller, onClick: () -> Unit) {
                         Icon(Icons.Filled.ShoppingCart, null, tint = WarningAmber, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = "Min. Order: EGP ${String.format("%.0f", seller.minimumOrderAmount)}",
+                            text = "Min. Order: EGP ${formatDecimal(seller.minimumOrderAmount, 0)}",
                             style = MaterialTheme.typography.labelMedium,
                             color = WarningAmber,
                             fontWeight = FontWeight.SemiBold
@@ -297,7 +298,7 @@ private fun SearchResultCard(listing: SellerListing, onClick: () -> Unit) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 if (listing.hasDiscount) DiscountBadge(listing.discountPercentage)
-                Text("EGP ${String.format("%.2f", listing.finalPrice)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = PrimaryBlue)
+                Text("EGP ${formatDecimal(listing.finalPrice, 2)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = PrimaryBlue)
                 TextButton(onClick = onClick, contentPadding = PaddingValues(0.dp)) {
                     Text("View Seller", style = MaterialTheme.typography.labelSmall)
                 }

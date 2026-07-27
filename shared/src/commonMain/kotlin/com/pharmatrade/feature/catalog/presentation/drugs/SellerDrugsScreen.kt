@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pharmatrade.core.common.model.DrugCategory
 import com.pharmatrade.core.common.model.SellerListing
+import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.*
 import com.pharmatrade.core.ui.theme.*
 
@@ -115,7 +116,7 @@ fun SellerDrugsScreen(
                             Icon(Icons.Filled.ShoppingCart, null, tint = WarningAmber, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                "Minimum Order: EGP ${String.format("%.0f", uiState.seller!!.minimumOrderAmount)}",
+                                "Minimum Order: EGP ${formatDecimal(uiState.seller!!.minimumOrderAmount, 0)}",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF92400E)
@@ -240,7 +241,7 @@ private fun DrugListingCard(listing: SellerListing, onAddToCart: () -> Unit) {
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "EGP ${String.format("%.2f", listing.finalPrice)}",
+                            text = "EGP ${formatDecimal(listing.finalPrice, 2)}",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             color = PrimaryBlue
@@ -254,7 +255,7 @@ private fun DrugListingCard(listing: SellerListing, onAddToCart: () -> Unit) {
                     }
                     if (listing.hasDiscount) {
                         Text(
-                            text = "Was EGP ${String.format("%.2f", listing.pricePerUnit)}",
+                            text = "Was EGP ${formatDecimal(listing.pricePerUnit, 2)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary,
                             textDecoration = TextDecoration.LineThrough
