@@ -1,5 +1,8 @@
 package com.pharmatrade.core.common.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class User(
     val id: String,
     val name: String,
@@ -21,6 +24,7 @@ data class User(
     val isPending: Boolean get() = status?.lowercase() == "pending"
 }
 
+@Serializable
 enum class UserType(val displayName: String) {
     SELLER("Drug Seller Agent"),
     BUYER("Pharmacy"),

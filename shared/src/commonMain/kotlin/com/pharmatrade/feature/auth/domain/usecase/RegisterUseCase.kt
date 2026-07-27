@@ -5,6 +5,8 @@ import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.auth.domain.repository.AuthRepository
 
+private val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+
 class RegisterUseCase(private val repository: AuthRepository) {
     suspend operator fun invoke(
         name: String,
@@ -23,7 +25,7 @@ class RegisterUseCase(private val repository: AuthRepository) {
         minOrderQty: String? = null
     ): Result<User> {
         if (name.isBlank()) return Result.Error("Name cannot be empty")
-        if (email.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches())
+        if (email.isBlank() || !EMAIL_REGEX.matches(email))
             return Result.Error("Enter a valid email address")
         if (phone.isBlank()) return Result.Error("Phone number cannot be empty")
         if (password.length < 6) return Result.Error("Password must be at least 6 characters")

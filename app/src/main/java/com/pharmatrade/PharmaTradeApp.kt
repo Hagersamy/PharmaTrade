@@ -5,6 +5,7 @@ import coil.Coil
 import coil.ImageLoader
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.di.AppContainer
+import com.russhwolf.settings.SharedPreferencesSettings
 import okhttp3.OkHttpClient
 
 class PharmaTradeApp : Application() {
@@ -13,7 +14,8 @@ class PharmaTradeApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        SessionManager.init(this)
+        val prefs = getSharedPreferences("pharmatrade_session", MODE_PRIVATE)
+        SessionManager.init(SharedPreferencesSettings(prefs))
         container = AppContainer(this)
         setupCoil()
     }

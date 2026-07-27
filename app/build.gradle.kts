@@ -58,6 +58,9 @@ dependencies {
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
+    implementation(libs.multiplatform.settings)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.ktor.client.core)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
