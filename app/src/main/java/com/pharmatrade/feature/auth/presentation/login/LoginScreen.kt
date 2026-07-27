@@ -1,0 +1,241 @@
+package com.pharmatrade.feature.auth.presentation.login
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.ui.components.PharmaButton
+import com.pharmatrade.core.ui.components.PharmaTextField
+import com.pharmatrade.core.ui.theme.*
+
+@Composable
+fun LoginScreen(
+    viewModel: LoginViewModel,
+    onNavigateToRegister: () -> Unit,
+    onNavigateToSellerDashboard: () -> Unit,
+    onNavigateToBuyerCatalog: () -> Unit,
+    onNavigateToAdminDashboard: () -> Unit,
+    onNavigateToPendingApproval: () -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val focusManager = LocalFocusManager.current
+
+    LaunchedEffect(uiState.navigateTo) {
+        when (uiState.navigateTo) {
+            is LoginNavigation.SellerDashboard -> {
+                viewModel.onNavigationHandled()
+                onNavigateToSellerDashboard()
+            }
+            is LoginNavigation.BuyerCatalog -> {
+                viewModel.onNavigationHandled()
+                onNavigateToBuyerCatalog()
+            }
+            is LoginNavigation.AdminDashboard -> {
+                viewModel.onNavigationHandled()
+                onNavigateToAdminDashboard()
+            }
+            is LoginNavigation.PendingApproval -> {
+                viewModel.onNavigationHandled()
+                onNavigateToPendingApproval()
+            }
+            null -> Unit
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(PrimaryBlue, PrimaryBlueDark),
+                    endY = 400f
+                )
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(60.dp))
+
+            // Logo area
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color.White.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.MedicalServices,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "PharmaTrade",
+                    style = MaterialTheme.typography.displayMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Pharmaceutical Trading Platform",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.8f)
+                )
+            }
+
+            Spacer(Modifier.height(40.dp))
+
+            // Login card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Text(
+                        text = "Welcome Back",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "Sign in to your account",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary
+                    )
+
+                    Spacer(Modifier.height(24.dp))
+
+                    PharmaTextField(
+                        value = uiState.phone,
+                        onValueChange = viewModel::onPhoneChange,
+                        label = "Phone Number",
+                        leadingIcon = Icons.Filled.Phone,
+                        keyboardType = KeyboardType.Phone
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = uiState.password,
+                        onValueChange = viewModel::onPasswordChange,
+                        label = { Text("Password") },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Lock, null, tint = TextSecondary)
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = viewModel::togglePasswordVisibility) {
+                                Icon(
+                                    imageVector = if (uiState.isPasswordVisible)
+                                        Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    contentDescription = null,
+                                    tint = TextSecondary
+                                )
+                            }
+                        },
+                        visualTransformation = if (uiState.isPasswordVisible)
+                            VisualTransformation.None else PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(onDone = {
+                            focusManager.clearFocus()
+                            viewModel.login()
+                        }),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PrimaryBlue,
+                            unfocusedBorderColor = DividerGray,
+                            focusedLabelColor = PrimaryBlue
+                        )
+                    )
+
+                    if (uiState.error != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(ErrorRedContainer)
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.ErrorOutline, null,
+                                tint = ErrorRed,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = uiState.error!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = ErrorRed
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+
+                    PharmaButton(
+                        text = "Sign In",
+                        onClick = viewModel::login,
+                        modifier = Modifier.fillMaxWidth(),
+                        isLoading = uiState.isLoading
+                    )
+
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Don't have an account? ", color = Color.White.copy(alpha = 0.8f))
+                TextButton(onClick = onNavigateToRegister) {
+                    Text(
+                        text = "Register",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+}
