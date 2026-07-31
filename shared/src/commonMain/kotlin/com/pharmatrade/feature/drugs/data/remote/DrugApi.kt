@@ -19,8 +19,10 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
+import io.ktor.http.contentType
 
 class DrugApi(private val client: HttpClient = ApiClient.httpClient) {
 
@@ -41,10 +43,16 @@ class DrugApi(private val client: HttpClient = ApiClient.httpClient) {
         client.get("drugs/dosage-forms").body()
 
     suspend fun createDrug(request: CreateDrugRequest): ApiResponse<DrugDto> =
-        client.post("admin/drugs") { setBody(request) }.body()
+        client.post("admin/drugs") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
 
     suspend fun createSupplierDrug(request: CreateDrugRequest): ApiResponse<DrugDto> =
-        client.post("supplier/drugs") { setBody(request) }.body()
+        client.post("supplier/drugs") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
 
     suspend fun uploadInventory(file: FormFile): ApiResponse<UploadHistoryDto> =
         client.submitFormWithBinaryData(
@@ -70,8 +78,14 @@ class DrugApi(private val client: HttpClient = ApiClient.httpClient) {
         client.get("supplier/inventory") { parameter("page", page) }.body()
 
     suspend fun createInventoryItem(request: InventoryItemRequest): ApiResponse<InventoryItemDto> =
-        client.post("supplier/inventory") { setBody(request) }.body()
+        client.post("supplier/inventory") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
 
     suspend fun updateInventoryItem(id: String, request: InventoryItemRequest): ApiResponse<InventoryItemDto> =
-        client.put("supplier/inventory/$id") { setBody(request) }.body()
+        client.put("supplier/inventory/$id") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
 }

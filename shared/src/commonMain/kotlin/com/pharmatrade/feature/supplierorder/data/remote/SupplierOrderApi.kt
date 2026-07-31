@@ -13,6 +13,8 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 
 class SupplierOrderApi(private val client: HttpClient = ApiClient.httpClient) {
 
@@ -26,11 +28,17 @@ class SupplierOrderApi(private val client: HttpClient = ApiClient.httpClient) {
         client.get("supplier/orders/$orderId").body()
 
     suspend fun confirmOrder(orderId: String, request: ConfirmOrderRequest) {
-        client.post("supplier/orders/$orderId/confirm") { setBody(request) }
+        client.post("supplier/orders/$orderId/confirm") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
     }
 
     suspend fun reportShortage(orderId: String, request: ReportShortageRequest) {
-        client.post("supplier/orders/$orderId/report-shortage") { setBody(request) }
+        client.post("supplier/orders/$orderId/report-shortage") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
     }
 
     suspend fun shipOrder(orderId: String) {

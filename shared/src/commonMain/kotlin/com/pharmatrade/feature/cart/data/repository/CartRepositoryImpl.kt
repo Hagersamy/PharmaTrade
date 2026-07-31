@@ -5,12 +5,36 @@ import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.cart.domain.model.Cart
 import com.pharmatrade.feature.cart.domain.model.CartItem
 import com.pharmatrade.feature.cart.domain.repository.CartRepository
+import com.russhwolf.settings.Settings
 import kotlinx.coroutines.delay
 import kotlinx.datetime.Clock
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 
-class CartRepositoryImpl : CartRepository {
+private val cartMapSerializer = MapSerializer(String.serializer(), ListSerializer(CartItem.serializer()))
 
-    private val items = mutableMapOf<String, MutableList<CartItem>>()
+// Persists the cart to local storage so items stay in it across app restarts / process death,
+// until the user removes them (or clears the cart, or places the order) themselves.
+class CartRepositoryImpl(private val settings: Settings? = null) : CartRepository {
+
+    private companion object {
+        const val KEY_CART = "cart_items"
+    }
+
+    private val items: MutableMap<String, MutableList<CartItem>> = loadPersistedItems()
+
+    private fun loadPersistedItems(): MutableMap<String, MutableList<CartItem>> {
+        val stored = settings?.getStringOrNull(KEY_CART) ?: return mutableMapOf()
+        val decoded = runCatching { Json.decodeFromString(cartMapSerializer, stored) }.getOrNull()
+            ?: return mutableMapOf()
+        return decoded.mapValuesTo(mutableMapOf()) { it.value.toMutableList() }
+    }
+
+    private fun persist() {
+        settings?.putString(KEY_CART, Json.encodeToString(cartMapSerializer, items))
+    }
 
     override fun getCart(): Cart = Cart(items.mapValues { it.value.toList() })
 
@@ -24,6 +48,7 @@ class CartRepositoryImpl : CartRepository {
         } else {
             sellerItems.add(CartItem(listing = listing, quantity = quantity))
         }
+        persist()
         return getCart()
     }
 
@@ -40,6 +65,7 @@ class CartRepositoryImpl : CartRepository {
             }
         }
         removeEmptySellers()
+        persist()
         return getCart()
     }
 
@@ -52,6 +78,7 @@ class CartRepositoryImpl : CartRepository {
             }
         }
         removeEmptySellers()
+        persist()
         return getCart()
     }
 
@@ -62,6 +89,7 @@ class CartRepositoryImpl : CartRepository {
 
     override fun clearCart(): Cart {
         items.clear()
+        persist()
         return getCart()
     }
 
@@ -69,6 +97,7 @@ class CartRepositoryImpl : CartRepository {
         delay(1500) // Simulate API call
         val orderId = "ORD-${Clock.System.now().toEpochMilliseconds()}"
         items.clear()
+        persist()
         return Result.Success(orderId)
     }
 }

@@ -4,7 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,12 +41,13 @@ fun PharmacyHomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
 
-    val filteredCatalog = remember(uiState.catalogItems, uiState.catalogFilter) {
-        val query = uiState.catalogFilter.trim()
-        if (query.isBlank()) uiState.catalogItems
-        else uiState.catalogItems.filter {
-            it.drugName.contains(query, ignoreCase = true) || it.supplierName.contains(query, ignoreCase = true)
-        }
+    // searchMatchedDrugIds is null when there's no active search (show everything loaded so
+    // far); once set, it's the authoritative result from the backend's real name-search endpoint
+    // (/drugs?search=), not a local text filter.
+    val filteredCatalog = remember(uiState.catalogItems, uiState.searchMatchedDrugIds) {
+        val matchedIds = uiState.searchMatchedDrugIds
+        if (matchedIds == null) uiState.catalogItems
+        else uiState.catalogItems.filter { it.drugId in matchedIds }
     }
 
     // Infinite scroll for the drug catalog section at the bottom of this single list.
@@ -70,6 +71,41 @@ fun PharmacyHomeScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
+        // Fixed header — search bar stays put and only the drug list below it scrolls.
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            SectionHeader(title = "All Suppliers' Drugs")
+            OutlinedTextField(
+                value = uiState.catalogFilter,
+                onValueChange = viewModel::onCatalogFilterChange,
+                placeholder = { Text("Search drug name") },
+                leadingIcon = { Icon(Icons.Filled.Search, null, tint = TextSecondary) },
+                trailingIcon = {
+                    when {
+                        uiState.isSearching -> CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = PrimaryBlue
+                        )
+                        uiState.catalogFilter.isNotEmpty() -> IconButton(onClick = { viewModel.onCatalogFilterChange("") }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Clear", tint = TextSecondary)
+                        }
+                    }
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryBlue,
+                    unfocusedBorderColor = DividerGray,
+                    focusedContainerColor = SurfaceWhite,
+                    unfocusedContainerColor = SurfaceWhite
+                )
+            )
+        }
+
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             LazyColumn(
                 state = listState,
@@ -77,34 +113,6 @@ fun PharmacyHomeScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SectionHeader(title = "All Suppliers' Drugs")
-                        OutlinedTextField(
-                            value = uiState.catalogFilter,
-                            onValueChange = viewModel::onCatalogFilterChange,
-                            placeholder = { Text("Search drug or supplier name") },
-                            leadingIcon = { Icon(Icons.Filled.Search, null, tint = TextSecondary) },
-                            trailingIcon = {
-                                if (uiState.catalogFilter.isNotEmpty()) {
-                                    IconButton(onClick = { viewModel.onCatalogFilterChange("") }) {
-                                        Icon(Icons.Filled.Close, contentDescription = "Clear", tint = TextSecondary)
-                                    }
-                                }
-                            },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = PrimaryBlue,
-                                unfocusedBorderColor = DividerGray,
-                                focusedContainerColor = SurfaceWhite,
-                                unfocusedContainerColor = SurfaceWhite
-                            )
-                        )
-                    }
-                }
-
                 if (uiState.catalogActionError != null) {
                     item {
                         Row(
@@ -133,6 +141,11 @@ fun PharmacyHomeScreen(
                     uiState.catalogError != null && uiState.catalogItems.isEmpty() -> item {
                         ErrorScreen(message = uiState.catalogError!!, onRetry = viewModel::retryCatalog, modifier = Modifier.height(220.dp))
                     }
+                    uiState.isSearching -> item {
+                        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = PrimaryBlue)
+                        }
+                    }
                     filteredCatalog.isEmpty() -> item {
                         EmptyState(
                             title = if (uiState.catalogItems.isEmpty()) "No drugs available" else "No matches",
@@ -142,12 +155,14 @@ fun PharmacyHomeScreen(
                         )
                     }
                     else -> {
-                        itemsIndexed(
+                        items(
                             filteredCatalog,
-                            // The catalog endpoint's exact response shape is unconfirmed, so `id`/`drugId`
-                            // can't be trusted alone to be present or unique — fold in the list index too.
-                            key = { index, catalogItem -> "${index}_${catalogItem.supplierId}_${catalogItem.drugId}_${catalogItem.id}" }
-                        ) { _, catalogItem ->
+                            // catalogItem.id is a stable supplierId_drugId pair (never the list
+                            // position/index) — an index-based key made pagination reassign a
+                            // row's composable to whatever item now sits at that position,
+                            // showing a stale drug name / added-to-cart state.
+                            key = { catalogItem -> catalogItem.id }
+                        ) { catalogItem ->
                             CatalogDrugCard(
                                 item = catalogItem,
                                 addedQuantity = uiState.cartQuantities[catalogItem.id] ?: 0,

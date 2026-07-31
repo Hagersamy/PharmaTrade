@@ -1,5 +1,8 @@
 package com.pharmatrade.core.common.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class Seller(
     val id: String,
     val userId: String,

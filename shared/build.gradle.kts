@@ -48,6 +48,7 @@ kotlin {
             implementation(kotlin("test"))
         }
         androidMain.dependencies {
+            implementation(project.dependencies.platform("androidx.compose:compose-bom:${libs.versions.composeBom.get()}"))
             implementation(libs.ktor.client.okhttp)
         }
         val desktopMain by getting {

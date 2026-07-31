@@ -51,6 +51,7 @@ import com.pharmatrade.feature.seller.domain.usecase.*
 import com.pharmatrade.feature.supplierorder.data.repository.SupplierOrderRepositoryImpl
 import com.pharmatrade.feature.supplierorder.domain.repository.SupplierOrderRepository
 import com.pharmatrade.feature.supplierorder.domain.usecase.*
+import com.russhwolf.settings.SharedPreferencesSettings
 
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
@@ -61,7 +62,10 @@ class AppContainer(context: Context) {
     val adminRepository: AdminRepository by lazy { AdminRepositoryImpl() }
     val sellerRepository: SellerRepository by lazy { SellerRepositoryImpl() }
     val catalogRepository: CatalogRepository by lazy { CatalogRepositoryImpl() }
-    val cartRepository: CartRepository by lazy { CartRepositoryImpl() }
+    val cartRepository: CartRepository by lazy {
+        val cartPrefs = appContext.getSharedPreferences("pharmatrade_cart", Context.MODE_PRIVATE)
+        CartRepositoryImpl(SharedPreferencesSettings(cartPrefs))
+    }
     val drugRepository: DrugRepository by lazy { DrugRepositoryImpl(PlatformFileReader(appContext)) }
     val pharmacyOrderRepository: PharmacyOrderRepository by lazy { PharmacyOrderRepositoryImpl(PlatformFileReader(appContext)) }
     val supplierOrderRepository: SupplierOrderRepository by lazy { SupplierOrderRepositoryImpl() }

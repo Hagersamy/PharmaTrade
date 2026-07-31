@@ -240,6 +240,8 @@ fun AppNavigation(container: AppContainer) {
                         PharmacyHomeViewModel(
                             getPharmacyOrdersUseCase = container.getPharmacyOrdersUseCase,
                             getAllSuppliersDrugsUseCase = container.getAllSuppliersDrugsUseCase,
+                            getDrugsUseCase = container.getDrugsUseCase,
+                            getOrderDetailUseCase = container.getOrderDetailUseCase,
                             createOrderUseCase = container.createOrderUseCase,
                             addOrderItemUseCase = container.addOrderItemUseCase,
                             removeOrderItemUseCase = container.removeOrderItemUseCase

@@ -1,5 +1,8 @@
 package com.pharmatrade.core.common.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class Drug(
     val id: String,
     val name: String,
@@ -11,6 +14,7 @@ data class Drug(
     val strength: String
 )
 
+@Serializable
 enum class DrugCategory(val displayName: String) {
     ANALGESIC("Pain Relief"),
     ANTIBIOTIC("Antibiotics"),

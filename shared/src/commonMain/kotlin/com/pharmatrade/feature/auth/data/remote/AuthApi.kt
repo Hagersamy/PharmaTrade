@@ -12,13 +12,18 @@ import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
+import io.ktor.http.contentType
 
 class AuthApi(private val client: HttpClient = ApiClient.httpClient) {
 
     suspend fun login(request: LoginRequest): ApiResponse<AuthData> =
-        client.post("login") { setBody(request) }.body()
+        client.post("login") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
 
     suspend fun registerPharmacy(
         name: String,

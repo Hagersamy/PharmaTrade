@@ -25,8 +25,10 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
+import io.ktor.http.contentType
 
 class PharmacyOrderApi(private val client: HttpClient = ApiClient.httpClient) {
 
@@ -49,10 +51,16 @@ class PharmacyOrderApi(private val client: HttpClient = ApiClient.httpClient) {
         client.get("pharmacy/suppliers/drugs") { parameter("page", page) }.body()
 
     suspend fun createOrder(request: CreateOrderRequest): ApiResponse<OrderDetailDto> =
-        client.post("pharmacy/orders") { setBody(request) }.body()
+        client.post("pharmacy/orders") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
 
     suspend fun addItem(orderId: String, request: AddItemRequest): ApiResponse<OrderItemDto> =
-        client.post("pharmacy/orders/$orderId/items") { setBody(request) }.body()
+        client.post("pharmacy/orders/$orderId/items") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
 
     suspend fun removeItem(orderId: String, itemId: String) {
         client.delete("pharmacy/orders/$orderId/items/$itemId")
@@ -73,13 +81,19 @@ class PharmacyOrderApi(private val client: HttpClient = ApiClient.httpClient) {
         ).body()
 
     suspend fun allocateOrder(orderId: String, request: AllocateRequest): ApiResponse<OrderDetailDto> =
-        client.post("pharmacy/orders/$orderId/allocate") { setBody(request) }.body()
+        client.post("pharmacy/orders/$orderId/allocate") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
 
     suspend fun getOrderDetail(orderId: String): ApiResponse<OrderDetailDto> =
         client.get("pharmacy/orders/$orderId").body()
 
     suspend fun resolveShortage(orderId: String, request: ResolveShortageRequest) {
-        client.post("pharmacy/orders/$orderId/resolve-shortage") { setBody(request) }
+        client.post("pharmacy/orders/$orderId/resolve-shortage") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
     }
 
     suspend fun cancelOrder(orderId: String) {
@@ -89,6 +103,9 @@ class PharmacyOrderApi(private val client: HttpClient = ApiClient.httpClient) {
     // Same body shape as resolve-shortage — for a plain "mark as delivered" (no shortage
     // involved) the caller sends action="confirm" with an empty shortage_report_ids.
     suspend fun confirmDelivery(orderId: String, request: ResolveShortageRequest) {
-        client.post("pharmacy/orders/$orderId/confirm-delivery") { setBody(request) }
+        client.post("pharmacy/orders/$orderId/confirm-delivery") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
     }
 }

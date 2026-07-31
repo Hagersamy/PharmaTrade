@@ -85,9 +85,13 @@ class PharmacyOrderRepositoryImpl(
     override suspend fun getAllSuppliersDrugs(page: Int): Result<SupplierCatalogPage> = try {
         val response = api.getAllSuppliersDrugs(page = page)
         val dto = response.data
-        // Same defensive id-uniqueness fix as getSupplierInventory above.
+        // Unlike getSupplierInventory (a single one-shot fetch), this is called once per page as
+        // the buyer scrolls, and `mapIndexed`'s index restarts at 0 on every call — suffixing with
+        // it here would let page 2's items collide onto the same ids as page 1's (same backend id
+        // + same local index), making the cart's added-quantity badges follow list position across
+        // pages instead of the actual item. supplierId + drugId is stable across pages instead.
         val items = dto?.data
-            ?.mapIndexed { index, itemDto -> itemDto.toDomain().let { it.copy(id = "${it.id}_$index") } }
+            ?.map { itemDto -> itemDto.toDomain().let { it.copy(id = "${it.supplierId}_${it.drugId}") } }
             ?: emptyList()
         Result.Success(
             SupplierCatalogPage(
