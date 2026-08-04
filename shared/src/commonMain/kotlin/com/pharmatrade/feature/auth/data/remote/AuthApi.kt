@@ -16,6 +16,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
+import kotlinx.serialization.json.JsonElement
 
 class AuthApi(private val client: HttpClient = ApiClient.httpClient) {
 
@@ -24,6 +25,9 @@ class AuthApi(private val client: HttpClient = ApiClient.httpClient) {
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
+
+    suspend fun logout(): ApiResponse<JsonElement?> =
+        client.post("logout").body()
 
     suspend fun registerPharmacy(
         name: String,

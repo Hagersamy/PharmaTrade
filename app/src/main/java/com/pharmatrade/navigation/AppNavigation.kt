@@ -1,5 +1,6 @@
 package com.pharmatrade.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -7,6 +8,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -18,12 +21,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.lifecycle.viewmodel.viewModelFactory
-import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
+import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.core.ui.components.PharmaButton
@@ -42,6 +47,7 @@ import com.pharmatrade.feature.cart.presentation.CartViewModel
 import com.pharmatrade.feature.catalog.presentation.drugs.SellerDrugsScreen
 import com.pharmatrade.feature.catalog.presentation.drugs.SellerDrugsViewModel
 import com.pharmatrade.feature.home.HomeScreen
+import com.pharmatrade.feature.home.HomeTab
 import com.pharmatrade.feature.home.NotificationsScreen
 import com.pharmatrade.feature.home.ProfileViewModel
 import com.pharmatrade.feature.pharmacyorder.presentation.allocation.AllocationScreen
@@ -68,10 +74,45 @@ import com.pharmatrade.feature.seller.presentation.inventory.InventoryUploadView
 import com.pharmatrade.feature.supplierorder.presentation.orderdetail.SellerOrderDetailScreen
 import com.pharmatrade.feature.supplierorder.presentation.orderdetail.SellerOrderDetailViewModel
 import com.pharmatrade.feature.supplierorder.presentation.orderlist.SellerOrdersViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun AppNavigation(container: AppContainer) {
-    val navController = rememberNavController()
+    // Restored once per process launch: if SessionManager already holds a persisted session
+    // (see SessionManager.init in PharmaTradeApp.onCreate), skip straight past the login screen.
+    val startKey = remember {
+        when {
+            !SessionManager.isLoggedIn -> NavKeys.Login
+            SessionManager.user?.isPending == true -> NavKeys.PendingApproval
+            SessionManager.user?.userType == UserType.ADMIN -> NavKeys.AdminDashboard
+            else -> NavKeys.Home
+        }
+    }
+    val backStack: NavBackStack<NavKey> = rememberNavBackStack(startKey)
+    val navigator = remember { Navigator(backStack) }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Hoisted above Home's own content so a back press can be intercepted here: the bottom nav
+    // bar's tabs (Home/Cart/Orders/Profile) are plain UI state, not separate back-stack entries.
+    // This tracks the order tabs were visited in (e.g. Home -> Orders -> Cart -> Profile) so back
+    // un-does one tab switch at a time in reverse — Profile -> Cart -> Orders -> Home -> exit —
+    // instead of jumping straight from any tab to Home. Re-selecting Home directly resets the
+    // history back to just [Home], since Home is this stack's root.
+    val tabHistory = rememberSaveable(
+        saver = listSaver(save = { it.map(HomeTab::name) }, restore = { it.map(HomeTab::valueOf).toMutableStateList() })
+    ) { mutableStateListOf(HomeTab.HOME) }
+    val homeSelectedTab = tabHistory.last()
+    fun selectHomeTab(tab: HomeTab) {
+        if (tab == HomeTab.HOME) {
+            tabHistory.clear()
+            tabHistory.add(HomeTab.HOME)
+        } else if (tab != tabHistory.last()) {
+            tabHistory.add(tab)
+        }
+    }
+    BackHandler(enabled = backStack.lastOrNull() == NavKeys.Home && tabHistory.size > 1) {
+        tabHistory.removeAt(tabHistory.lastIndex)
+    }
 
     val cartViewModel: CartViewModel = viewModel(
         factory = viewModelFactory {
@@ -91,575 +132,530 @@ fun AppNavigation(container: AppContainer) {
 
     val cartState by cartViewModel.uiState.collectAsState()
 
-    // Restored once per process launch: if SessionManager already holds a persisted session
-    // (see SessionManager.init in PharmaTradeApp.onCreate), skip straight past the login screen.
-    val startDestination = remember {
-        when {
-            !SessionManager.isLoggedIn -> NavRoutes.Login.route
-            SessionManager.user?.isPending == true -> NavRoutes.PendingApproval.route
-            SessionManager.user?.userType == UserType.ADMIN -> NavRoutes.AdminDashboard.route
-            else -> NavRoutes.Home.route
-        }
-    }
+    NavDisplay(
+        backStack = backStack,
+        onBack = { navigator.goBack() },
+        entryDecorators = listOf(
+            rememberSaveableStateHolderNavEntryDecorator(),
+            rememberViewModelStoreNavEntryDecorator()
+        ),
+        entryProvider = entryProvider {
 
-    NavHost(navController = navController, startDestination = startDestination) {
-
-        composable(NavRoutes.Login.route) {
-            val vm: LoginViewModel = viewModel(
-                factory = viewModelFactory { initializer { LoginViewModel(container.loginUseCase) } }
-            )
-            LoginScreen(
-                viewModel = vm,
-                onNavigateToRegister = { navController.navigate(NavRoutes.Register.route) },
-                onNavigateToSellerDashboard = {
-                    navController.navigate(NavRoutes.Home.route) {
-                        popUpTo(NavRoutes.Login.route) { inclusive = true }
+            entry<NavKeys.Login> {
+                val vm: LoginViewModel = viewModel(
+                    factory = viewModelFactory { initializer { LoginViewModel(container.loginUseCase) } }
+                )
+                LoginScreen(
+                    viewModel = vm,
+                    onNavigateToRegister = { navigator.navigate(NavKeys.Register) },
+                    onNavigateToSellerDashboard = {
+                        navigator.navigate(NavKeys.Home, popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true))
+                    },
+                    onNavigateToBuyerCatalog = {
+                        navigator.navigate(NavKeys.Home, popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true))
+                    },
+                    onNavigateToAdminDashboard = {
+                        navigator.navigate(NavKeys.AdminDashboard, popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true))
+                    },
+                    onNavigateToPendingApproval = {
+                        navigator.navigate(NavKeys.PendingApproval, popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true))
                     }
-                },
-                onNavigateToBuyerCatalog = {
-                    navController.navigate(NavRoutes.Home.route) {
-                        popUpTo(NavRoutes.Login.route) { inclusive = true }
-                    }
-                },
-                onNavigateToAdminDashboard = {
-                    navController.navigate(NavRoutes.AdminDashboard.route) {
-                        popUpTo(NavRoutes.Login.route) { inclusive = true }
-                    }
-                },
-                onNavigateToPendingApproval = {
-                    navController.navigate(NavRoutes.PendingApproval.route) {
-                        popUpTo(NavRoutes.Login.route) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        composable(NavRoutes.Register.route) {
-            val vm: RegisterViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        RegisterViewModel(
-                            registerUseCase = container.registerUseCase,
-                            zoneRepository = container.zoneRepository
-                        )
-                    }
-                }
-            )
-            RegisterScreen(
-                viewModel = vm,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToPendingApproval = {
-                    navController.navigate(NavRoutes.PendingApproval.route) {
-                        popUpTo(NavRoutes.Login.route) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        composable(NavRoutes.PendingApproval.route) {
-            val userName = SessionManager.user?.name ?: ""
-            PendingApprovalScreen(
-                userName = userName,
-                onBackToLogin = {
-                    SessionManager.logout()
-                    navController.navigate(NavRoutes.Login.route) { popUpTo(0) { inclusive = true } }
-                }
-            )
-        }
-
-        composable(NavRoutes.AdminDashboard.route) {
-            val vm: AdminDashboardViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        AdminDashboardViewModel(
-                            getRegistrationRequestsUseCase = container.getRegistrationRequestsUseCase,
-                            approveRequestUseCase = container.approveRequestUseCase,
-                            declineRequestUseCase = container.declineRequestUseCase,
-                            getRegistrationStatsUseCase = container.getRegistrationStatsUseCase
-                        )
-                    }
-                }
-            )
-            val analyticsVm: AnalyticsViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        AnalyticsViewModel(
-                            getStatsUseCase = container.getRegistrationStatsUseCase,
-                            getRequestsUseCase = container.getRegistrationRequestsUseCase,
-                            approveRequestUseCase = container.approveRequestUseCase,
-                            declineRequestUseCase = container.declineRequestUseCase
-                        )
-                    }
-                }
-            )
-            val adminProfileVm: ProfileViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        ProfileViewModel(
-                            getBranchUseCase = container.getBranchUseCase,
-                            getProfileUseCase = container.getProfileUseCase,
-                            updateProfileUseCase = container.updateProfileUseCase,
-                            changePasswordUseCase = container.changePasswordUseCase,
-                            updateSupplierProfileUseCase = container.updateSupplierProfileUseCase,
-                            updateBranchProfileUseCase = container.updateBranchProfileUseCase,
-                            deactivateAccountUseCase = container.deactivateAccountUseCase,
-                            requestZoneUpdateUseCase = container.requestZoneUpdateUseCase,
-                            zoneRepository = container.zoneRepository
-                        )
-                    }
-                }
-            )
-            AdminDashboardScreen(
-                viewModel = vm,
-                analyticsViewModel = analyticsVm,
-                profileViewModel = adminProfileVm,
-                onNavigateToNotifications = { navController.navigate(NavRoutes.Notifications.route) },
-                onLogout = {
-                    SessionManager.logout()
-                    navController.navigate(NavRoutes.Login.route) { popUpTo(0) { inclusive = true } }
-                }
-            )
-        }
-
-        composable(NavRoutes.Home.route) {
-            val sellerVm: SellerDashboardViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        SellerDashboardViewModel(
-                            getProfileUseCase = container.getSellerProfileUseCase,
-                            getInventoryUseCase = container.getInventoryUseCase,
-                            updateMinOrderUseCase = container.updateMinOrderUseCase,
-                            updateInventoryItemUseCase = container.updateInventoryItemUseCase
-                        )
-                    }
-                }
-            )
-            val pharmacyHomeVm: PharmacyHomeViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        PharmacyHomeViewModel(
-                            getPharmacyOrdersUseCase = container.getPharmacyOrdersUseCase,
-                            getAllSuppliersDrugsUseCase = container.getAllSuppliersDrugsUseCase,
-                            getDrugsUseCase = container.getDrugsUseCase,
-                            getOrderDetailUseCase = container.getOrderDetailUseCase,
-                            createOrderUseCase = container.createOrderUseCase,
-                            addOrderItemUseCase = container.addOrderItemUseCase,
-                            removeOrderItemUseCase = container.removeOrderItemUseCase
-                        )
-                    }
-                }
-            )
-            val orderListVm: OrderListViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer { OrderListViewModel(getPharmacyOrdersUseCase = container.getPharmacyOrdersUseCase) }
-                }
-            )
-            val sellerOrdersVm: SellerOrdersViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer { SellerOrdersViewModel(getSupplierOrdersUseCase = container.getSupplierOrdersUseCase) }
-                }
-            )
-            val profileVm: ProfileViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        ProfileViewModel(
-                            getBranchUseCase = container.getBranchUseCase,
-                            getProfileUseCase = container.getProfileUseCase,
-                            updateProfileUseCase = container.updateProfileUseCase,
-                            changePasswordUseCase = container.changePasswordUseCase,
-                            updateSupplierProfileUseCase = container.updateSupplierProfileUseCase,
-                            updateBranchProfileUseCase = container.updateBranchProfileUseCase,
-                            deactivateAccountUseCase = container.deactivateAccountUseCase,
-                            requestZoneUpdateUseCase = container.requestZoneUpdateUseCase,
-                            zoneRepository = container.zoneRepository
-                        )
-                    }
-                }
-            )
-            // Home's ViewModels are scoped to this back-stack entry and only fetch once in
-            // init{}. Without this, returning here from InventoryUpload/AddListing/EditListing/
-            // Allocation (which pop back rather than recreating Home) leaves the seller dashboard
-            // and the buyer's order list showing stale data — e.g. an order just reviewed and
-            // allocated wouldn't show up in the Orders tab until Home was fully recreated,
-            // looking to the buyer like the order had been deleted.
-            val lifecycleOwner = LocalLifecycleOwner.current
-            DisposableEffect(lifecycleOwner) {
-                val observer = LifecycleEventObserver { _, event ->
-                    if (event == Lifecycle.Event.ON_RESUME) {
-                        sellerVm.loadData()
-                        orderListVm.loadOrders()
-                        pharmacyHomeVm.loadActiveOrdersCount()
-                    }
-                }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                )
             }
-            HomeScreen(
-                sellerDashboardViewModel = sellerVm,
-                pharmacyHomeViewModel = pharmacyHomeVm,
-                orderListViewModel = orderListVm,
-                sellerOrdersViewModel = sellerOrdersVm,
-                profileViewModel = profileVm,
-                onNavigateToNotifications = { navController.navigate(NavRoutes.Notifications.route) },
-                onNavigateToSearch = {
-                    val route = if (SessionManager.currentUser.value?.userType == UserType.SELLER) {
-                        NavRoutes.SellerSearch.route
-                    } else {
-                        NavRoutes.BuyerSearch.route
-                    }
-                    navController.navigate(route)
-                },
-                onNavigateToUploadInventory = { navController.navigate(NavRoutes.InventoryUpload.route) },
-                onNavigateToAddListing = { navController.navigate(NavRoutes.AddListing.route) },
-                onNavigateToEditListing = { listingId ->
-                    navController.navigate(NavRoutes.EditListing.createRoute(listingId))
-                },
-                onNavigateToOrderMode = { navController.navigate(NavRoutes.OrderMode.route) },
-                onNavigateToOrderDetail = { orderId ->
-                    navController.navigate(NavRoutes.OrderDetail.createRoute(orderId))
-                },
-                onNavigateToSupplierOrderDetail = { orderId ->
-                    navController.navigate(NavRoutes.SupplierOrderDetail.createRoute(orderId))
-                },
-                onCheckoutAll = { orders -> navController.navigate(NavRoutes.Checkout.createRoute(orders)) },
-                onLogout = {
-                    SessionManager.logout()
-                    navController.navigate(NavRoutes.Login.route) { popUpTo(0) { inclusive = true } }
-                }
-            )
-        }
 
-        composable(
-            route = NavRoutes.Checkout.route,
-            arguments = listOf(navArgument("orders") { type = NavType.StringType })
-        ) { backStack ->
-            val encoded = backStack.arguments?.getString("orders") ?: return@composable
-            val orders = remember(encoded) { NavRoutes.Checkout.parse(encoded) }
-            val vm: CheckoutViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        CheckoutViewModel(
-                            orderSupplierPairs = orders,
-                            allocateOrderUseCase = container.allocateOrderUseCase,
-                            cancelOrderUseCase = container.cancelOrderUseCase
+            entry<NavKeys.Register> {
+                val vm: RegisterViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            RegisterViewModel(
+                                registerUseCase = container.registerUseCase,
+                                zoneRepository = container.zoneRepository
+                            )
+                        }
+                    }
+                )
+                RegisterScreen(
+                    viewModel = vm,
+                    onNavigateBack = { navigator.goBack() },
+                    onNavigateToPendingApproval = {
+                        navigator.navigate(NavKeys.PendingApproval, popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true))
+                    }
+                )
+            }
+
+            entry<NavKeys.PendingApproval> {
+                val userName = SessionManager.user?.name ?: ""
+                PendingApprovalScreen(
+                    userName = userName,
+                    onBackToLogin = {
+                        coroutineScope.launch { container.logoutUseCase() }
+                        // Reset the Home tab-visit history so the next login always lands back on
+                        // the Home tab, instead of resuming whatever tab (e.g. Profile) was open
+                        // when this session logged out.
+                        selectHomeTab(HomeTab.HOME)
+                        navigator.navigate(NavKeys.Login, popUpTo = Navigator.PopUpTo(target = null))
+                    }
+                )
+            }
+
+            entry<NavKeys.AdminDashboard> {
+                val vm: AdminDashboardViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            AdminDashboardViewModel(
+                                getRegistrationRequestsUseCase = container.getRegistrationRequestsUseCase,
+                                approveRequestUseCase = container.approveRequestUseCase,
+                                declineRequestUseCase = container.declineRequestUseCase,
+                                getRegistrationStatsUseCase = container.getRegistrationStatsUseCase
+                            )
+                        }
+                    }
+                )
+                val analyticsVm: AnalyticsViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            AnalyticsViewModel(
+                                getStatsUseCase = container.getRegistrationStatsUseCase,
+                                getRequestsUseCase = container.getRegistrationRequestsUseCase,
+                                approveRequestUseCase = container.approveRequestUseCase,
+                                declineRequestUseCase = container.declineRequestUseCase
+                            )
+                        }
+                    }
+                )
+                val adminProfileVm: ProfileViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            ProfileViewModel(
+                                getBranchUseCase = container.getBranchUseCase,
+                                getProfileUseCase = container.getProfileUseCase,
+                                updateProfileUseCase = container.updateProfileUseCase,
+                                changePasswordUseCase = container.changePasswordUseCase,
+                                updateSupplierProfileUseCase = container.updateSupplierProfileUseCase,
+                                updateBranchProfileUseCase = container.updateBranchProfileUseCase,
+                                deactivateAccountUseCase = container.deactivateAccountUseCase,
+                                requestZoneUpdateUseCase = container.requestZoneUpdateUseCase,
+                                zoneRepository = container.zoneRepository
+                            )
+                        }
+                    }
+                )
+                AdminDashboardScreen(
+                    viewModel = vm,
+                    analyticsViewModel = analyticsVm,
+                    profileViewModel = adminProfileVm,
+                    onNavigateToNotifications = { navigator.navigate(NavKeys.Notifications) },
+                    onLogout = {
+                        coroutineScope.launch { container.logoutUseCase() }
+                        // Reset the Home tab-visit history so the next login always lands back on
+                        // the Home tab, instead of resuming whatever tab (e.g. Profile) was open
+                        // when this session logged out.
+                        selectHomeTab(HomeTab.HOME)
+                        navigator.navigate(NavKeys.Login, popUpTo = Navigator.PopUpTo(target = null))
+                    }
+                )
+            }
+
+            entry<NavKeys.Home> {
+                val sellerVm: SellerDashboardViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            SellerDashboardViewModel(
+                                getProfileUseCase = container.getSellerProfileUseCase,
+                                getInventoryUseCase = container.getInventoryUseCase,
+                                updateMinOrderUseCase = container.updateMinOrderUseCase,
+                                updateInventoryItemUseCase = container.updateInventoryItemUseCase
+                            )
+                        }
+                    }
+                )
+                val pharmacyHomeVm: PharmacyHomeViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            PharmacyHomeViewModel(
+                                getPharmacyOrdersUseCase = container.getPharmacyOrdersUseCase,
+                                getAllSuppliersDrugsUseCase = container.getAllSuppliersDrugsUseCase,
+                                getDrugsUseCase = container.getDrugsUseCase,
+                                getOrderDetailUseCase = container.getOrderDetailUseCase,
+                                createOrderUseCase = container.createOrderUseCase,
+                                addOrderItemUseCase = container.addOrderItemUseCase,
+                                removeOrderItemUseCase = container.removeOrderItemUseCase
+                            )
+                        }
+                    }
+                )
+                val orderListVm: OrderListViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer { OrderListViewModel(getPharmacyOrdersUseCase = container.getPharmacyOrdersUseCase) }
+                    }
+                )
+                val sellerOrdersVm: SellerOrdersViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer { SellerOrdersViewModel(getSupplierOrdersUseCase = container.getSupplierOrdersUseCase) }
+                    }
+                )
+                val profileVm: ProfileViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            ProfileViewModel(
+                                getBranchUseCase = container.getBranchUseCase,
+                                getProfileUseCase = container.getProfileUseCase,
+                                updateProfileUseCase = container.updateProfileUseCase,
+                                changePasswordUseCase = container.changePasswordUseCase,
+                                updateSupplierProfileUseCase = container.updateSupplierProfileUseCase,
+                                updateBranchProfileUseCase = container.updateBranchProfileUseCase,
+                                deactivateAccountUseCase = container.deactivateAccountUseCase,
+                                requestZoneUpdateUseCase = container.requestZoneUpdateUseCase,
+                                zoneRepository = container.zoneRepository
+                            )
+                        }
+                    }
+                )
+                // Home's ViewModels are scoped to this back-stack entry and only fetch once in
+                // init{}. Without this, returning here from InventoryUpload/AddListing/EditListing/
+                // Allocation (which pop back rather than recreating Home) leaves the seller dashboard
+                // and the buyer's order list showing stale data — e.g. an order just reviewed and
+                // allocated wouldn't show up in the Orders tab until Home was fully recreated,
+                // looking to the buyer like the order had been deleted.
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            sellerVm.loadData()
+                            orderListVm.loadOrders()
+                            pharmacyHomeVm.loadActiveOrdersCount()
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
+                HomeScreen(
+                    sellerDashboardViewModel = sellerVm,
+                    pharmacyHomeViewModel = pharmacyHomeVm,
+                    orderListViewModel = orderListVm,
+                    sellerOrdersViewModel = sellerOrdersVm,
+                    profileViewModel = profileVm,
+                    selectedTab = homeSelectedTab,
+                    onTabSelected = ::selectHomeTab,
+                    onNavigateToNotifications = { navigator.navigate(NavKeys.Notifications) },
+                    onNavigateToSearch = {
+                        val key = if (SessionManager.currentUser.value?.userType == UserType.SELLER) {
+                            NavKeys.SellerSearch
+                        } else {
+                            NavKeys.BuyerSearch
+                        }
+                        navigator.navigate(key)
+                    },
+                    onNavigateToUploadInventory = { navigator.navigate(NavKeys.InventoryUpload) },
+                    onNavigateToAddListing = { navigator.navigate(NavKeys.AddListing) },
+                    onNavigateToEditListing = { listingId ->
+                        navigator.navigate(NavKeys.EditListing(listingId))
+                    },
+                    onNavigateToOrderMode = { navigator.navigate(NavKeys.OrderMode) },
+                    onNavigateToOrderDetail = { orderId ->
+                        navigator.navigate(NavKeys.OrderDetail(orderId))
+                    },
+                    onNavigateToSupplierOrderDetail = { orderId ->
+                        navigator.navigate(NavKeys.SupplierOrderDetail(orderId))
+                    },
+                    onCheckoutAll = { orders ->
+                        navigator.navigate(
+                            NavKeys.Checkout(orders.map { (orderId, supplierId) -> OrderSupplierPair(orderId, supplierId) })
+                        )
+                    },
+                    onLogout = {
+                        coroutineScope.launch { container.logoutUseCase() }
+                        // Reset the Home tab-visit history so the next login always lands back on
+                        // the Home tab, instead of resuming whatever tab (e.g. Profile) was open
+                        // when this session logged out.
+                        selectHomeTab(HomeTab.HOME)
+                        navigator.navigate(NavKeys.Login, popUpTo = Navigator.PopUpTo(target = null))
+                    }
+                )
+            }
+
+            entry<NavKeys.Checkout> { key ->
+                val vm: CheckoutViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            CheckoutViewModel(
+                                orderSupplierPairs = key.orders.map { it.orderId to it.supplierId },
+                                allocateOrderUseCase = container.allocateOrderUseCase,
+                                cancelOrderUseCase = container.cancelOrderUseCase
+                            )
+                        }
+                    }
+                )
+                CheckoutScreen(
+                    viewModel = vm,
+                    onNavigateBack = { navigator.goBack() },
+                    onDone = {
+                        navigator.navigate(NavKeys.Home, popUpTo = Navigator.PopUpTo(NavKeys.Home, inclusive = true))
+                    }
+                )
+            }
+
+            entry<NavKeys.Notifications> {
+                NotificationsScreen(onNavigateBack = { navigator.goBack() })
+            }
+
+            entry<NavKeys.BuyerSearch> {
+                val vm: BuyerSearchViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            BuyerSearchViewModel(
+                                getAllSellersUseCase = container.getAllSellersUseCase,
+                                searchListingsUseCase = container.searchListingsUseCase
+                            )
+                        }
+                    }
+                )
+                BuyerSearchScreen(
+                    viewModel = vm,
+                    onNavigateBack = { navigator.goBack() },
+                    onNavigateToSellerDrugs = { sellerId ->
+                        navigator.navigate(NavKeys.SellerDrugs(sellerId))
+                    }
+                )
+            }
+
+            entry<NavKeys.SellerSearch> {
+                val vm: SellerSearchViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            SellerSearchViewModel(
+                                getListingsUseCase = container.getSellerListingsUseCase,
+                                getDrugsUseCase = container.getDrugsUseCase
+                            )
+                        }
+                    }
+                )
+                SellerSearchScreen(
+                    viewModel = vm,
+                    onNavigateBack = { navigator.goBack() },
+                    onNavigateToEdit = { listingId ->
+                        navigator.navigate(NavKeys.EditListing(listingId))
+                    },
+                    onAddListing = { navigator.navigate(NavKeys.AddListing) }
+                )
+            }
+
+            entry<NavKeys.InventoryUpload> {
+                val vm: InventoryUploadViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            InventoryUploadViewModel(
+                                uploadInventoryUseCase = container.uploadInventoryUseCase,
+                                getInventoryUseCase = container.getInventoryUseCase
+                            )
+                        }
+                    }
+                )
+                InventoryUploadScreen(
+                    viewModel = vm,
+                    onNavigateBack = { navigator.goBack() }
+                )
+            }
+
+            entry<NavKeys.AddListing> {
+                val vm: DrugFormViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            DrugFormViewModel(
+                                createInventoryItemUseCase = container.createInventoryItemUseCase,
+                                updateListingUseCase = container.updateListingUseCase,
+                                getDrugsUseCase = container.getDrugsUseCase,
+                                createSupplierDrugUseCase = container.createSupplierDrugUseCase
+                            )
+                        }
+                    }
+                )
+                DrugFormScreen(
+                    viewModel = vm,
+                    editingListingId = null,
+                    onNavigateBack = { navigator.goBack() },
+                    onSaved = { navigator.goBack() }
+                )
+            }
+
+            entry<NavKeys.EditListing> { key ->
+                val vm: DrugFormViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            DrugFormViewModel(
+                                createInventoryItemUseCase = container.createInventoryItemUseCase,
+                                updateListingUseCase = container.updateListingUseCase,
+                                getDrugsUseCase = container.getDrugsUseCase,
+                                createSupplierDrugUseCase = container.createSupplierDrugUseCase
+                            )
+                        }
+                    }
+                )
+                DrugFormScreen(
+                    viewModel = vm,
+                    editingListingId = key.listingId,
+                    onNavigateBack = { navigator.goBack() },
+                    onSaved = { navigator.goBack() }
+                )
+            }
+
+            entry<NavKeys.SellerDrugs> { key ->
+                val vm: SellerDrugsViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            SellerDrugsViewModel(
+                                getListingsUseCase = container.getCatalogSellerListingsUseCase,
+                                getAllSellersUseCase = container.getAllSellersUseCase
+                            )
+                        }
+                    }
+                )
+                SellerDrugsScreen(
+                    viewModel = vm,
+                    sellerId = key.sellerId,
+                    onNavigateBack = { navigator.goBack() },
+                    onNavigateToCart = { navigator.navigate(NavKeys.Cart) },
+                    onAddToCart = { listing -> cartViewModel.addToCart(listing) },
+                    cartItemCount = cartState.cart.getTotalItems()
+                )
+            }
+
+            entry<NavKeys.Cart> {
+                CartScreen(
+                    viewModel = cartViewModel,
+                    onNavigateBack = { navigator.goBack() },
+                    onOrderSuccess = { orderId ->
+                        navigator.navigate(NavKeys.OrderSuccess(orderId), popUpTo = Navigator.PopUpTo(NavKeys.Home))
+                    }
+                )
+            }
+
+            entry<NavKeys.OrderSuccess> { key ->
+                OrderSuccessScreen(
+                    orderId = key.orderId,
+                    onNavigateHome = {
+                        navigator.navigate(NavKeys.Home, popUpTo = Navigator.PopUpTo(NavKeys.Home, inclusive = true))
+                    }
+                )
+            }
+
+            entry<NavKeys.OrderMode> {
+                val vm: OrderModeViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            OrderModeViewModel(
+                                getSuppliersUseCase = container.getSuppliersUseCase,
+                                createOrderUseCase = container.createOrderUseCase
+                            )
+                        }
+                    }
+                )
+                OrderModeScreen(
+                    viewModel = vm,
+                    onNavigateBack = { navigator.goBack() },
+                    onOrderCreated = { orderId, supplierId ->
+                        navigator.navigate(
+                            NavKeys.OrderItems(orderId, supplierId),
+                            popUpTo = Navigator.PopUpTo(NavKeys.OrderMode, inclusive = true)
                         )
                     }
-                }
-            )
-            CheckoutScreen(
-                viewModel = vm,
-                onNavigateBack = { navController.popBackStack() },
-                onDone = {
-                    navController.navigate(NavRoutes.Home.route) {
-                        popUpTo(NavRoutes.Home.route)
-                    }
-                }
-            )
-        }
+                )
+            }
 
-        composable(NavRoutes.Notifications.route) {
-            NotificationsScreen(onNavigateBack = { navController.popBackStack() })
-        }
+            entry<NavKeys.OrderItems> { key ->
+                val vm: OrderItemsViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            OrderItemsViewModel(
+                                orderId = key.orderId,
+                                supplierId = key.supplierId,
+                                getDrugsUseCase = container.getDrugsUseCase,
+                                getSupplierInventoryUseCase = container.getSupplierInventoryUseCase,
+                                addOrderItemUseCase = container.addOrderItemUseCase,
+                                removeOrderItemUseCase = container.removeOrderItemUseCase,
+                                uploadOrderItemsUseCase = container.uploadOrderItemsUseCase,
+                                getOrderDetailUseCase = container.getOrderDetailUseCase
+                            )
+                        }
+                    }
+                )
+                OrderItemsScreen(
+                    viewModel = vm,
+                    onNavigateBack = { navigator.goBack() },
+                    onReviewAndAllocate = {
+                        navigator.navigate(NavKeys.Allocation(key.orderId, key.supplierId))
+                    }
+                )
+            }
 
-        composable(NavRoutes.BuyerSearch.route) {
-            val vm: BuyerSearchViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        BuyerSearchViewModel(
-                            getAllSellersUseCase = container.getAllSellersUseCase,
-                            searchListingsUseCase = container.searchListingsUseCase
-                        )
+            entry<NavKeys.Allocation> { key ->
+                val vm: AllocationViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            AllocationViewModel(
+                                orderId = key.orderId,
+                                supplierId = key.supplierId,
+                                allocateOrderUseCase = container.allocateOrderUseCase,
+                                cancelOrderUseCase = container.cancelOrderUseCase
+                            )
+                        }
                     }
-                }
-            )
-            BuyerSearchScreen(
-                viewModel = vm,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToSellerDrugs = { sellerId ->
-                    navController.navigate(NavRoutes.SellerDrugs.createRoute(sellerId))
-                }
-            )
-        }
+                )
+                AllocationScreen(
+                    viewModel = vm,
+                    onNavigateBack = { navigator.goBack() },
+                    onConfirmed = { confirmedOrderId ->
+                        navigator.navigate(NavKeys.OrderDetail(confirmedOrderId), popUpTo = Navigator.PopUpTo(NavKeys.Home))
+                    },
+                    onCancelled = {
+                        navigator.navigate(NavKeys.Home, popUpTo = Navigator.PopUpTo(NavKeys.Home, inclusive = true))
+                    }
+                )
+            }
 
-        composable(NavRoutes.SellerSearch.route) {
-            val vm: SellerSearchViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        SellerSearchViewModel(
-                            getListingsUseCase = container.getSellerListingsUseCase,
-                            getDrugsUseCase = container.getDrugsUseCase
-                        )
+            entry<NavKeys.OrderDetail> { key ->
+                val vm: OrderDetailViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            OrderDetailViewModel(
+                                orderId = key.orderId,
+                                getOrderDetailUseCase = container.getOrderDetailUseCase,
+                                resolveShortageUseCase = container.resolveShortageUseCase,
+                                cancelOrderUseCase = container.cancelOrderUseCase,
+                                deliverOrderUseCase = container.deliverOrderUseCase
+                            )
+                        }
                     }
-                }
-            )
-            SellerSearchScreen(
-                viewModel = vm,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToEdit = { listingId ->
-                    navController.navigate(NavRoutes.EditListing.createRoute(listingId))
-                },
-                onAddListing = { navController.navigate(NavRoutes.AddListing.route) }
-            )
-        }
+                )
+                OrderDetailScreen(
+                    viewModel = vm,
+                    onNavigateBack = { navigator.goBack() },
+                    onCancelled = { navigator.goBack() }
+                )
+            }
 
-        composable(NavRoutes.InventoryUpload.route) {
-            val vm: InventoryUploadViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        InventoryUploadViewModel(
-                            uploadInventoryUseCase = container.uploadInventoryUseCase,
-                            getInventoryUseCase = container.getInventoryUseCase
-                        )
+            entry<NavKeys.SupplierOrderDetail> { key ->
+                val vm: SellerOrderDetailViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            SellerOrderDetailViewModel(
+                                orderId = key.orderId,
+                                getOrderDetailUseCase = container.getSupplierOrderDetailUseCase,
+                                confirmOrderUseCase = container.confirmSupplierOrderUseCase,
+                                reportShortageUseCase = container.reportSupplierOrderShortageUseCase,
+                                shipOrderUseCase = container.shipSupplierOrderUseCase,
+                                deliverOrderUseCase = container.deliverSupplierOrderUseCase
+                            )
+                        }
                     }
-                }
-            )
-            InventoryUploadScreen(
-                viewModel = vm,
-                onNavigateBack = { navController.popBackStack() }
-            )
+                )
+                SellerOrderDetailScreen(
+                    viewModel = vm,
+                    onNavigateBack = { navigator.goBack() }
+                )
+            }
         }
-
-        composable(NavRoutes.AddListing.route) {
-            val vm: DrugFormViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        DrugFormViewModel(
-                            createInventoryItemUseCase = container.createInventoryItemUseCase,
-                            updateListingUseCase = container.updateListingUseCase,
-                            getDrugsUseCase = container.getDrugsUseCase,
-                            createSupplierDrugUseCase = container.createSupplierDrugUseCase
-                        )
-                    }
-                }
-            )
-            DrugFormScreen(
-                viewModel = vm,
-                editingListingId = null,
-                onNavigateBack = { navController.popBackStack() },
-                onSaved = { navController.popBackStack() }
-            )
-        }
-
-        composable(
-            route = NavRoutes.EditListing.route,
-            arguments = listOf(navArgument("listingId") { type = NavType.StringType })
-        ) { backStack ->
-            val listingId = backStack.arguments?.getString("listingId") ?: return@composable
-            val vm: DrugFormViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        DrugFormViewModel(
-                            createInventoryItemUseCase = container.createInventoryItemUseCase,
-                            updateListingUseCase = container.updateListingUseCase,
-                            getDrugsUseCase = container.getDrugsUseCase,
-                            createSupplierDrugUseCase = container.createSupplierDrugUseCase
-                        )
-                    }
-                }
-            )
-            DrugFormScreen(
-                viewModel = vm,
-                editingListingId = listingId,
-                onNavigateBack = { navController.popBackStack() },
-                onSaved = { navController.popBackStack() }
-            )
-        }
-
-        composable(
-            route = NavRoutes.SellerDrugs.route,
-            arguments = listOf(navArgument("sellerId") { type = NavType.StringType })
-        ) { backStack ->
-            val sellerId = backStack.arguments?.getString("sellerId") ?: return@composable
-            val vm: SellerDrugsViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        SellerDrugsViewModel(
-                            getListingsUseCase = container.getCatalogSellerListingsUseCase,
-                            getAllSellersUseCase = container.getAllSellersUseCase
-                        )
-                    }
-                }
-            )
-            SellerDrugsScreen(
-                viewModel = vm,
-                sellerId = sellerId,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToCart = { navController.navigate(NavRoutes.Cart.route) },
-                onAddToCart = { listing -> cartViewModel.addToCart(listing) },
-                cartItemCount = cartState.cart.getTotalItems()
-            )
-        }
-
-        composable(NavRoutes.Cart.route) {
-            CartScreen(
-                viewModel = cartViewModel,
-                onNavigateBack = { navController.popBackStack() },
-                onOrderSuccess = { orderId ->
-                    navController.navigate(NavRoutes.OrderSuccess.createRoute(orderId)) {
-                        popUpTo(NavRoutes.Home.route)
-                    }
-                }
-            )
-        }
-
-        composable(
-            route = NavRoutes.OrderSuccess.route,
-            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
-        ) { backStack ->
-            val orderId = backStack.arguments?.getString("orderId") ?: ""
-            OrderSuccessScreen(
-                orderId = orderId,
-                onNavigateHome = {
-                    navController.navigate(NavRoutes.Home.route) {
-                        popUpTo(NavRoutes.Home.route) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        composable(NavRoutes.OrderMode.route) {
-            val vm: OrderModeViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        OrderModeViewModel(
-                            getSuppliersUseCase = container.getSuppliersUseCase,
-                            createOrderUseCase = container.createOrderUseCase
-                        )
-                    }
-                }
-            )
-            OrderModeScreen(
-                viewModel = vm,
-                onNavigateBack = { navController.popBackStack() },
-                onOrderCreated = { orderId, supplierId ->
-                    navController.navigate(NavRoutes.OrderItems.createRoute(orderId, supplierId)) {
-                        popUpTo(NavRoutes.OrderMode.route) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        composable(
-            route = NavRoutes.OrderItems.route,
-            arguments = listOf(
-                navArgument("orderId") { type = NavType.StringType },
-                navArgument("supplierId") { type = NavType.StringType; nullable = true; defaultValue = null }
-            )
-        ) { backStack ->
-            val orderId = backStack.arguments?.getString("orderId") ?: return@composable
-            val supplierId = backStack.arguments?.getString("supplierId")?.takeIf { it.isNotBlank() }
-            val vm: OrderItemsViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        OrderItemsViewModel(
-                            orderId = orderId,
-                            supplierId = supplierId,
-                            getDrugsUseCase = container.getDrugsUseCase,
-                            getSupplierInventoryUseCase = container.getSupplierInventoryUseCase,
-                            addOrderItemUseCase = container.addOrderItemUseCase,
-                            removeOrderItemUseCase = container.removeOrderItemUseCase,
-                            uploadOrderItemsUseCase = container.uploadOrderItemsUseCase,
-                            getOrderDetailUseCase = container.getOrderDetailUseCase
-                        )
-                    }
-                }
-            )
-            OrderItemsScreen(
-                viewModel = vm,
-                onNavigateBack = { navController.popBackStack() },
-                onReviewAndAllocate = {
-                    navController.navigate(NavRoutes.Allocation.createRoute(orderId, supplierId))
-                }
-            )
-        }
-
-        composable(
-            route = NavRoutes.Allocation.route,
-            arguments = listOf(
-                navArgument("orderId") { type = NavType.StringType },
-                navArgument("supplierId") { type = NavType.StringType; nullable = true; defaultValue = null }
-            )
-        ) { backStack ->
-            val orderId = backStack.arguments?.getString("orderId") ?: return@composable
-            val supplierId = backStack.arguments?.getString("supplierId")?.takeIf { it.isNotBlank() }
-            val vm: AllocationViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        AllocationViewModel(
-                            orderId = orderId,
-                            supplierId = supplierId,
-                            allocateOrderUseCase = container.allocateOrderUseCase,
-                            cancelOrderUseCase = container.cancelOrderUseCase
-                        )
-                    }
-                }
-            )
-            AllocationScreen(
-                viewModel = vm,
-                onNavigateBack = { navController.popBackStack() },
-                onConfirmed = { confirmedOrderId ->
-                    navController.navigate(NavRoutes.OrderDetail.createRoute(confirmedOrderId)) {
-                        popUpTo(NavRoutes.Home.route)
-                    }
-                },
-                onCancelled = {
-                    navController.navigate(NavRoutes.Home.route) {
-                        popUpTo(NavRoutes.Home.route)
-                    }
-                }
-            )
-        }
-
-        composable(
-            route = NavRoutes.OrderDetail.route,
-            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
-        ) { backStack ->
-            val orderId = backStack.arguments?.getString("orderId") ?: return@composable
-            val vm: OrderDetailViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        OrderDetailViewModel(
-                            orderId = orderId,
-                            getOrderDetailUseCase = container.getOrderDetailUseCase,
-                            resolveShortageUseCase = container.resolveShortageUseCase,
-                            cancelOrderUseCase = container.cancelOrderUseCase,
-                            deliverOrderUseCase = container.deliverOrderUseCase
-                        )
-                    }
-                }
-            )
-            OrderDetailScreen(
-                viewModel = vm,
-                onNavigateBack = { navController.popBackStack() },
-                onCancelled = { navController.popBackStack() }
-            )
-        }
-
-        composable(
-            route = NavRoutes.SupplierOrderDetail.route,
-            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
-        ) { backStack ->
-            val orderId = backStack.arguments?.getString("orderId") ?: return@composable
-            val vm: SellerOrderDetailViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        SellerOrderDetailViewModel(
-                            orderId = orderId,
-                            getOrderDetailUseCase = container.getSupplierOrderDetailUseCase,
-                            confirmOrderUseCase = container.confirmSupplierOrderUseCase,
-                            reportShortageUseCase = container.reportSupplierOrderShortageUseCase,
-                            shipOrderUseCase = container.shipSupplierOrderUseCase,
-                            deliverOrderUseCase = container.deliverSupplierOrderUseCase
-                        )
-                    }
-                }
-            )
-            SellerOrderDetailScreen(
-                viewModel = vm,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-    }
+    )
 }
 
 @Composable

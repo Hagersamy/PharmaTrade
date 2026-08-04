@@ -21,6 +21,7 @@ import com.pharmatrade.core.ui.theme.WarningAmber
 import com.pharmatrade.core.ui.theme.WarningAmberContainer
 
 // Maps a raw backend order status string to a (label, textColor, backgroundColor) triple.
+@Composable
 fun orderStatusLook(status: String): Triple<String, Color, Color> = when (status.lowercase()) {
     "draft" -> Triple("Draft", WarningAmber, WarningAmberContainer)
     "pending_supplier_confirmation" -> Triple("Pending", PrimaryBlue, PrimaryBlueContainer)

@@ -98,7 +98,7 @@ private fun OrderRow(order: PharmacyOrderSummary, onClick: () -> Unit) {
             ) {
                 Text(formatBackendTimestamp(order.date), style = MaterialTheme.typography.labelSmall, color = TextHint)
                 Text(
-                    "EGP ${formatDecimal(order.totalValue, 2)} · ${order.supplierCount} supplier${if (order.supplierCount == 1) "" else "s"}",
+                    "EGP ${formatDecimal(order.totalValue, 2)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = TextSecondary
                 )

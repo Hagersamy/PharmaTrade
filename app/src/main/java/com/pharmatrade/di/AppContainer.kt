@@ -13,6 +13,7 @@ import com.pharmatrade.feature.auth.data.repository.ZoneRepositoryImpl
 import com.pharmatrade.feature.auth.domain.repository.AuthRepository
 import com.pharmatrade.feature.auth.domain.repository.ZoneRepository
 import com.pharmatrade.feature.auth.domain.usecase.LoginUseCase
+import com.pharmatrade.feature.auth.domain.usecase.LogoutUseCase
 import com.pharmatrade.feature.auth.domain.usecase.RegisterUseCase
 import com.pharmatrade.feature.cart.data.repository.CartRepositoryImpl
 import com.pharmatrade.feature.cart.domain.repository.CartRepository
@@ -73,6 +74,7 @@ class AppContainer(context: Context) {
 
     // Auth use cases
     val loginUseCase by lazy { LoginUseCase(authRepository) }
+    val logoutUseCase by lazy { LogoutUseCase(authRepository) }
     val registerUseCase by lazy { RegisterUseCase(authRepository) }
 
     // Admin use cases

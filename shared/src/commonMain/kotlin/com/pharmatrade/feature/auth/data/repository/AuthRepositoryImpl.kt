@@ -156,6 +156,11 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun logout(): Result<Unit> {
+        try {
+            api.logout()
+        } catch (e: Exception) {
+            println("AuthRepo: LOGOUT api call failed (logging out locally anyway): ${e::class.simpleName}: ${e.message}")
+        }
         SessionManager.logout()
         return Result.Success(Unit)
     }

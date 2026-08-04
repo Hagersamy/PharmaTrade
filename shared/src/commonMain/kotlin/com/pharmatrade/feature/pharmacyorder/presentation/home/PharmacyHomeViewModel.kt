@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 // One draft order-in-progress per supplier the pharmacy has added items from —
 // lazily created on the first add, then reused (add-item-one-by-one) for the rest,
@@ -84,6 +86,13 @@ class PharmacyHomeViewModel(
     // the buyer re-adds items from that supplier later in this session.
     private val orderIdsBySupplier = mutableMapOf<String, String>()
 
+    // Guards the "get-or-create draft order for this supplier" check-then-act below: two rapid
+    // add-to-cart taps for different drugs from the same supplier each launch their own coroutine,
+    // and without this lock both could see orderIdsBySupplier[supplierId] == null at the same time
+    // and each POST a new draft order (one becomes the tracked cart, the other is orphaned as a
+    // stray draft that never gets allocated or cleaned up).
+    private val orderCreationMutex = Mutex()
+
     init {
         loadActiveOrdersCount()
         viewModelScope.launch {
@@ -92,11 +101,16 @@ class PharmacyHomeViewModel(
             loadNextCatalogPageSuspend()
             restoreCartFromDraftOrders()
         }
-        // Fires when a draft order gets confirmed or cancelled on the Allocation screen, which
-        // runs on a separate back-stack entry — that order id is no longer usable, so drop this
-        // supplier's local cart bookkeeping instead of trying to add more items to a dead order.
+        // Fires when a draft order gets confirmed or cancelled (checkout/allocation), which runs
+        // on a separate back-stack entry with no direct reference back to this ViewModel — drop
+        // this supplier's local cart bookkeeping (that order id is no longer usable) and refresh
+        // the active-orders count so it reflects the just-confirmed order without waiting for
+        // Home to be torn down and recreated.
         PharmacyCartBus.supplierOrderResolved
-            .onEach { supplierId -> clearSupplierCart(supplierId) }
+            .onEach { supplierId ->
+                clearSupplierCart(supplierId)
+                loadActiveOrdersCount()
+            }
             .launchIn(viewModelScope)
     }
 
@@ -213,7 +227,7 @@ class PharmacyHomeViewModel(
                 copy(
                     isLoadingCatalogFirstPage = false,
                     isLoadingCatalogMore = false,
-                    catalogItems = catalogItems + result.data.items,
+                    catalogItems = catalogItems + result.data.items.filter { it.effectivePrice > 0 },
                     catalogPage = result.data.currentPage,
                     catalogLastPage = result.data.lastPage
                 )
@@ -330,8 +344,10 @@ class PharmacyHomeViewModel(
         viewModelScope.launch {
             update { copy(processingItemIds = processingItemIds + item.id, catalogActionError = null) }
 
-            val orderId = orderIdsBySupplier[item.supplierId] ?: run {
-                when (val created = createOrderUseCase(OrderMode.SPECIFIC_SUPPLIER)) {
+            val orderId = orderIdsBySupplier[item.supplierId] ?: orderCreationMutex.withLock {
+                // Re-check after acquiring the lock: another coroutine may have created and
+                // stored the draft order for this supplier while this one was waiting.
+                orderIdsBySupplier[item.supplierId] ?: when (val created = createOrderUseCase(OrderMode.SPECIFIC_SUPPLIER)) {
                     is Result.Success -> created.data.id.also { orderIdsBySupplier[item.supplierId] = it }
                     is Result.Error -> {
                         update { copy(processingItemIds = processingItemIds - item.id, catalogActionError = created.message) }

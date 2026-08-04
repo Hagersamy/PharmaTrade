@@ -33,6 +33,11 @@ fun HomeScreen(
     orderListViewModel: OrderListViewModel,
     sellerOrdersViewModel: SellerOrdersViewModel,
     profileViewModel: ProfileViewModel,
+    // Hoisted to the caller (rather than kept as internal state) so that a system/predictive
+    // back press — handled above this screen, at the nav-graph level — can react to which tab
+    // is showing: switch back to the Home tab first, and only pop/exit once already on it.
+    selectedTab: HomeTab,
+    onTabSelected: (HomeTab) -> Unit,
     onNavigateToNotifications: () -> Unit,
     onNavigateToSearch: () -> Unit,
     onNavigateToUploadInventory: () -> Unit,
@@ -46,7 +51,6 @@ fun HomeScreen(
 ) {
     val currentUser by SessionManager.currentUser.collectAsStateWithLifecycle()
     val pharmacyHomeState by pharmacyHomeViewModel.uiState.collectAsStateWithLifecycle()
-    var selectedTab by remember { mutableStateOf(HomeTab.HOME) }
     val isSeller = currentUser?.userType == UserType.SELLER
 
     Scaffold(
@@ -60,7 +64,7 @@ fun HomeScreen(
         bottomBar = {
             HomeBottomBar(
                 selectedTab = selectedTab,
-                onTabSelected = { selectedTab = it },
+                onTabSelected = onTabSelected,
                 isSeller = isSeller,
                 ordersBadgeCount = if (isSeller) 0 else pharmacyHomeState.activeOrdersTotal,
                 cartBadgeCount = if (isSeller) 0 else pharmacyHomeState.totalCartItems
