@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- dev-flavor only: the ngrok tunnel used for local/dev backend testing is plain http, which
+     Android blocks by default (targetSdk 35). Prod's build has no such config, so its https
+     backend stays subject to the default cleartext-blocked behavior. -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">unbuckled-word-defuse.ngrok-free.dev</domain>
+    </domain-config>
+</network-security-config>
