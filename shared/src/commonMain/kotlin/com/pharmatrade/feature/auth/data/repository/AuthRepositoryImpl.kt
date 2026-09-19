@@ -3,6 +3,7 @@ package com.pharmatrade.feature.auth.data.repository
 import com.pharmatrade.core.common.model.User
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.result.Result
+import com.pharmatrade.core.common.push.currentDeviceToken
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.core.io.PlatformFileReader
 import com.pharmatrade.core.network.FormFile
@@ -12,6 +13,7 @@ import com.pharmatrade.feature.auth.domain.repository.AuthRepository
 import io.ktor.client.network.sockets.SocketTimeoutException
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
@@ -26,7 +28,11 @@ class AuthRepositoryImpl(
     override suspend fun login(phone: String, password: String): Result<User> {
         return try {
             println("AuthRepo: LOGIN → phone=$phone, password=[${password.length} chars]")
-            val response = api.login(LoginRequest(phone = phone, password = password))
+            // Refreshes the backend's stored device_token on every login, since that's the only
+            // contract the backend exposes for it (see currentDeviceToken doc) — a token rotation
+            // in between logins won't reach the backend until the next one.
+            val deviceToken = withTimeoutOrNull(5000) { currentDeviceToken() } ?: ""
+            val response = api.login(LoginRequest(phone = phone, password = password, deviceToken = deviceToken))
             val userDto = response.data?.user ?: response.userRaw
             ?: run {
                 println("AuthRepo: LOGIN failed: backend returned no user | errorMessage=${response.errorMessage}")
@@ -74,6 +80,10 @@ class AuthRepositoryImpl(
             if (licenceBackUri != null && backPart == null)
                 return Result.Error("Could not read licence back image. Please pick it again.")
 
+            // Bounded so a stalled Firebase token fetch (e.g. no connectivity) can never hang
+            // registration itself — the account is just created without a push target this time.
+            val deviceToken = withTimeoutOrNull(5000) { currentDeviceToken() } ?: ""
+
             val response = if (userType == UserType.BUYER) {
                 println(
                     "AuthRepo: registerPharmacy REQUEST:" +
@@ -94,7 +104,7 @@ class AuthRepositoryImpl(
                     businessName = businessName,
                     licenceNumber = licenceNumber ?: "",
                     address = address ?: "",
-                    deviceToken = "",
+                    deviceToken = deviceToken,
                     zoneIds = zoneIds,
                     licenceImage = frontPart,
                     licenceImageBack = backPart
@@ -123,7 +133,7 @@ class AuthRepositoryImpl(
                     address = address ?: "",
                     minOrderValue = minOrderValue ?: "0",
                     minOrderQty = minOrderQty ?: "0",
-                    deviceToken = "",
+                    deviceToken = deviceToken,
                     zoneIds = zoneIds,
                     licenceImage = frontPart,
                     licenceImageBack = backPart

@@ -2,6 +2,8 @@ package com.pharmatrade.feature.seller.presentation.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.Seller
 import com.pharmatrade.core.common.model.User
 import com.pharmatrade.core.common.result.Result
@@ -57,7 +59,13 @@ class SellerDashboardViewModel(
     val uiState: StateFlow<SellerDashboardUiState> = _uiState.asStateFlow()
 
     init {
-        loadData()
+        // Deliberately does NOT call loadData() here. AppNavigation's entry<NavKeys.Home> attaches
+        // a lifecycle observer that calls loadData() on ON_RESUME — and since the Activity is
+        // already RESUMED by the time Home composes (this ViewModel is only ever constructed
+        // there), attaching that observer synchronously replays ON_RESUME once immediately, which
+        // covers first load on its own. Calling loadData() here too used to double every request
+        // this VM makes on startup.
+
         // Fires as soon as InventoryUploadViewModel's background poll detects the backend has
         // finished processing an uploaded file — refreshes Home even before the user navigates
         // back, instead of relying solely on the screen becoming visible again.
@@ -84,7 +92,7 @@ class SellerDashboardViewModel(
 
             val seller = (profileResult as? Result.Success)?.data ?: fallbackSeller(currentUser)
             val inventory = (inventoryResult as? Result.Success)?.data
-            val error = (inventoryResult as? Result.Error)?.message
+            val error = (inventoryResult as? Result.Error)?.message?.let { LanguageManager.strings.friendlyError(it) }
 
             println(
                 "$TAG: loadData() result: items=${inventory?.items?.size}, totalItems=${inventory?.totalItems}, " +
@@ -165,7 +173,9 @@ class SellerDashboardViewModel(
                     )
                 }
                 is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(snackbarMessage = result.message)
+                    _uiState.value = _uiState.value.copy(
+                        snackbarMessage = LanguageManager.strings.friendlyError(result.message)
+                    )
                 }
                 else -> Unit
             }
@@ -200,13 +210,13 @@ class SellerDashboardViewModel(
         val state = _uiState.value
         val item = state.editingItem ?: return
         val quantity = state.editQuantityInput.toIntOrNull() ?: run {
-            _uiState.value = state.copy(editError = "Enter a valid quantity"); return
+            _uiState.value = state.copy(editError = LanguageManager.strings.errorInvalidQuantity); return
         }
         val price = state.editPriceInput.toDoubleOrNull() ?: run {
-            _uiState.value = state.copy(editError = "Enter a valid price"); return
+            _uiState.value = state.copy(editError = LanguageManager.strings.errorInvalidPrice); return
         }
         val discount = state.editDiscountInput.toDoubleOrNull() ?: run {
-            _uiState.value = state.copy(editError = "Enter a valid discount"); return
+            _uiState.value = state.copy(editError = LanguageManager.strings.errorInvalidDiscount); return
         }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSavingEdit = true, editError = null)
@@ -226,7 +236,7 @@ class SellerDashboardViewModel(
                 )
                 is Result.Error -> _uiState.value = _uiState.value.copy(
                     isSavingEdit = false,
-                    editError = result.message
+                    editError = LanguageManager.strings.friendlyError(result.message)
                 )
                 else -> _uiState.value = _uiState.value.copy(isSavingEdit = false)
             }

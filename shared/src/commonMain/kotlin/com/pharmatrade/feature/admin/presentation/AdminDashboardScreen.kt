@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
+import com.pharmatrade.core.common.i18n.Strings
 import com.pharmatrade.core.common.model.User
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.session.SessionManager
@@ -43,11 +45,13 @@ fun AdminDashboardScreen(
     viewModel: AdminDashboardViewModel,
     analyticsViewModel: AnalyticsViewModel,
     profileViewModel: ProfileViewModel,
+    unreadNotificationCount: Int,
     onNavigateToNotifications: () -> Unit,
     onLogout: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentUser by SessionManager.currentUser.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
     val snackbarHostState = remember { SnackbarHostState() }
     var dest by remember { mutableStateOf(AdminDest.HOME) }
     var requestsTab by remember { mutableStateOf(RequestsTab.PHARMACIES) }
@@ -66,11 +70,12 @@ fun AdminDashboardScreen(
         topBar = {
             AdminTopBar(
                 title = when (dest) {
-                    AdminDest.HOME      -> "Dashboard"
-                    AdminDest.REQUESTS  -> "Registration Requests"
-                    AdminDest.ANALYTICS -> "Analytics"
-                    AdminDest.PROFILE   -> "Profile"
+                    AdminDest.HOME      -> strings.adDashboardTitle
+                    AdminDest.REQUESTS  -> strings.adRegistrationRequestsTitle
+                    AdminDest.ANALYTICS -> strings.navAnalytics
+                    AdminDest.PROFILE   -> strings.navProfile
                 },
+                unreadNotificationCount = unreadNotificationCount,
                 onNotificationsClick = onNavigateToNotifications
             )
         },
@@ -80,7 +85,7 @@ fun AdminDashboardScreen(
                     selected = dest == AdminDest.HOME,
                     onClick = { dest = AdminDest.HOME },
                     icon = { Icon(Icons.Filled.Home, null) },
-                    label = { Text("Home") },
+                    label = { Text(strings.navHome) },
                     colors = NavigationBarItemDefaults.colors(indicatorColor = PrimaryBlueContainer)
                 )
                 NavigationBarItem(
@@ -95,7 +100,7 @@ fun AdminDashboardScreen(
                             Icon(Icons.Filled.HowToReg, null)
                         }
                     },
-                    label = { Text("Requests") },
+                    label = { Text(strings.navRequests) },
                     colors = NavigationBarItemDefaults.colors(indicatorColor = PrimaryBlueContainer)
                 )
                 NavigationBarItem(
@@ -105,14 +110,14 @@ fun AdminDashboardScreen(
                         analyticsViewModel.refresh()
                     },
                     icon = { Icon(Icons.Filled.Analytics, null) },
-                    label = { Text("Analytics") },
+                    label = { Text(strings.navAnalytics) },
                     colors = NavigationBarItemDefaults.colors(indicatorColor = PrimaryBlueContainer)
                 )
                 NavigationBarItem(
                     selected = dest == AdminDest.PROFILE,
                     onClick = { dest = AdminDest.PROFILE },
                     icon = { Icon(Icons.Filled.Person, null) },
-                    label = { Text("Profile") },
+                    label = { Text(strings.navProfile) },
                     colors = NavigationBarItemDefaults.colors(indicatorColor = PrimaryBlueContainer)
                 )
             }
@@ -162,9 +167,11 @@ fun AdminDashboardScreen(
 @Composable
 private fun AdminTopBar(
     title: String,
+    unreadNotificationCount: Int,
     onNotificationsClick: () -> Unit
 ) {
-    Surface(shadowElevation = 4.dp, color = PrimaryBlue) {
+    val strings = LocalStrings.current
+    Surface(shadowElevation = 4.dp, color = TopBarContainer) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -175,19 +182,25 @@ private fun AdminTopBar(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Admin Panel",
+                    text = strings.adminPanel,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.75f)
+                    color = TopBarContent.copy(alpha = 0.75f)
                 )
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = TopBarContent
                 )
             }
             IconButton(onClick = onNotificationsClick) {
-                Icon(Icons.Filled.Notifications, null, tint = Color.White)
+                BadgedBox(
+                    badge = {
+                        if (unreadNotificationCount > 0) Badge { Text("$unreadNotificationCount") }
+                    }
+                ) {
+                    Icon(Icons.Filled.Notifications, null, tint = TopBarContent)
+                }
             }
         }
     }
@@ -207,6 +220,7 @@ private fun RequestsContent(
     onReject: (PendingUser, String) -> Unit,
     onRefresh: () -> Unit
 ) {
+    val strings = LocalStrings.current
     Column(modifier = Modifier.fillMaxSize()) {
         PrimaryTabRow(
             selectedTabIndex = if (selectedTab == RequestsTab.PHARMACIES) 0 else 1,
@@ -221,7 +235,7 @@ private fun RequestsContent(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text("Pharmacies")
+                        Text(strings.adPharmaciesTab)
                         if (pendingPharmacies.isNotEmpty()) {
                             Surface(shape = CircleShape, color = PrimaryBlue) {
                                 Text(
@@ -244,7 +258,7 @@ private fun RequestsContent(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text("Suppliers")
+                        Text(strings.adSuppliersTab)
                         if (pendingSuppliers.isNotEmpty()) {
                             Surface(shape = CircleShape, color = WarningAmber) {
                                 Text(
@@ -262,7 +276,7 @@ private fun RequestsContent(
         }
         when (selectedTab) {
             RequestsTab.PHARMACIES -> PendingListContent(
-                label = "pharmacy",
+                emptyMessage = strings.adNoPendingPharmacies,
                 list = pendingPharmacies,
                 isLoading = isLoading,
                 onApprove = onApprove,
@@ -270,7 +284,7 @@ private fun RequestsContent(
                 onRefresh = onRefresh
             )
             RequestsTab.SUPPLIERS -> PendingListContent(
-                label = "supplier",
+                emptyMessage = strings.adNoPendingSuppliers,
                 list = pendingSuppliers,
                 isLoading = isLoading,
                 onApprove = onApprove,
@@ -290,6 +304,7 @@ private fun AdminHomeContent(
     onSuppliersClick: () -> Unit
 ) {
     val currentUser by SessionManager.currentUser.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
     val today = remember { formatTodayLabel() }
     val recent = remember(uiState.pendingPharmacies, uiState.pendingSuppliers) {
         (uiState.pendingPharmacies + uiState.pendingSuppliers).take(5)
@@ -319,12 +334,12 @@ private fun AdminHomeContent(
                 ) {
                     Column {
                         Text(
-                            text = "Welcome back,",
+                            text = strings.adWelcomeBack,
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.8f)
                         )
                         Text(
-                            text = currentUser?.name ?: "Admin",
+                            text = currentUser?.name ?: strings.adAdminFallbackName,
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -362,7 +377,7 @@ private fun AdminHomeContent(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     StatCard(
                         icon = Icons.Filled.Group,
-                        label = "Total Registered",
+                        label = strings.adTotalRegistered,
                         value = uiState.totalRegistered.toString(),
                         tint = PrimaryBlue,
                         bg = PrimaryBlueContainer,
@@ -370,7 +385,7 @@ private fun AdminHomeContent(
                     )
                     StatCard(
                         icon = Icons.Filled.HourglassTop,
-                        label = "Pending Approval",
+                        label = strings.adPendingApproval,
                         value = totalPending.toString(),
                         tint = WarningAmber,
                         bg = WarningAmberContainer,
@@ -380,7 +395,7 @@ private fun AdminHomeContent(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     StatCard(
                         icon = Icons.Filled.CheckCircle,
-                        label = "Approved This Month",
+                        label = strings.adApprovedThisMonth,
                         value = uiState.approvedThisMonth.toString(),
                         tint = SecondaryGreen,
                         bg = SecondaryGreenContainer,
@@ -388,7 +403,7 @@ private fun AdminHomeContent(
                     )
                     StatCard(
                         icon = Icons.Filled.Verified,
-                        label = "Active Users",
+                        label = strings.adActiveUsers,
                         value = uiState.activeUsers.toString(),
                         tint = PrimaryBlue,
                         bg = PrimaryBlueContainer,
@@ -400,13 +415,13 @@ private fun AdminHomeContent(
 
         // Pending approvals section
         item {
-            HomeSectionHeader(title = "Pending Approvals")
+            HomeSectionHeader(title = strings.adPendingApprovalsSection)
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PendingSummaryCard(
                     icon = Icons.Filled.LocalPharmacy,
-                    label = "Pharmacies",
+                    label = strings.adPharmaciesTab,
                     count = uiState.pendingPharmacies.size,
                     tint = PrimaryBlue,
                     bg = PrimaryBlueContainer,
@@ -415,7 +430,7 @@ private fun AdminHomeContent(
                 )
                 PendingSummaryCard(
                     icon = Icons.Filled.Inventory,
-                    label = "Suppliers",
+                    label = strings.adSuppliersTab,
                     count = uiState.pendingSuppliers.size,
                     tint = WarningAmber,
                     bg = WarningAmberContainer,
@@ -428,7 +443,7 @@ private fun AdminHomeContent(
         // Recent registrations
         if (recent.isNotEmpty()) {
             item {
-                HomeSectionHeader(title = "Recent Registrations")
+                HomeSectionHeader(title = strings.adRecentRegistrationsSection)
             }
             items(recent, key = { it.id }) { user ->
                 RecentRegistrationRow(user = user)
@@ -552,6 +567,7 @@ private fun HomeSectionHeader(title: String) {
 
 @Composable
 private fun RecentRegistrationRow(user: PendingUser) {
+    val strings = LocalStrings.current
     val isPharmacy = user.userType == UserType.BUYER
     val accentColor = if (isPharmacy) PrimaryBlue else WarningAmber
     val accentBg = if (isPharmacy) PrimaryBlueContainer else WarningAmberContainer
@@ -598,7 +614,7 @@ private fun RecentRegistrationRow(user: PendingUser) {
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Surface(shape = RoundedCornerShape(20.dp), color = accentBg) {
                     Text(
-                        text = if (isPharmacy) "Pharmacy" else "Supplier",
+                        text = if (isPharmacy) strings.commonPharmacy else strings.commonSupplier,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = accentColor,
@@ -607,7 +623,7 @@ private fun RecentRegistrationRow(user: PendingUser) {
                 }
                 Surface(shape = RoundedCornerShape(20.dp), color = WarningAmberContainer) {
                     Text(
-                        text = "Pending",
+                        text = strings.adPendingLabel,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = WarningAmber,
@@ -623,13 +639,14 @@ private fun RecentRegistrationRow(user: PendingUser) {
 
 @Composable
 private fun PendingListContent(
-    label: String,
+    emptyMessage: String,
     list: List<PendingUser>,
     isLoading: Boolean,
     onApprove: (PendingUser) -> Unit,
     onReject: (PendingUser, String) -> Unit,
     onRefresh: () -> Unit
 ) {
+    val strings = LocalStrings.current
     if (isLoading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = PrimaryBlue)
@@ -639,14 +656,14 @@ private fun PendingListContent(
 
     if (list.isEmpty()) {
         EmptyState(
-            title = "All Clear!",
-            message = "No pending ${label}s to review",
+            title = strings.adAllClearTitle,
+            message = emptyMessage,
             icon = Icons.Filled.CheckCircle,
             action = {
                 OutlinedButton(onClick = onRefresh) {
                     Icon(Icons.Filled.Refresh, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Refresh")
+                    Text(strings.adRefresh)
                 }
             }
         )
@@ -672,6 +689,7 @@ private fun PendingUserCard(
     onApprove: (PendingUser) -> Unit,
     onReject: (reason: String) -> Unit
 ) {
+    val strings = LocalStrings.current
     var showRejectDialog by remember { mutableStateOf(false) }
     var rejectReason by remember { mutableStateOf("") }
 
@@ -679,19 +697,19 @@ private fun PendingUserCard(
         AlertDialog(
             onDismissRequest = { showRejectDialog = false },
             icon = { Icon(Icons.Filled.Cancel, null, tint = ErrorRed) },
-            title = { Text("Reject Registration") },
+            title = { Text(strings.adRejectRegistrationTitle) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Please provide a reason for rejecting ${user.name}.",
+                        text = strings.adRejectReasonPrompt(user.name),
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )
                     OutlinedTextField(
                         value = rejectReason,
                         onValueChange = { rejectReason = it },
-                        label = { Text("Reason *") },
-                        placeholder = { Text("e.g. Licence image is unclear. Please resubmit.") },
+                        label = { Text(strings.adReasonRequiredLabel) },
+                        placeholder = { Text(strings.adReasonPlaceholder) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
                         minLines = 3,
@@ -702,7 +720,7 @@ private fun PendingUserCard(
                         )
                     )
                     if (rejectReason.isEmpty()) {
-                        Text("A reason is required", style = MaterialTheme.typography.labelSmall, color = ErrorRed)
+                        Text(strings.adReasonRequiredError, style = MaterialTheme.typography.labelSmall, color = ErrorRed)
                     }
                 }
             },
@@ -717,10 +735,10 @@ private fun PendingUserCard(
                     },
                     enabled = rejectReason.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
-                ) { Text("Reject") }
+                ) { Text(strings.adReject) }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showRejectDialog = false; rejectReason = "" }) { Text("Cancel") }
+                OutlinedButton(onClick = { showRejectDialog = false; rejectReason = "" }) { Text(strings.commonCancel) }
             }
         )
     }
@@ -728,7 +746,7 @@ private fun PendingUserCard(
     val isPharmacy = user.userType == UserType.BUYER
     val accentColor = if (isPharmacy) PrimaryBlue else WarningAmber
     val accentBg    = if (isPharmacy) PrimaryBlueContainer else WarningAmberContainer
-    val typeLabel   = if (isPharmacy) "Pharmacy" else "Supplier"
+    val typeLabel   = if (isPharmacy) strings.commonPharmacy else strings.commonSupplier
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -776,34 +794,34 @@ private fun PendingUserCard(
             }
 
             // ── Account Details ─────────────────────────────────────────────
-            CardSection(title = "Account Details") {
-                InfoRow(Icons.Filled.Person,     "Full Name",     user.name)
-                InfoRow(Icons.Filled.Business,   "Business Name", user.businessName)
-                InfoRow(Icons.Filled.Phone,      "Phone",         user.phone)
+            CardSection(title = strings.adAccountDetailsSection) {
+                InfoRow(Icons.Filled.Person,     strings.adFullName,          user.name)
+                InfoRow(Icons.Filled.Business,   strings.profileBusinessName, user.businessName)
+                InfoRow(Icons.Filled.Phone,      strings.profilePhone,        user.phone)
                 if (user.email.isNotBlank())
-                    InfoRow(Icons.Filled.Email,  "Email",         user.email)
+                    InfoRow(Icons.Filled.Email,  strings.profileEmail,        user.email)
                 user.licenceNumber?.takeIf { it.isNotBlank() }?.let {
-                    InfoRow(Icons.Filled.Badge, "Licence No.", it)
+                    InfoRow(Icons.Filled.Badge, strings.adLicenceNo, it)
                 }
                 user.zoneId?.takeIf { it.isNotBlank() }?.let {
-                    InfoRow(Icons.Filled.LocationCity, "Zone ID", it)
+                    InfoRow(Icons.Filled.LocationCity, strings.adZoneId, it)
                 }
                 user.address?.takeIf { it.isNotBlank() }?.let {
-                    InfoRow(Icons.Filled.LocationOn, "Address", it)
+                    InfoRow(Icons.Filled.LocationOn, strings.profileAddress, it)
                 }
             }
 
             // ── Licence Images ──────────────────────────────────────────────
-            CardSection(title = "Licence Images") {
+            CardSection(title = strings.adLicenceImagesSection) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     LicenceImageBox(
                         url = user.licenceFrontUrl,
-                        label = "Front",
+                        label = strings.adFrontLabel,
                         modifier = Modifier.weight(1f)
                     )
                     LicenceImageBox(
                         url = user.licenceBackUrl,
-                        label = "Back",
+                        label = strings.adBackLabel,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -811,14 +829,14 @@ private fun PendingUserCard(
 
             // ── Supplier Details (SELLER only) ──────────────────────────────
             if (user.userType == UserType.SELLER) {
-                CardSection(title = "Supplier Details") {
+                CardSection(title = strings.adSupplierDetailsSection) {
                     if (!user.minOrderValue.isNullOrBlank())
-                        InfoRow(Icons.Filled.Payments,  "Min Order Value", "EGP ${user.minOrderValue}")
+                        InfoRow(Icons.Filled.Payments,  strings.profileMinOrderValue, "EGP ${user.minOrderValue}")
                     user.minOrderQty?.takeIf { it.isNotBlank() }?.let {
-                        InfoRow(Icons.Filled.Inventory2, "Min Order Qty", it)
+                        InfoRow(Icons.Filled.Inventory2, strings.profileMinOrderQty, it)
                     }
                     if (user.additionalZoneIds.isNotEmpty())
-                        InfoRow(Icons.Filled.Map, "Delivery Zones",
+                        InfoRow(Icons.Filled.Map, strings.adDeliveryZones,
                             user.additionalZoneIds.joinToString(", "))
                 }
             }
@@ -836,7 +854,7 @@ private fun PendingUserCard(
                 ) {
                     Icon(Icons.Filled.Close, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Reject", fontWeight = FontWeight.SemiBold)
+                    Text(strings.adReject, fontWeight = FontWeight.SemiBold)
                 }
                 Button(
                     onClick = { onApprove(user) },
@@ -846,7 +864,7 @@ private fun PendingUserCard(
                 ) {
                     Icon(Icons.Filled.Check, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Approve", fontWeight = FontWeight.SemiBold)
+                    Text(strings.adApprove, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -874,6 +892,7 @@ private fun CardSection(title: String, content: @Composable ColumnScope.() -> Un
 
 @Composable
 private fun LicenceImageBox(url: String?, label: String, modifier: Modifier = Modifier) {
+    val strings = LocalStrings.current
     Column(modifier = modifier) {
         Text(
             text = label,
@@ -892,7 +911,7 @@ private fun LicenceImageBox(url: String?, label: String, modifier: Modifier = Mo
             if (!url.isNullOrBlank()) {
                 coil3.compose.SubcomposeAsyncImage(
                     model = url,
-                    contentDescription = "Licence $label",
+                    contentDescription = strings.adLicenceContentDescription(label),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
                     loading = {
@@ -908,7 +927,7 @@ private fun LicenceImageBox(url: String?, label: String, modifier: Modifier = Mo
                         ) {
                             Icon(Icons.Filled.BrokenImage, null, tint = ErrorRed, modifier = Modifier.size(24.dp))
                             Spacer(Modifier.height(4.dp))
-                            Text("Failed to load", style = MaterialTheme.typography.labelSmall, color = ErrorRed)
+                            Text(strings.adFailedToLoad, style = MaterialTheme.typography.labelSmall, color = ErrorRed)
                         }
                     }
                 )
@@ -924,7 +943,7 @@ private fun LicenceImageBox(url: String?, label: String, modifier: Modifier = Mo
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Not uploaded",
+                        strings.adNotUploaded,
                         style = MaterialTheme.typography.labelSmall,
                         color = TextHint
                     )

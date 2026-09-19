@@ -23,7 +23,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.AppLanguage
+import com.pharmatrade.core.common.i18n.LanguageManager
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.model.User
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.ui.components.PharmaButton
@@ -36,17 +40,12 @@ import kotlinx.coroutines.delay
 @Composable
 fun ProfileScreen(viewModel: ProfileViewModel, user: User?, onLogout: () -> Unit) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
 
     LaunchedEffect(uiState.successMessage) {
         if (uiState.successMessage != null) {
             delay(2500)
             viewModel.clearSuccessMessage()
-        }
-    }
-
-    LaunchedEffect(uiState.accountDeactivated) {
-        if (uiState.accountDeactivated) {
-            onLogout()
         }
     }
 
@@ -136,33 +135,33 @@ fun ProfileScreen(viewModel: ProfileViewModel, user: User?, onLogout: () -> Unit
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Account Info",
+                        strings.profileAccountInfo,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
                     IconButton(onClick = viewModel::openEditProfileDialog, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit profile", tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Filled.Edit, contentDescription = strings.profileEditProfile, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
                     }
                 }
                 Divider(color = DividerGray)
-                ProfileRow(Icons.Filled.Email, "Email", user?.email ?: "—")
-                ProfileRow(Icons.Filled.Phone, "Phone", user?.phone ?: "—")
+                ProfileRow(Icons.Filled.Email, strings.profileEmail, user?.email ?: "—")
+                ProfileRow(Icons.Filled.Phone, strings.profilePhone, user?.phone ?: "—")
                 ProfileRow(
                     Icons.Filled.Business,
-                    "Business Name",
+                    strings.profileBusinessName,
                     user?.businessName.takeIf { !it.isNullOrBlank() } ?: "—"
                 )
                 if (!user?.licenceNumber.isNullOrBlank()) {
-                    ProfileRow(Icons.Filled.Badge, "Licence Number", user?.licenceNumber!!)
+                    ProfileRow(Icons.Filled.Badge, strings.profileLicenceNumber, user?.licenceNumber!!)
                 }
                 if (!user?.address.isNullOrBlank()) {
-                    ProfileRow(Icons.Filled.LocationOn, "Address", user?.address!!)
+                    ProfileRow(Icons.Filled.LocationOn, strings.profileAddress, user?.address!!)
                 }
                 TextButton(onClick = viewModel::openChangePasswordDialog, contentPadding = PaddingValues(0.dp)) {
                     Icon(Icons.Filled.Lock, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Change Password", color = PrimaryBlue)
+                    Text(strings.profileChangePassword, color = PrimaryBlue)
                 }
             }
         }
@@ -184,35 +183,35 @@ fun ProfileScreen(viewModel: ProfileViewModel, user: User?, onLogout: () -> Unit
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "Supplier Info",
+                            strings.profileSupplierInfo,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
                         IconButton(onClick = viewModel::openEditSupplierDialog, modifier = Modifier.size(28.dp)) {
-                            Icon(Icons.Filled.Edit, contentDescription = "Edit supplier info", tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Filled.Edit, contentDescription = strings.profileEditSupplierInfo, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
                         }
                     }
                     Divider(color = DividerGray)
                     if (!user.minOrderValue.isNullOrBlank()) {
-                        ProfileRow(Icons.Filled.Payments, "Min Order Value", "EGP ${user.minOrderValue}")
+                        ProfileRow(Icons.Filled.Payments, strings.profileMinOrderValue, "EGP ${user.minOrderValue}")
                     }
                     if (!user.minOrderQty.isNullOrBlank()) {
-                        ProfileRow(Icons.Filled.Inventory2, "Min Order Qty", user.minOrderQty!!)
+                        ProfileRow(Icons.Filled.Inventory2, strings.profileMinOrderQty, user.minOrderQty!!)
                     }
                     if (uiState.supplierZones.isNotEmpty()) {
                         Column {
-                            Text("Delivery Zones", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                            Text(strings.profileDeliveryZones, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                             Spacer(Modifier.height(6.dp))
                             ZoneChipsRow(uiState.supplierZones.map { it.name })
                         }
                     } else if (!user.zoneId.isNullOrBlank()) {
-                        ProfileRow(Icons.Filled.LocationCity, "Primary Zone", user.zoneId!!)
+                        ProfileRow(Icons.Filled.LocationCity, strings.profilePrimaryZone, user.zoneId!!)
                     }
                     TextButton(onClick = viewModel::openRequestZoneDialog, contentPadding = PaddingValues(0.dp)) {
                         Icon(Icons.Filled.EditLocationAlt, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Request Zone Change", color = PrimaryBlue)
+                        Text(strings.profileRequestZoneChange, color = PrimaryBlue)
                     }
                 }
             }
@@ -229,21 +228,16 @@ fun ProfileScreen(viewModel: ProfileViewModel, user: User?, onLogout: () -> Unit
             )
         }
 
+        LanguageCard()
+
         Spacer(Modifier.height(8.dp))
 
         PharmaButton(
-            text = "Sign Out",
+            text = strings.profileSignOut,
             onClick = onLogout,
             modifier = Modifier.fillMaxWidth(),
             containerColor = ErrorRed
         )
-
-        TextButton(
-            onClick = viewModel::openDeactivateDialog,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Deactivate Account", color = ErrorRed)
-        }
     }
 
     if (uiState.showEditProfileDialog) {
@@ -257,9 +251,6 @@ fun ProfileScreen(viewModel: ProfileViewModel, user: User?, onLogout: () -> Unit
     }
     if (uiState.showEditBranchDialog) {
         EditBranchDialog(uiState, viewModel)
-    }
-    if (uiState.showDeactivateDialog) {
-        DeactivateAccountDialog(uiState, viewModel)
     }
     if (uiState.showRequestZoneDialog) {
         RequestZoneDialog(uiState, viewModel)
@@ -275,6 +266,7 @@ private fun BranchLocationCard(
     onEdit: () -> Unit,
     onRequestZoneChange: () -> Unit
 ) {
+    val strings = LocalStrings.current
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
@@ -291,13 +283,13 @@ private fun BranchLocationCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Branch & Location",
+                    strings.profileBranchLocation,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
                 IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit branch info", tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Filled.Edit, contentDescription = strings.profileEditBranchInfo, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
                 }
             }
             Divider(color = DividerGray)
@@ -313,17 +305,17 @@ private fun BranchLocationCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Could not load branch details.", style = MaterialTheme.typography.bodySmall, color = ErrorRed, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onRetry, contentPadding = PaddingValues(0.dp)) { Text("Retry") }
+                    Text(strings.profileBranchLoadError, style = MaterialTheme.typography.bodySmall, color = ErrorRed, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onRetry, contentPadding = PaddingValues(0.dp)) { Text(strings.commonRetry) }
                 }
                 branch != null -> {
-                    ProfileRow(Icons.Filled.Storefront, "Branch Name", branch.name.ifBlank { "—" })
+                    ProfileRow(Icons.Filled.Storefront, strings.profileBranchName, branch.name.ifBlank { "—" })
                     if (branch.address.isNotBlank()) {
-                        ProfileRow(Icons.Filled.LocationOn, "Address", branch.address)
+                        ProfileRow(Icons.Filled.LocationOn, strings.profileAddress, branch.address)
                     }
                     if (branch.zones.isNotEmpty()) {
                         Column {
-                            Text("Delivery Zones", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                            Text(strings.profileDeliveryZones, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                             Spacer(Modifier.height(6.dp))
                             ZoneChipsRow(branch.zones.map { it.name })
                         }
@@ -331,7 +323,7 @@ private fun BranchLocationCard(
                     TextButton(onClick = onRequestZoneChange, contentPadding = PaddingValues(0.dp)) {
                         Icon(Icons.Filled.EditLocationAlt, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Request Zone Change", color = PrimaryBlue)
+                        Text(strings.profileRequestZoneChange, color = PrimaryBlue)
                     }
                 }
             }
@@ -361,6 +353,72 @@ private fun ZoneChipsRow(zoneNames: List<String>) {
 }
 
 @Composable
+private fun LanguageCard() {
+    val strings = LocalStrings.current
+    val currentLanguage by LanguageManager.language.collectAsState()
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                strings.profileLanguage,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+            Divider(color = DividerGray)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                LanguageOption(
+                    label = strings.profileLanguageEnglish,
+                    selected = currentLanguage == AppLanguage.ENGLISH,
+                    onClick = { LanguageManager.setLanguage(AppLanguage.ENGLISH) },
+                    modifier = Modifier.weight(1f)
+                )
+                LanguageOption(
+                    label = strings.profileLanguageArabic,
+                    selected = currentLanguage == AppLanguage.ARABIC,
+                    onClick = { LanguageManager.setLanguage(AppLanguage.ARABIC) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanguageOption(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = if (selected) PrimaryBlue else CardGray
+    ) {
+        Row(
+            modifier = Modifier.padding(vertical = 10.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (selected) {
+                Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = if (selected) Color.White else TextSecondary
+            )
+        }
+    }
+}
+
+@Composable
 private fun ProfileRow(icon: ImageVector, label: String, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(20.dp))
@@ -374,36 +432,37 @@ private fun ProfileRow(icon: ImageVector, label: String, value: String) {
 
 @Composable
 private fun EditProfileDialog(uiState: ProfileUiState, viewModel: ProfileViewModel) {
+    val strings = LocalStrings.current
     AlertDialog(
         onDismissRequest = { if (!uiState.isSavingProfile) viewModel.dismissEditProfileDialog() },
         icon = { Icon(Icons.Filled.Edit, null, tint = PrimaryBlue) },
-        title = { Text("Edit Profile", fontWeight = FontWeight.Bold) },
+        title = { Text(strings.profileDialogEditProfileTitle, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 PharmaTextField(
                     value = uiState.editName,
                     onValueChange = viewModel::onEditNameChange,
-                    label = "Name",
+                    label = strings.profileDialogName,
                     leadingIcon = Icons.Filled.Person
                 )
                 PharmaTextField(
                     value = uiState.editEmail,
                     onValueChange = viewModel::onEditEmailChange,
-                    label = "Email",
+                    label = strings.profileEmail,
                     leadingIcon = Icons.Filled.Email,
                     keyboardType = KeyboardType.Email
                 )
                 PharmaTextField(
                     value = uiState.editPhone,
                     onValueChange = viewModel::onEditPhoneChange,
-                    label = "Phone Number",
+                    label = strings.loginPhoneLabel,
                     leadingIcon = Icons.Filled.Phone,
                     keyboardType = KeyboardType.Phone
                 )
                 MaskedPasswordField(
                     value = uiState.editProfileConfirmPassword,
                     onValueChange = viewModel::onEditProfileConfirmPasswordChange,
-                    label = "Password (to confirm)"
+                    label = strings.profileDialogPasswordConfirm
                 )
                 if (uiState.profileFormError != null) {
                     Text(uiState.profileFormError, color = ErrorRed, style = MaterialTheme.typography.labelSmall)
@@ -415,13 +474,13 @@ private fun EditProfileDialog(uiState: ProfileUiState, viewModel: ProfileViewMod
                 if (uiState.isSavingProfile) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = PrimaryBlue)
                 } else {
-                    Text("Save")
+                    Text(strings.commonSave)
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = viewModel::dismissEditProfileDialog, enabled = !uiState.isSavingProfile) {
-                Text("Cancel")
+                Text(strings.commonCancel)
             }
         }
     )
@@ -429,26 +488,27 @@ private fun EditProfileDialog(uiState: ProfileUiState, viewModel: ProfileViewMod
 
 @Composable
 private fun ChangePasswordDialog(uiState: ProfileUiState, viewModel: ProfileViewModel) {
+    val strings = LocalStrings.current
     AlertDialog(
         onDismissRequest = { if (!uiState.isSavingPassword) viewModel.dismissChangePasswordDialog() },
         icon = { Icon(Icons.Filled.Lock, null, tint = PrimaryBlue) },
-        title = { Text("Change Password", fontWeight = FontWeight.Bold) },
+        title = { Text(strings.profileDialogChangePasswordTitle, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 MaskedPasswordField(
                     value = uiState.currentPassword,
                     onValueChange = viewModel::onCurrentPasswordChange,
-                    label = "Current Password"
+                    label = strings.profileDialogCurrentPassword
                 )
                 MaskedPasswordField(
                     value = uiState.newPassword,
                     onValueChange = viewModel::onNewPasswordChange,
-                    label = "New Password"
+                    label = strings.profileDialogNewPassword
                 )
                 MaskedPasswordField(
                     value = uiState.confirmPassword,
                     onValueChange = viewModel::onConfirmPasswordChange,
-                    label = "Confirm New Password"
+                    label = strings.profileDialogConfirmNewPassword
                 )
                 if (uiState.passwordError != null) {
                     Text(uiState.passwordError, color = ErrorRed, style = MaterialTheme.typography.labelSmall)
@@ -460,13 +520,13 @@ private fun ChangePasswordDialog(uiState: ProfileUiState, viewModel: ProfileView
                 if (uiState.isSavingPassword) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = PrimaryBlue)
                 } else {
-                    Text("Save")
+                    Text(strings.commonSave)
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = viewModel::dismissChangePasswordDialog, enabled = !uiState.isSavingPassword) {
-                Text("Cancel")
+                Text(strings.commonCancel)
             }
         }
     )
@@ -474,29 +534,30 @@ private fun ChangePasswordDialog(uiState: ProfileUiState, viewModel: ProfileView
 
 @Composable
 private fun EditSupplierDialog(uiState: ProfileUiState, viewModel: ProfileViewModel) {
+    val strings = LocalStrings.current
     AlertDialog(
         onDismissRequest = { if (!uiState.isSavingSupplier) viewModel.dismissEditSupplierDialog() },
         icon = { Icon(Icons.Filled.Business, null, tint = PrimaryBlue) },
-        title = { Text("Edit Supplier Info", fontWeight = FontWeight.Bold) },
+        title = { Text(strings.profileDialogEditSupplierTitle, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 PharmaTextField(
                     value = uiState.editSupplierName,
                     onValueChange = viewModel::onEditSupplierNameChange,
-                    label = "Business Name",
+                    label = strings.profileBusinessName,
                     leadingIcon = Icons.Filled.Business
                 )
                 PharmaTextField(
                     value = uiState.editMinOrderValue,
                     onValueChange = viewModel::onEditMinOrderValueChange,
-                    label = "Minimum Order Value (EGP)",
+                    label = strings.profileDialogMinOrderValueEgp,
                     leadingIcon = Icons.Filled.Payments,
                     keyboardType = KeyboardType.Decimal
                 )
                 PharmaTextField(
                     value = uiState.editMinOrderQty,
                     onValueChange = viewModel::onEditMinOrderQtyChange,
-                    label = "Minimum Order Quantity",
+                    label = strings.profileDialogMinOrderQty,
                     leadingIcon = Icons.Filled.Inventory2,
                     keyboardType = KeyboardType.Number
                 )
@@ -510,13 +571,13 @@ private fun EditSupplierDialog(uiState: ProfileUiState, viewModel: ProfileViewMo
                 if (uiState.isSavingSupplier) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = PrimaryBlue)
                 } else {
-                    Text("Save")
+                    Text(strings.commonSave)
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = viewModel::dismissEditSupplierDialog, enabled = !uiState.isSavingSupplier) {
-                Text("Cancel")
+                Text(strings.commonCancel)
             }
         }
     )
@@ -524,35 +585,36 @@ private fun EditSupplierDialog(uiState: ProfileUiState, viewModel: ProfileViewMo
 
 @Composable
 private fun EditBranchDialog(uiState: ProfileUiState, viewModel: ProfileViewModel) {
+    val strings = LocalStrings.current
     AlertDialog(
         onDismissRequest = { if (!uiState.isSavingBranch) viewModel.dismissEditBranchDialog() },
         icon = { Icon(Icons.Filled.Storefront, null, tint = PrimaryBlue) },
-        title = { Text("Edit Branch Info", fontWeight = FontWeight.Bold) },
+        title = { Text(strings.profileDialogEditBranchTitle, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 PharmaTextField(
                     value = uiState.editBranchName,
                     onValueChange = viewModel::onEditBranchNameChange,
-                    label = "Branch Name",
+                    label = strings.profileDialogBranchName,
                     leadingIcon = Icons.Filled.Storefront
                 )
                 PharmaTextField(
                     value = uiState.editBranchAddress,
                     onValueChange = viewModel::onEditBranchAddressChange,
-                    label = "Address",
+                    label = strings.profileAddress,
                     leadingIcon = Icons.Filled.LocationOn
                 )
                 PharmaTextField(
                     value = uiState.editBranchPhone,
                     onValueChange = viewModel::onEditBranchPhoneChange,
-                    label = "Phone",
+                    label = strings.profilePhone,
                     leadingIcon = Icons.Filled.Phone,
                     keyboardType = KeyboardType.Phone
                 )
                 PharmaTextField(
                     value = uiState.editBranchLicence,
                     onValueChange = viewModel::onEditBranchLicenceChange,
-                    label = "Licence Number",
+                    label = strings.profileDialogLicenceNumber,
                     leadingIcon = Icons.Filled.Badge
                 )
                 if (uiState.branchFormError != null) {
@@ -565,48 +627,13 @@ private fun EditBranchDialog(uiState: ProfileUiState, viewModel: ProfileViewMode
                 if (uiState.isSavingBranch) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = PrimaryBlue)
                 } else {
-                    Text("Save")
+                    Text(strings.commonSave)
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = viewModel::dismissEditBranchDialog, enabled = !uiState.isSavingBranch) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-@Composable
-private fun DeactivateAccountDialog(uiState: ProfileUiState, viewModel: ProfileViewModel) {
-    AlertDialog(
-        onDismissRequest = { if (!uiState.isDeactivating) viewModel.dismissDeactivateDialog() },
-        icon = { Icon(Icons.Filled.Warning, null, tint = ErrorRed) },
-        title = { Text("Deactivate Account?", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "This will deactivate your account and sign you out. You won't be able to use the app until it's reactivated.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-                if (uiState.deactivateError != null) {
-                    Text(uiState.deactivateError, color = ErrorRed, style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = viewModel::deactivateAccount, enabled = !uiState.isDeactivating) {
-                if (uiState.isDeactivating) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = ErrorRed)
-                } else {
-                    Text("Deactivate", color = ErrorRed)
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = viewModel::dismissDeactivateDialog, enabled = !uiState.isDeactivating) {
-                Text("Cancel")
+                Text(strings.commonCancel)
             }
         }
     )
@@ -614,17 +641,18 @@ private fun DeactivateAccountDialog(uiState: ProfileUiState, viewModel: ProfileV
 
 @Composable
 private fun RequestZoneDialog(uiState: ProfileUiState, viewModel: ProfileViewModel) {
+    val strings = LocalStrings.current
     AlertDialog(
         onDismissRequest = { if (!uiState.isSubmittingZoneRequest) viewModel.dismissRequestZoneDialog() },
         icon = { Icon(Icons.Filled.EditLocationAlt, null, tint = PrimaryBlue) },
-        title = { Text("Request Zone Change", fontWeight = FontWeight.Bold) },
+        title = { Text(strings.profileDialogRequestZoneTitle, fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    "Select the delivery zones you'd like to cover. An admin will review this request.",
+                    strings.profileDialogRequestZoneBody,
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
@@ -636,7 +664,7 @@ private fun RequestZoneDialog(uiState: ProfileUiState, viewModel: ProfileViewMod
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = PrimaryBlue)
                     }
                     uiState.zonesError != null -> Text(
-                        "Could not load zones: ${uiState.zonesError}",
+                        strings.profileDialogZonesLoadError(uiState.zonesError),
                         style = MaterialTheme.typography.bodySmall,
                         color = ErrorRed
                     )
@@ -649,7 +677,7 @@ private fun RequestZoneDialog(uiState: ProfileUiState, viewModel: ProfileViewMod
                 PharmaTextField(
                     value = uiState.zoneChangeReason,
                     onValueChange = viewModel::onZoneChangeReasonChange,
-                    label = "Reason",
+                    label = strings.profileDialogReason,
                     leadingIcon = Icons.Filled.Description
                 )
                 if (uiState.zoneRequestError != null) {
@@ -662,13 +690,13 @@ private fun RequestZoneDialog(uiState: ProfileUiState, viewModel: ProfileViewMod
                 if (uiState.isSubmittingZoneRequest) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = PrimaryBlue)
                 } else {
-                    Text("Submit")
+                    Text(strings.commonSubmit)
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = viewModel::dismissRequestZoneDialog, enabled = !uiState.isSubmittingZoneRequest) {
-                Text("Cancel")
+                Text(strings.commonCancel)
             }
         }
     )

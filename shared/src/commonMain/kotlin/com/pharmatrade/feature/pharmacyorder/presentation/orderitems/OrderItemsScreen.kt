@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.io.rememberFilePickerLauncher
 import com.pharmatrade.core.ui.components.DiscountBadge
@@ -53,6 +54,7 @@ fun OrderItemsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val strings = LocalStrings.current
 
     val launchFilePicker = rememberFilePickerLauncher(
         mimeTypes = listOf(
@@ -66,10 +68,9 @@ fun OrderItemsScreen(
     LaunchedEffect(uiState.uploadResult) {
         uiState.uploadResult?.let { result ->
             val message = buildString {
-                append("${result.addedCount} items added")
+                append(strings.oiItemsAddedMessage(result.addedCount))
                 if (result.skippedCount > 0) {
-                    append(", ${result.skippedCount} skipped")
-                    result.errors.firstOrNull()?.let { append(" ($it)") }
+                    append(strings.oiItemsSkippedSuffix(result.skippedCount))
                 }
             }
             snackbarHostState.showSnackbar(message)
@@ -113,7 +114,7 @@ fun OrderItemsScreen(
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).background(BackgroundGray)) {
             PharmaTopBar(
-                title = if (viewModel.isSpecificSupplier) (uiState.supplier?.name?.takeIf { it.isNotBlank() } ?: "Supplier Inventory") else "Add Items",
+                title = if (viewModel.isSpecificSupplier) (uiState.supplier?.name?.takeIf { it.isNotBlank() } ?: strings.oiSupplierInventoryFallback) else strings.oiAddItemsTitle,
                 onNavigateBack = onNavigateBack
             )
 
@@ -149,6 +150,7 @@ private fun ColumnScope.SpecificSupplierContent(
     onUploadClick: () -> Unit,
     onReviewAndAllocate: () -> Unit
 ) {
+    val strings = LocalStrings.current
     val filtered = remember(uiState.supplierInventory, uiState.supplierInventoryFilter) {
         val query = uiState.supplierInventoryFilter.trim()
         if (query.isBlank()) uiState.supplierInventory
@@ -175,7 +177,7 @@ private fun ColumnScope.SpecificSupplierContent(
                     SearchAndUploadRow(
                         query = uiState.supplierInventoryFilter,
                         onQueryChange = viewModel::onSupplierInventoryFilterChange,
-                        placeholder = "Filter ${uiState.supplier?.name ?: "supplier"}'s drugs",
+                        placeholder = uiState.supplier?.name?.takeIf { it.isNotBlank() }?.let { strings.oiFilterSupplierDrugs(it) } ?: strings.oiFilterDrugsGeneric,
                         isUploading = uiState.isUploading,
                         onUploadClick = onUploadClick
                     )
@@ -184,7 +186,7 @@ private fun ColumnScope.SpecificSupplierContent(
                 if (uiState.supplierInventory.isNotEmpty()) {
                     item {
                         Text(
-                            "${filtered.size} of ${uiState.supplierInventory.size} drugs",
+                            strings.oiDrugsCountOfTotal(filtered.size, uiState.supplierInventory.size),
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
@@ -194,8 +196,8 @@ private fun ColumnScope.SpecificSupplierContent(
                 if (filtered.isEmpty()) {
                     item {
                         EmptyState(
-                            title = if (uiState.supplierInventory.isEmpty()) "No inventory available" else "No matches",
-                            message = if (uiState.supplierInventory.isEmpty()) "This supplier hasn't listed any drugs yet" else "Try a different search term",
+                            title = if (uiState.supplierInventory.isEmpty()) strings.oiNoInventoryTitle else strings.pharmacyNoMatches,
+                            message = if (uiState.supplierInventory.isEmpty()) strings.oiNoInventoryMessage else strings.pharmacyTryDifferentSearch,
                             icon = Icons.Filled.Storefront,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp)
                         )
@@ -228,6 +230,7 @@ private fun ColumnScope.SpecificSupplierContent(
 
 @Composable
 private fun SupplierContextCard(supplier: PharmacySupplier, itemCount: Int, orderSubtotal: Double) {
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -241,7 +244,7 @@ private fun SupplierContextCard(supplier: PharmacySupplier, itemCount: Int, orde
                 Column(modifier = Modifier.weight(1f)) {
                     Text(supplier.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("$itemCount drugs available", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                        Text(strings.oiDrugsAvailableCount(itemCount), style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                         supplier.zones.firstOrNull()?.let { zone ->
                             Text("·", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                             Icon(Icons.Filled.LocationOn, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(11.dp))
@@ -257,12 +260,12 @@ private fun SupplierContextCard(supplier: PharmacySupplier, itemCount: Int, orde
                 val metMinimum = orderSubtotal >= supplier.minOrderValue
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(
-                        "Minimum order",
+                        strings.oiMinimumOrderLabel,
                         style = MaterialTheme.typography.labelSmall,
                         color = TextSecondary
                     )
                     Text(
-                        "EGP ${formatDecimal(orderSubtotal, 2)} / ${formatDecimal(supplier.minOrderValue, 2)}",
+                        strings.oiMinOrderProgress(formatDecimal(orderSubtotal, 2), formatDecimal(supplier.minOrderValue, 2)),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = if (metMinimum) SecondaryGreenDark else TextSecondary
@@ -288,6 +291,7 @@ private fun SearchAndUploadRow(
     isUploading: Boolean,
     onUploadClick: () -> Unit
 ) {
+    val strings = LocalStrings.current
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             value = query,
@@ -297,7 +301,7 @@ private fun SearchAndUploadRow(
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(20.dp)) {
-                        Icon(Icons.Filled.Close, contentDescription = "Clear", tint = TextSecondary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Filled.Close, contentDescription = strings.commonClear, tint = TextSecondary, modifier = Modifier.size(16.dp))
                     }
                 }
             },
@@ -322,7 +326,7 @@ private fun SearchAndUploadRow(
             if (isUploading) {
                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = PrimaryBlue)
             } else {
-                Icon(Icons.Filled.UploadFile, contentDescription = "Upload Excel / CSV", tint = PrimaryBlue)
+                Icon(Icons.Filled.UploadFile, contentDescription = strings.oiUploadExcelCsvContentDescription, tint = PrimaryBlue)
             }
         }
     }
@@ -338,6 +342,7 @@ private fun SupplierDrugCard(
 ) {
     val outOfStock = item.quantityAvailable <= 0
     val lowStock = !outOfStock && item.quantityAvailable < 10
+    val strings = LocalStrings.current
 
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -393,7 +398,7 @@ private fun SupplierDrugCard(
                         ) {
                             Icon(Icons.Filled.Check, contentDescription = null, tint = SecondaryGreenDark, modifier = Modifier.size(11.dp))
                             Text(
-                                "$addedQuantity in order",
+                                strings.oiAddedToOrder(addedQuantity),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = SecondaryGreenDark,
                                 fontWeight = FontWeight.Bold
@@ -433,10 +438,11 @@ private fun SupplierDrugCard(
 
 @Composable
 private fun StockChip(outOfStock: Boolean, lowStock: Boolean, quantity: Int) {
+    val strings = LocalStrings.current
     val (label, color, bg) = when {
-        outOfStock -> Triple("Out of stock", ErrorRed, ErrorRedContainer)
-        lowStock -> Triple("Only $quantity left", WarningAmber, WarningAmberContainer)
-        else -> Triple("$quantity in stock", SecondaryGreenDark, SecondaryGreenContainer)
+        outOfStock -> Triple(strings.pharmacyOutOfStock, ErrorRed, ErrorRedContainer)
+        lowStock -> Triple(strings.pharmacyOnlyLeft(quantity), WarningAmber, WarningAmberContainer)
+        else -> Triple(strings.pharmacyInStock(quantity), SecondaryGreenDark, SecondaryGreenContainer)
     }
     Surface(shape = RoundedCornerShape(20.dp), color = bg) {
         Text(
@@ -451,6 +457,7 @@ private fun StockChip(outOfStock: Boolean, lowStock: Boolean, quantity: Int) {
 
 @Composable
 private fun QuickAddButton(enabled: Boolean, isLoading: Boolean, onClick: () -> Unit) {
+    val strings = LocalStrings.current
     Box(
         modifier = Modifier
             .size(36.dp)
@@ -462,7 +469,7 @@ private fun QuickAddButton(enabled: Boolean, isLoading: Boolean, onClick: () -> 
         if (isLoading) {
             CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
         } else {
-            Icon(Icons.Filled.Add, contentDescription = "Quick add", tint = Color.White, modifier = Modifier.size(20.dp))
+            Icon(Icons.Filled.Add, contentDescription = strings.oiQuickAddContentDescription, tint = Color.White, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -475,6 +482,7 @@ private fun OrderSummaryFooter(
     onReviewAndAllocate: () -> Unit,
     canReview: Boolean
 ) {
+    val strings = LocalStrings.current
     Surface(shadowElevation = 8.dp, color = SurfaceWhite) {
         Column(modifier = Modifier.padding(16.dp)) {
             AnimatedVisibility(visible = itemCount > 0, enter = fadeIn(), exit = fadeOut()) {
@@ -484,7 +492,7 @@ private fun OrderSummaryFooter(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "$itemCount item${if (itemCount == 1) "" else "s"} added",
+                        strings.oiItemsAddedMessage(itemCount),
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )
@@ -497,7 +505,7 @@ private fun OrderSummaryFooter(
                 }
             }
             PharmaButton(
-                text = "Review and allocate",
+                text = strings.oiReviewAndAllocate,
                 onClick = onReviewAndAllocate,
                 enabled = canReview,
                 modifier = Modifier.fillMaxWidth()
@@ -515,11 +523,12 @@ private fun ColumnScope.BestDiscountContent(
     onUploadClick: () -> Unit,
     onReviewAndAllocate: () -> Unit
 ) {
+    val strings = LocalStrings.current
     Column(modifier = Modifier.padding(16.dp)) {
         OutlinedTextField(
             value = uiState.searchQuery,
             onValueChange = viewModel::onSearchQueryChange,
-            label = { Text("Search drugs") },
+            label = { Text(strings.oiSearchDrugsLabel) },
             leadingIcon = { Icon(Icons.Filled.Search, null, tint = TextSecondary) },
             trailingIcon = {
                 if (uiState.isSearching) {
@@ -575,11 +584,11 @@ private fun ColumnScope.BestDiscountContent(
             if (uiState.isUploading) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = PrimaryBlue)
                 Spacer(Modifier.width(8.dp))
-                Text("Uploading…")
+                Text(strings.oiUploading)
             } else {
                 Icon(Icons.Filled.UploadFile, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Upload Excel / CSV")
+                Text(strings.oiUploadExcelCsv)
             }
         }
     }
@@ -593,8 +602,8 @@ private fun ColumnScope.BestDiscountContent(
                     CircularProgressIndicator(color = PrimaryBlue)
                 }
             uiState.items.isEmpty() -> EmptyState(
-                title = "No items yet",
-                message = "Search for a drug or upload a file to build your order",
+                title = strings.oiNoItemsYetTitle,
+                message = strings.oiNoItemsYetMessage,
                 icon = Icons.Filled.Search
             )
             else -> LazyColumn(
@@ -603,7 +612,7 @@ private fun ColumnScope.BestDiscountContent(
             ) {
                 item {
                     Text(
-                        "In this order (${uiState.items.size})",
+                        strings.oiInThisOrder(uiState.items.size),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = TextSecondary,
@@ -619,7 +628,7 @@ private fun ColumnScope.BestDiscountContent(
 
     Column(modifier = Modifier.padding(16.dp)) {
         PharmaButton(
-            text = "Review and allocate",
+            text = strings.oiReviewAndAllocate,
             onClick = onReviewAndAllocate,
             enabled = uiState.items.isNotEmpty(),
             modifier = Modifier.fillMaxWidth()
@@ -629,6 +638,7 @@ private fun ColumnScope.BestDiscountContent(
 
 @Composable
 private fun ItemRow(item: DraftOrderItem, onDelete: () -> Unit) {
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
@@ -637,10 +647,10 @@ private fun ItemRow(item: DraftOrderItem, onDelete: () -> Unit) {
         ) {
             Column {
                 Text(item.drugName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Text("Qty: ${item.quantity}", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                Text(strings.oiQtyLabel(item.quantity), style = MaterialTheme.typography.labelSmall, color = TextSecondary)
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Remove ${item.drugName}", tint = ErrorRed)
+                Icon(Icons.Filled.Delete, contentDescription = strings.oiRemoveItemContentDescription(item.drugName), tint = ErrorRed)
             }
         }
     }
@@ -656,6 +666,7 @@ private fun QuantityDialog(
 ) {
     var quantityText by remember(item.drugId) { mutableStateOf("1") }
     val quantity = quantityText.toIntOrNull()
+    val strings = LocalStrings.current
 
     AlertDialog(
         onDismissRequest = { if (!isSubmitting) onDismiss() },
@@ -669,7 +680,7 @@ private fun QuantityDialog(
                 OutlinedTextField(
                     value = quantityText,
                     onValueChange = { if (it.length <= 6) quantityText = it.filter(Char::isDigit) },
-                    label = { Text("Quantity") },
+                    label = { Text(strings.oiQuantityLabel) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
@@ -689,13 +700,13 @@ private fun QuantityDialog(
                 if (isSubmitting) {
                     CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 } else {
-                    Text("Add")
+                    Text(strings.catalogAdd)
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isSubmitting) {
-                Text("Cancel")
+                Text(strings.commonCancel)
             }
         }
     )

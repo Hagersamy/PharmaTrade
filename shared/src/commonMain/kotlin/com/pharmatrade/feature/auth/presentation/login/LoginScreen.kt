@@ -5,8 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -27,6 +25,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.ui.components.PharmaButton
 import com.pharmatrade.core.ui.components.PharmaTextField
 import com.pharmatrade.core.ui.theme.*
@@ -38,10 +37,12 @@ fun LoginScreen(
     onNavigateToSellerDashboard: () -> Unit,
     onNavigateToBuyerCatalog: () -> Unit,
     onNavigateToAdminDashboard: () -> Unit,
-    onNavigateToPendingApproval: () -> Unit
+    onNavigateToPendingApproval: () -> Unit,
+    onNavigateToRegistrationDeclined: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
+    val strings = LocalStrings.current
 
     LaunchedEffect(uiState.navigateTo) {
         when (uiState.navigateTo) {
@@ -60,6 +61,10 @@ fun LoginScreen(
             is LoginNavigation.PendingApproval -> {
                 viewModel.onNavigationHandled()
                 onNavigateToPendingApproval()
+            }
+            is LoginNavigation.RegistrationDeclined -> {
+                viewModel.onNavigationHandled()
+                onNavigateToRegistrationDeclined()
             }
             null -> Unit
         }
@@ -101,13 +106,13 @@ fun LoginScreen(
                 }
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    text = "PharmaTrade",
+                    text = strings.appTitle,
                     style = MaterialTheme.typography.displayMedium,
                     color = Color.White,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Pharmaceutical Trading Platform",
+                    text = strings.loginTagline,
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.8f)
                 )
@@ -120,19 +125,19 @@ fun LoginScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     Text(
-                        text = "Welcome Back",
+                        text = strings.loginWelcomeBack,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
                     Text(
-                        text = "Sign in to your account",
+                        text = strings.loginSubtitle,
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )
@@ -142,20 +147,18 @@ fun LoginScreen(
                     PharmaTextField(
                         value = uiState.phone,
                         onValueChange = viewModel::onPhoneChange,
-                        label = "Phone Number",
+                        label = strings.loginPhoneLabel,
                         leadingIcon = Icons.Filled.Phone,
                         keyboardType = KeyboardType.Phone
                     )
 
                     Spacer(Modifier.height(16.dp))
 
-                    OutlinedTextField(
+                    PharmaTextField(
                         value = uiState.password,
                         onValueChange = viewModel::onPasswordChange,
-                        label = { Text("Password") },
-                        leadingIcon = {
-                            Icon(Icons.Filled.Lock, null, tint = TextSecondary)
-                        },
+                        label = strings.loginPasswordLabel,
+                        leadingIcon = Icons.Filled.Lock,
                         trailingIcon = {
                             IconButton(onClick = viewModel::togglePasswordVisibility) {
                                 Icon(
@@ -168,22 +171,12 @@ fun LoginScreen(
                         },
                         visualTransformation = if (uiState.isPasswordVisible)
                             VisualTransformation.None else PasswordVisualTransformation(),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(onDone = {
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done,
+                        onImeAction = {
                             focusManager.clearFocus()
                             viewModel.login()
-                        }),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = PrimaryBlue,
-                            unfocusedBorderColor = DividerGray,
-                            focusedLabelColor = PrimaryBlue
-                        )
+                        }
                     )
 
                     if (uiState.error != null) {
@@ -213,7 +206,7 @@ fun LoginScreen(
                     Spacer(Modifier.height(24.dp))
 
                     PharmaButton(
-                        text = "Sign In",
+                        text = strings.loginSignIn,
                         onClick = viewModel::login,
                         modifier = Modifier.fillMaxWidth(),
                         isLoading = uiState.isLoading
@@ -225,10 +218,10 @@ fun LoginScreen(
             Spacer(Modifier.height(24.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Don't have an account? ", color = Color.White.copy(alpha = 0.8f))
+                Text(strings.loginNoAccount, color = Color.White.copy(alpha = 0.8f))
                 TextButton(onClick = onNavigateToRegister) {
                     Text(
-                        text = "Register",
+                        text = strings.loginRegister,
                         color = Color.White,
                         fontWeight = FontWeight.Bold
                     )

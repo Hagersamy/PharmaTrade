@@ -62,13 +62,6 @@ class UpdateBranchProfileUseCase(private val repository: ProfileRepository) {
     }
 }
 
-class DeactivateAccountUseCase(private val repository: ProfileRepository) {
-    suspend operator fun invoke(phone: String): Result<Unit> {
-        if (phone.isBlank()) return Result.Error("Phone number is required")
-        return repository.deactivateAccount(phone.trim())
-    }
-}
-
 class RequestZoneUpdateUseCase(private val repository: ProfileRepository) {
     suspend operator fun invoke(zoneIds: List<Int>, reason: String): Result<ZoneUpdateRequest> {
         if (zoneIds.isEmpty()) return Result.Error("Select at least one zone")

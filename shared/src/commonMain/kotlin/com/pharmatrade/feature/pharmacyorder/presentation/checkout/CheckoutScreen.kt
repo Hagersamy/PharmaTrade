@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.DiscountBadge
 import com.pharmatrade.core.ui.components.EmptyState
@@ -31,14 +32,15 @@ fun CheckoutScreen(
     onDone: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
 
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
-        PharmaTopBar(title = "Checkout", onNavigateBack = onNavigateBack)
+        PharmaTopBar(title = strings.checkoutTitle, onNavigateBack = onNavigateBack)
 
         if (uiState.orders.isEmpty()) {
             EmptyState(
-                title = "Nothing left to check out",
-                message = "You removed every order — go back to your cart to add more",
+                title = strings.checkoutEmptyTitle,
+                message = strings.checkoutEmptyMessage,
                 icon = Icons.Filled.ReceiptLong,
                 modifier = Modifier.weight(1f).fillMaxWidth()
             )
@@ -58,7 +60,7 @@ fun CheckoutScreen(
                     color = TextPrimary
                 )
                 Text(
-                    "Across ${uiState.orders.size} order${if (uiState.orders.size == 1) "" else "s"}",
+                    strings.checkoutAcrossOrders(uiState.orders.size),
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
@@ -71,7 +73,7 @@ fun CheckoutScreen(
             Surface(shadowElevation = 8.dp, color = SurfaceWhite) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     PharmaButton(
-                        text = "Done",
+                        text = strings.commonDone,
                         onClick = onDone,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -83,6 +85,7 @@ fun CheckoutScreen(
 
 @Composable
 private fun CheckoutOrderCard(state: CheckoutOrderState, onRemove: () -> Unit) {
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             when {
@@ -92,7 +95,7 @@ private fun CheckoutOrderCard(state: CheckoutOrderState, onRemove: () -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = PrimaryBlue)
-                    Text("Submitting order…", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                    Text(strings.checkoutSubmittingOrder, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                 }
                 state.error != null -> Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -100,7 +103,7 @@ private fun CheckoutOrderCard(state: CheckoutOrderState, onRemove: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(state.error, style = MaterialTheme.typography.bodySmall, color = ErrorRed, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onRemove, enabled = !state.isCancelling) { Text("Remove") }
+                    TextButton(onClick = onRemove, enabled = !state.isCancelling) { Text(strings.commonRemove) }
                 }
                 state.order != null -> {
                     val order = state.order
@@ -124,7 +127,7 @@ private fun CheckoutOrderCard(state: CheckoutOrderState, onRemove: () -> Unit) {
                             if (state.isCancelling) {
                                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = ErrorRed)
                             } else {
-                                Icon(Icons.Filled.Close, contentDescription = "Remove this order", tint = ErrorRed)
+                                Icon(Icons.Filled.Close, contentDescription = strings.checkoutRemoveOrderContentDescription, tint = ErrorRed)
                             }
                         }
                     }
@@ -142,6 +145,7 @@ private fun CheckoutOrderCard(state: CheckoutOrderState, onRemove: () -> Unit) {
 
 @Composable
 private fun CheckoutDrugLineRow(line: OrderDrugLine) {
+    val strings = LocalStrings.current
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -153,7 +157,7 @@ private fun CheckoutDrugLineRow(line: OrderDrugLine) {
                 DiscountBadge(discountPercentage = line.discountPct)
             }
             Text(
-                "Qty ${line.qtyConfirmed ?: line.qtyRequested} × EGP ${formatDecimal(line.unitPrice, 2)}",
+                strings.allocationQtyPrice(line.qtyConfirmed ?: line.qtyRequested, formatDecimal(line.unitPrice, 2)),
                 style = MaterialTheme.typography.labelSmall,
                 color = TextSecondary
             )

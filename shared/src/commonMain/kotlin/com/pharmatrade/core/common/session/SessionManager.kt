@@ -28,6 +28,7 @@ object SessionManager {
     val isBuyer: Boolean get() = _currentUser.value?.userType == UserType.BUYER
     val isAdmin: Boolean get() = _currentUser.value?.userType == UserType.ADMIN
     val isPending: Boolean get() = _currentUser.value?.isPending == true
+    val isDeclined: Boolean get() = _currentUser.value?.isDeclined == true
 
     // Must be called once from each platform's app entry point (with a platform-backed
     // Settings instance) before any screen reads session state, so a previously logged-in

@@ -2,6 +2,8 @@ package com.pharmatrade.feature.pharmacyorder.presentation.orderdetail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrderDetail
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.CancelOrderUseCase
@@ -44,7 +46,9 @@ class OrderDetailViewModel(
             update { copy(isLoading = true, error = null) }
             when (val result = getOrderDetailUseCase(orderId)) {
                 is Result.Success -> update { copy(isLoading = false, order = result.data) }
-                is Result.Error -> update { copy(isLoading = false, error = result.message) }
+                is Result.Error -> update {
+                    copy(isLoading = false, error = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -59,7 +63,9 @@ class OrderDetailViewModel(
                     update { copy(isResolvingShortage = false) }
                     loadOrder()
                 }
-                is Result.Error -> update { copy(isResolvingShortage = false, actionError = result.message) }
+                is Result.Error -> update {
+                    copy(isResolvingShortage = false, actionError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -70,7 +76,9 @@ class OrderDetailViewModel(
             update { copy(isCancelling = true, actionError = null) }
             when (val result = cancelOrderUseCase(orderId)) {
                 is Result.Success -> update { copy(isCancelling = false, cancelled = true) }
-                is Result.Error -> update { copy(isCancelling = false, actionError = result.message) }
+                is Result.Error -> update {
+                    copy(isCancelling = false, actionError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -84,7 +92,9 @@ class OrderDetailViewModel(
                     update { copy(isDelivering = false) }
                     loadOrder()
                 }
-                is Result.Error -> update { copy(isDelivering = false, actionError = result.message) }
+                is Result.Error -> update {
+                    copy(isDelivering = false, actionError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }

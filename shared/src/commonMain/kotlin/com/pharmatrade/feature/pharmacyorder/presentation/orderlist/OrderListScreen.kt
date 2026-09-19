@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -15,11 +16,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
+import com.pharmatrade.core.common.i18n.Strings
 import com.pharmatrade.core.common.util.formatBackendTimestamp
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.EmptyState
 import com.pharmatrade.core.ui.components.ErrorScreen
 import com.pharmatrade.core.ui.components.PharmaCard
+import com.pharmatrade.core.ui.components.UnreadDot
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.feature.pharmacyorder.domain.model.PharmacyOrderSummary
 import com.pharmatrade.feature.pharmacyorder.presentation.common.OrderStatusChip
@@ -27,9 +31,11 @@ import com.pharmatrade.feature.pharmacyorder.presentation.common.OrderStatusChip
 @Composable
 fun OrderListScreen(
     viewModel: OrderListViewModel,
-    onOrderClick: (String) -> Unit
+    onOrderClick: (String) -> Unit,
+    unreadOrderIds: Set<String> = emptySet()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
 
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
         ScrollableTabRow(
@@ -41,7 +47,7 @@ fun OrderListScreen(
                 Tab(
                     selected = uiState.selectedTab == tab,
                     onClick = { viewModel.onTabSelected(tab) },
-                    text = { Text(tab.label) }
+                    text = { Text(tab.localizedLabel(strings)) }
                 )
             }
         }
@@ -56,8 +62,8 @@ fun OrderListScreen(
                 modifier = Modifier.fillMaxSize()
             )
             uiState.orders.isEmpty() -> EmptyState(
-                title = "No orders here",
-                message = "Orders in this status will show up here",
+                title = strings.orderListEmptyTitle,
+                message = strings.orderListEmptyMessage,
                 icon = Icons.Filled.ReceiptLong,
                 modifier = Modifier.fillMaxSize()
             )
@@ -66,7 +72,11 @@ fun OrderListScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(uiState.orders, key = { it.id }) { order ->
-                    OrderRow(order = order, onClick = { onOrderClick(order.id) })
+                    OrderRow(
+                        order = order,
+                        hasUnreadNotification = order.id in unreadOrderIds,
+                        onClick = { onOrderClick(order.id) }
+                    )
                 }
             }
         }
@@ -74,7 +84,8 @@ fun OrderListScreen(
 }
 
 @Composable
-private fun OrderRow(order: PharmacyOrderSummary, onClick: () -> Unit) {
+private fun OrderRow(order: PharmacyOrderSummary, hasUnreadNotification: Boolean, onClick: () -> Unit) {
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
@@ -87,7 +98,13 @@ private fun OrderRow(order: PharmacyOrderSummary, onClick: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(order.orderNumber, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (hasUnreadNotification) UnreadDot()
+                    if (order.status.equals("partially_available", ignoreCase = true)) {
+                        Icon(Icons.Filled.Warning, contentDescription = strings.orderNeedsAttention, tint = ErrorRed, modifier = Modifier.size(16.dp))
+                    }
+                    Text(order.orderNumber, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                }
                 OrderStatusChip(status = order.status)
             }
             Spacer(Modifier.height(6.dp))
@@ -105,4 +122,12 @@ private fun OrderRow(order: PharmacyOrderSummary, onClick: () -> Unit) {
             }
         }
     }
+}
+
+private fun OrderListTab.localizedLabel(strings: Strings): String = when (this) {
+    OrderListTab.ALL -> strings.tabAll
+    OrderListTab.PENDING -> strings.statusPending
+    OrderListTab.CONFIRMED -> strings.statusConfirmed
+    OrderListTab.SHIPPED -> strings.statusShipped
+    OrderListTab.DELIVERED -> strings.statusDelivered
 }

@@ -2,6 +2,7 @@ package com.pharmatrade.feature.home
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -11,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.core.ui.theme.*
@@ -38,6 +40,9 @@ fun HomeScreen(
     // is showing: switch back to the Home tab first, and only pop/exit once already on it.
     selectedTab: HomeTab,
     onTabSelected: (HomeTab) -> Unit,
+    unreadNotificationCount: Int,
+    unreadPharmacyOrderIds: Set<String> = emptySet(),
+    unreadSupplierOrderIds: Set<String> = emptySet(),
     onNavigateToNotifications: () -> Unit,
     onNavigateToSearch: () -> Unit,
     onNavigateToUploadInventory: () -> Unit,
@@ -57,6 +62,7 @@ fun HomeScreen(
         topBar = {
             HomeTopBar(
                 isSeller = isSeller,
+                unreadNotificationCount = unreadNotificationCount,
                 onNotificationsClick = onNavigateToNotifications,
                 onCreateOrder = onNavigateToOrderMode
             )
@@ -95,9 +101,17 @@ fun HomeScreen(
                 }
                 HomeTab.CART -> PharmacyCartScreen(viewModel = pharmacyHomeViewModel, onCheckoutAll = onCheckoutAll)
                 HomeTab.ORDERS -> if (isSeller) {
-                    SellerOrdersScreen(viewModel = sellerOrdersViewModel, onOrderClick = onNavigateToSupplierOrderDetail)
+                    SellerOrdersScreen(
+                        viewModel = sellerOrdersViewModel,
+                        onOrderClick = onNavigateToSupplierOrderDetail,
+                        unreadOrderIds = unreadSupplierOrderIds
+                    )
                 } else {
-                    OrderListScreen(viewModel = orderListViewModel, onOrderClick = onNavigateToOrderDetail)
+                    OrderListScreen(
+                        viewModel = orderListViewModel,
+                        onOrderClick = onNavigateToOrderDetail,
+                        unreadOrderIds = unreadPharmacyOrderIds
+                    )
                 }
                 HomeTab.PROFILE -> ProfileScreen(viewModel = profileViewModel, user = currentUser, onLogout = onLogout)
             }
@@ -108,10 +122,11 @@ fun HomeScreen(
 @Composable
 private fun HomeTopBar(
     isSeller: Boolean,
+    unreadNotificationCount: Int,
     onNotificationsClick: () -> Unit,
     onCreateOrder: () -> Unit
 ) {
-    Surface(shadowElevation = 4.dp, color = PrimaryBlue) {
+    Surface(shadowElevation = 4.dp, color = TopBarContainer) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -121,17 +136,18 @@ private fun HomeTopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            val strings = LocalStrings.current
             Column {
                 Text(
-                    text = if (isSeller) "Supplier Dashboard" else "Pharmacy Dashboard",
+                    text = if (isSeller) strings.homeTaglineSeller else strings.homeTaglineBuyer,
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.8f)
+                    color = TopBarContent.copy(alpha = 0.8f)
                 )
                 Text(
-                    text = "PharmaTrade",
+                    text = strings.appTitle,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = TopBarContent
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -139,17 +155,23 @@ private fun HomeTopBar(
                     IconButton(onClick = onCreateOrder) {
                         Icon(
                             imageVector = Icons.Filled.AddShoppingCart,
-                            contentDescription = "Create new order",
-                            tint = Color.White
+                            contentDescription = strings.homeCreateOrderContentDescription,
+                            tint = TopBarContent
                         )
                     }
                 }
                 IconButton(onClick = onNotificationsClick) {
-                    Icon(
-                        imageVector = Icons.Filled.Notifications,
-                        contentDescription = "Notifications",
-                        tint = Color.White
-                    )
+                    BadgedBox(
+                        badge = {
+                            if (unreadNotificationCount > 0) Badge { Text("$unreadNotificationCount") }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Notifications,
+                            contentDescription = strings.notificationsTitle,
+                            tint = TopBarContent
+                        )
+                    }
                 }
             }
         }
@@ -164,12 +186,13 @@ private fun HomeBottomBar(
     ordersBadgeCount: Int,
     cartBadgeCount: Int
 ) {
+    val strings = LocalStrings.current
     NavigationBar(containerColor = SurfaceWhite) {
         NavigationBarItem(
             selected = selectedTab == HomeTab.HOME,
             onClick = { onTabSelected(HomeTab.HOME) },
             icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-            label = { Text("Home") },
+            label = { Text(strings.navHome) },
             colors = NavigationBarItemDefaults.colors(indicatorColor = PrimaryBlueContainer)
         )
         if (!isSeller) {
@@ -185,7 +208,7 @@ private fun HomeBottomBar(
                         Icon(Icons.Filled.ShoppingCart, contentDescription = null)
                     }
                 },
-                label = { Text("Cart") },
+                label = { Text(strings.navCart) },
                 colors = NavigationBarItemDefaults.colors(indicatorColor = PrimaryBlueContainer)
             )
         }
@@ -198,17 +221,17 @@ private fun HomeBottomBar(
                         if (ordersBadgeCount > 0) Badge { Text("$ordersBadgeCount") }
                     }
                 ) {
-                    Icon(Icons.Filled.ReceiptLong, contentDescription = null)
+                    Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null)
                 }
             },
-            label = { Text("Orders") },
+            label = { Text(strings.navOrders) },
             colors = NavigationBarItemDefaults.colors(indicatorColor = PrimaryBlueContainer)
         )
         NavigationBarItem(
             selected = selectedTab == HomeTab.PROFILE,
             onClick = { onTabSelected(HomeTab.PROFILE) },
             icon = { Icon(Icons.Filled.Person, contentDescription = null) },
-            label = { Text("Profile") },
+            label = { Text(strings.navProfile) },
             colors = NavigationBarItemDefaults.colors(indicatorColor = PrimaryBlueContainer)
         )
     }

@@ -2,6 +2,8 @@ package com.pharmatrade.feature.pharmacyorder.presentation.orderitems
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.Drug
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.drugs.domain.usecase.GetDrugsUseCase
@@ -115,7 +117,9 @@ class OrderItemsViewModel(
                         supplierInventory = result.data.items
                     )
                 }
-                is Result.Error -> update { copy(isLoadingSupplierInventory = false, supplierInventoryError = result.message) }
+                is Result.Error -> update {
+                    copy(isLoadingSupplierInventory = false, supplierInventoryError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -126,7 +130,9 @@ class OrderItemsViewModel(
             update { copy(isLoadingItems = true, itemsError = null) }
             when (val result = getOrderDetailUseCase(orderId)) {
                 is Result.Success -> update { copy(isLoadingItems = false, items = result.data.items) }
-                is Result.Error -> update { copy(isLoadingItems = false, itemsError = result.message) }
+                is Result.Error -> update {
+                    copy(isLoadingItems = false, itemsError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -158,7 +164,10 @@ class OrderItemsViewModel(
                     copy(quickAddingItemIds = quickAddingItemIds - item.id, items = items + result.data)
                 }
                 is Result.Error -> update {
-                    copy(quickAddingItemIds = quickAddingItemIds - item.id, addItemError = result.message)
+                    copy(
+                        quickAddingItemIds = quickAddingItemIds - item.id,
+                        addItemError = LanguageManager.strings.friendlyError(result.message)
+                    )
                 }
                 is Result.Loading -> Unit
             }
@@ -179,7 +188,9 @@ class OrderItemsViewModel(
                         searchResults = emptyList()
                     )
                 }
-                is Result.Error -> update { copy(isAddingItem = false, addItemError = result.message) }
+                is Result.Error -> update {
+                    copy(isAddingItem = false, addItemError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -190,7 +201,9 @@ class OrderItemsViewModel(
         update { copy(items = items.filterNot { it.id == itemId }) }
         viewModelScope.launch {
             when (val result = removeOrderItemUseCase(orderId, itemId)) {
-                is Result.Error -> update { copy(items = previous, itemsError = result.message) }
+                is Result.Error -> update {
+                    copy(items = previous, itemsError = LanguageManager.strings.friendlyError(result.message))
+                }
                 else -> Unit
             }
         }
@@ -204,7 +217,9 @@ class OrderItemsViewModel(
                     update { copy(isUploading = false, uploadResult = result.data) }
                     loadItems()
                 }
-                is Result.Error -> update { copy(isUploading = false, uploadError = result.message) }
+                is Result.Error -> update {
+                    copy(isUploading = false, uploadError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }

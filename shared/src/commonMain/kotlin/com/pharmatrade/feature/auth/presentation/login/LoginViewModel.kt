@@ -2,6 +2,8 @@ package com.pharmatrade.feature.auth.presentation.login
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.auth.domain.usecase.LoginUseCase
@@ -24,6 +26,7 @@ sealed class LoginNavigation {
     object BuyerCatalog : LoginNavigation()
     object AdminDashboard : LoginNavigation()
     object PendingApproval : LoginNavigation()
+    object RegistrationDeclined : LoginNavigation()
 }
 
 class LoginViewModel(private val loginUseCase: LoginUseCase) : ViewModel() {
@@ -61,13 +64,32 @@ class LoginViewModel(private val loginUseCase: LoginUseCase) : ViewModel() {
                 }
                 is Result.Error -> {
                     val msg = result.message ?: ""
-                    if (msg.contains("pending", ignoreCase = true)) {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            navigateTo = LoginNavigation.PendingApproval
-                        )
-                    } else {
-                        _uiState.value = _uiState.value.copy(isLoading = false, error = msg)
+                    // Same substring-matching approach the "pending" branch already used — the
+                    // backend doesn't return a structured status on a failed login, only this
+                    // message. Covers the common phrasings ("declined", "rejected", "not approved");
+                    // if the real backend wording doesn't hit one of these, this falls through to
+                    // the generic error branch below instead of misrouting.
+                    when {
+                        msg.contains("pending", ignoreCase = true) -> {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                navigateTo = LoginNavigation.PendingApproval
+                            )
+                        }
+                        msg.contains("declined", ignoreCase = true) ||
+                            msg.contains("rejected", ignoreCase = true) ||
+                            msg.contains("not approved", ignoreCase = true) -> {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                navigateTo = LoginNavigation.RegistrationDeclined
+                            )
+                        }
+                        else -> {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                error = LanguageManager.strings.friendlyError(msg)
+                            )
+                        }
                     }
                 }
                 is Result.Loading -> Unit

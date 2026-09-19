@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1038178227337",
+    "project_id": "pharmatrade-a214f",
+    "storage_bucket": "pharmatrade-a214f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1038178227337:android:b9672974616fc0265e6258",
+        "android_client_info": {
+          "package_name": "com.pharmatrade.agleb"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKepkaS91XFQacEB_nq4wyeDQz72h6-zs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

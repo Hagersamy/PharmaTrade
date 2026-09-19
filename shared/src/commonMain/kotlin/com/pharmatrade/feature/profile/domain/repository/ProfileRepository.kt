@@ -12,6 +12,5 @@ interface ProfileRepository {
     suspend fun changePassword(email: String, currentPassword: String, newPassword: String, confirmPassword: String): Result<Unit>
     suspend fun updateSupplier(name: String, minOrderValue: Double, minOrderQty: Int): Result<SupplierProfile>
     suspend fun updateBranch(name: String, address: String, phone: String, licenceNumber: String): Result<BranchProfile>
-    suspend fun deactivateAccount(phone: String): Result<Unit>
     suspend fun requestZoneUpdate(zoneIds: List<Int>, reason: String): Result<ZoneUpdateRequest>
 }

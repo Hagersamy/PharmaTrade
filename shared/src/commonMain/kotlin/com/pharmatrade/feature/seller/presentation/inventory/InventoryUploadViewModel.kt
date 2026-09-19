@@ -2,6 +2,8 @@ package com.pharmatrade.feature.seller.presentation.inventory
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.drugs.domain.InventoryRefreshBus
 import com.pharmatrade.feature.drugs.domain.model.UploadHistory
@@ -84,7 +86,7 @@ class InventoryUploadViewModel(
 
                 is Result.Error -> _uiState.value = _uiState.value.copy(
                     isUploading = false,
-                    uploadError = result.message
+                    uploadError = LanguageManager.strings.friendlyError(result.message)
                 )
 
                 else -> _uiState.value = _uiState.value.copy(isUploading = false)
@@ -114,7 +116,7 @@ class InventoryUploadViewModel(
 
                 is Result.Error -> _uiState.value = _uiState.value.copy(
                     isRefreshingStatus = false,
-                    uploadError = result.message
+                    uploadError = LanguageManager.strings.friendlyError(result.message)
                 )
 
                 else -> _uiState.value = _uiState.value.copy(isRefreshingStatus = false)
@@ -161,7 +163,7 @@ class InventoryUploadViewModel(
                 // status stuck on screen forever — surface it and let the user retry manually.
                 _uiState.value = _uiState.value.copy(
                     uploadQueued = false,
-                    uploadError = "Still processing on the server — this is taking longer than expected. Refresh shortly to check the result."
+                    uploadError = LanguageManager.strings.errorStillProcessingUpload
                 )
             }
         }

@@ -2,6 +2,8 @@ package com.pharmatrade.feature.pharmacyorder.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.drugs.domain.usecase.GetDrugsUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.PharmacyCartBus
@@ -94,7 +96,10 @@ class PharmacyHomeViewModel(
     private val orderCreationMutex = Mutex()
 
     init {
-        loadActiveOrdersCount()
+        // Deliberately does NOT call loadActiveOrdersCount() here — AppNavigation's
+        // entry<NavKeys.Home> lifecycle observer calls it on ON_RESUME, which fires immediately
+        // (synchronous catch-up, since the Activity is already RESUMED when this VM is constructed)
+        // and covers first load on its own. Calling it here too used to double that one request.
         viewModelScope.launch {
             // Load the first catalog page before restoring, since matching a draft item back to
             // a SupplierCatalogItem (for its price/name/stock) needs catalogItems populated.
@@ -201,7 +206,9 @@ class PharmacyHomeViewModel(
             update { copy(isLoadingOrders = true, ordersError = null) }
             when (val result = getPharmacyOrdersUseCase(status = "pending_supplier_confirmation", perPage = 1)) {
                 is Result.Success -> update { copy(isLoadingOrders = false, activeOrdersTotal = result.data.total) }
-                is Result.Error -> update { copy(isLoadingOrders = false, ordersError = result.message) }
+                is Result.Error -> update {
+                    copy(isLoadingOrders = false, ordersError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -232,7 +239,13 @@ class PharmacyHomeViewModel(
                     catalogLastPage = result.data.lastPage
                 )
             }
-            is Result.Error -> update { copy(isLoadingCatalogFirstPage = false, isLoadingCatalogMore = false, catalogError = result.message) }
+            is Result.Error -> update {
+                copy(
+                    isLoadingCatalogFirstPage = false,
+                    isLoadingCatalogMore = false,
+                    catalogError = LanguageManager.strings.friendlyError(result.message)
+                )
+            }
             is Result.Loading -> Unit
         }
     }
@@ -334,7 +347,7 @@ class PharmacyHomeViewModel(
     private fun setCartQuantity(item: SupplierCatalogItem, requestedQuantity: Int) {
         if (requestedQuantity > item.quantityAvailable) {
             update {
-                copy(catalogActionError = "Only ${item.quantityAvailable} unit${if (item.quantityAvailable == 1) "" else "s"} of ${item.drugName} available")
+                copy(catalogActionError = LanguageManager.strings.errorOnlyUnitsAvailable(item.quantityAvailable, item.drugName))
             }
             return
         }
@@ -350,7 +363,12 @@ class PharmacyHomeViewModel(
                 orderIdsBySupplier[item.supplierId] ?: when (val created = createOrderUseCase(OrderMode.SPECIFIC_SUPPLIER)) {
                     is Result.Success -> created.data.id.also { orderIdsBySupplier[item.supplierId] = it }
                     is Result.Error -> {
-                        update { copy(processingItemIds = processingItemIds - item.id, catalogActionError = created.message) }
+                        update {
+                            copy(
+                                processingItemIds = processingItemIds - item.id,
+                                catalogActionError = LanguageManager.strings.friendlyError(created.message)
+                            )
+                        }
                         return@launch
                     }
                     is Result.Loading -> {
@@ -392,7 +410,7 @@ class PharmacyHomeViewModel(
                         processingItemIds = processingItemIds - item.id,
                         cartQuantities = cartQuantities - item.id,
                         cartItemIds = cartItemIds - item.id,
-                        catalogActionError = added.message,
+                        catalogActionError = LanguageManager.strings.friendlyError(added.message),
                         supplierCarts = recomputeSupplierCarts(cartQuantities - item.id)
                     )
                 }

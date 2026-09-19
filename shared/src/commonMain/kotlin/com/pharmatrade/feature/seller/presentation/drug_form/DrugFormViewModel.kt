@@ -2,6 +2,8 @@ package com.pharmatrade.feature.seller.presentation.drug_form
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.Drug
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.drugs.domain.usecase.CreateInventoryItemUseCase
@@ -87,7 +89,7 @@ class DrugFormViewModel(
                     }
                     is Result.Error -> _uiState.value = _uiState.value.copy(
                         isSearchingDrugs = false,
-                        drugsError = result.message
+                        drugsError = LanguageManager.strings.friendlyError(result.message)
                     )
                     else -> _uiState.value = _uiState.value.copy(isSearchingDrugs = false)
                 }
@@ -115,7 +117,7 @@ class DrugFormViewModel(
                 }
                 is Result.Error -> _uiState.value = _uiState.value.copy(
                     isLoadingDrugs = false,
-                    drugsError = result.message
+                    drugsError = LanguageManager.strings.friendlyError(result.message)
                 )
                 else -> _uiState.value = _uiState.value.copy(isLoadingDrugs = false)
             }
@@ -202,7 +204,7 @@ class DrugFormViewModel(
                 )
                 is Result.Error -> _uiState.value = _uiState.value.copy(
                     isCreatingDrug = false,
-                    addDrugError = result.message
+                    addDrugError = LanguageManager.strings.friendlyError(result.message)
                 )
                 else -> _uiState.value = _uiState.value.copy(isCreatingDrug = false)
             }
@@ -212,15 +214,15 @@ class DrugFormViewModel(
     fun save() {
         val state = _uiState.value
         val price = state.priceInput.toDoubleOrNull() ?: run {
-            _uiState.value = state.copy(error = "Enter a valid price")
+            _uiState.value = state.copy(error = LanguageManager.strings.errorInvalidPrice)
             return
         }
         val discount = state.discountInput.toDoubleOrNull() ?: run {
-            _uiState.value = state.copy(error = "Enter a valid discount (0-99)")
+            _uiState.value = state.copy(error = LanguageManager.strings.errorInvalidDiscount)
             return
         }
         val quantity = state.quantityInput.toIntOrNull() ?: run {
-            _uiState.value = state.copy(error = "Enter a valid quantity")
+            _uiState.value = state.copy(error = LanguageManager.strings.errorInvalidQuantity)
             return
         }
 
@@ -230,7 +232,7 @@ class DrugFormViewModel(
                 updateListingUseCase(state.editingListingId, price, discount, quantity, state.expiryInput)
             } else {
                 val drug = selectedDrug ?: run {
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = "Select a drug")
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = LanguageManager.strings.errorSelectDrug)
                     return@launch
                 }
                 createInventoryItemUseCase(drug.name, quantity, price, discount)
@@ -238,7 +240,7 @@ class DrugFormViewModel(
             when (result) {
                 is Result.Success -> _uiState.value = _uiState.value.copy(isLoading = false, isSaved = true)
                 is Result.Error -> _uiState.value = _uiState.value.copy(
-                    isLoading = false, error = result.message
+                    isLoading = false, error = LanguageManager.strings.friendlyError(result.message)
                 )
                 else -> Unit
             }

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatBackendTimestamp
 import com.pharmatrade.core.io.rememberFilePickerLauncher
 import com.pharmatrade.core.ui.theme.*
@@ -100,7 +101,7 @@ fun InventoryUploadScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun UploadTopBar(onNavigateBack: () -> Unit) {
-    Surface(shadowElevation = 4.dp, color = PrimaryBlue) {
+    Surface(shadowElevation = 4.dp, color = TopBarContainer) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -110,33 +111,34 @@ private fun UploadTopBar(onNavigateBack: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = TopBarContent)
             }
             Spacer(Modifier.width(4.dp))
+            val strings = LocalStrings.current
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Bulk Import",
+                    text = strings.iuBulkImport,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.75f)
+                    color = TopBarContent.copy(alpha = 0.75f)
                 )
                 Text(
-                    text = "Upload Inventory",
+                    text = strings.iuUploadInventoryTitle,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = TopBarContent
                 )
             }
             Box(
                 modifier = Modifier
                     .padding(end = 12.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(Color.White.copy(alpha = 0.15f))
+                    .background(TopBarContent.copy(alpha = 0.15f))
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = ".xlsx / .csv",
+                    text = strings.iuFileTypesBadge,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White,
+                    color = TopBarContent,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -148,6 +150,7 @@ private fun UploadTopBar(onNavigateBack: () -> Unit) {
 
 @Composable
 private fun UploadBanner() {
+    val strings = LocalStrings.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -157,14 +160,14 @@ private fun UploadBanner() {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Import your drug catalogue",
+                    text = strings.iuImportDrugCatalogue,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Upload an Excel or CSV file to add multiple listings at once — no manual entry needed.",
+                    text = strings.iuImportBannerDesc,
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.8f),
                     lineHeight = MaterialTheme.typography.bodySmall.fontSize * 1.5
@@ -198,6 +201,7 @@ private fun UploadZoneCard(
     onUpload: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalStrings.current
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(20.dp),
@@ -262,7 +266,7 @@ private fun UploadZoneCard(
                                     maxLines = 1
                                 )
                                 Text(
-                                    text = "Tap to change file",
+                                    text = strings.iuTapToChangeFile,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = TextSecondary
                                 )
@@ -295,13 +299,13 @@ private fun UploadZoneCard(
                                 modifier = Modifier.size(44.dp).scale(pulse)
                             )
                             Text(
-                                "Tap to select file",
+                                strings.iuTapToSelectFile,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = PrimaryBlue
                             )
                             Text(
-                                ".xlsx  •  .xls  •  .csv",
+                                strings.iuFileTypesHint,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = TextSecondary
                             )
@@ -324,13 +328,13 @@ private fun UploadZoneCard(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            "Uploading…",
+                            strings.iuUploadingLabel,
                             style = MaterialTheme.typography.labelMedium,
                             color = PrimaryBlue,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            "Please wait",
+                            strings.iuPleaseWait,
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
@@ -367,12 +371,12 @@ private fun UploadZoneCard(
                         color = Color.White
                     )
                     Spacer(Modifier.width(10.dp))
-                    Text("Uploading…", fontWeight = FontWeight.Bold)
+                    Text(strings.iuUploadingLabel, fontWeight = FontWeight.Bold)
                 } else {
                     Icon(Icons.Filled.CloudUpload, null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
                     Text(
-                        "Upload Inventory",
+                        strings.iuUploadInventoryTitle,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.bodyLarge
                     )
@@ -394,6 +398,7 @@ private fun UploadStatusSection(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalStrings.current
     val stage = when {
         uiState.processingResult == ProcessingResult.SUCCESS -> UploadStage.SUCCESS
         uiState.processingResult == ProcessingResult.FAILED -> UploadStage.FAILED
@@ -415,18 +420,18 @@ private fun UploadStatusSection(
                 icon = Icons.Filled.ErrorOutline,
                 iconTint = ErrorRed,
                 iconBg = ErrorRedContainer,
-                title = "Something went wrong",
+                title = strings.iuSomethingWentWrong,
                 message = uiState.uploadError.orEmpty(),
                 onDismiss = onDismissError,
-                trailingAction = { TextButton(onClick = onRetry) { Text("Retry") } },
+                trailingAction = { TextButton(onClick = onRetry) { Text(strings.commonRetry) } },
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             UploadStage.QUEUED -> StatusCard(
                 icon = Icons.Filled.HourglassTop,
                 iconTint = PrimaryBlue,
                 iconBg = PrimaryBlueContainer,
-                title = "Processing your file",
-                message = "This can take a minute — you can leave this screen, it'll keep working in the background.",
+                title = strings.iuProcessingYourFile,
+                message = strings.iuProcessingDesc,
                 showSpinner = true,
                 onDismiss = onDismiss,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -435,11 +440,11 @@ private fun UploadStatusSection(
                 icon = Icons.Filled.CheckCircle,
                 iconTint = SecondaryGreenDark,
                 iconBg = SecondaryGreenContainer,
-                title = "Import complete",
+                title = strings.iuImportComplete,
                 message = buildString {
-                    append("${uiState.processedRows} rows imported")
-                    if (uiState.failedRows > 0) append(", ${uiState.failedRows} failed") else append(" successfully")
-                    append(". Check your inventory on the Home screen.")
+                    append(strings.iuRowsImported(uiState.processedRows))
+                    if (uiState.failedRows > 0) append(strings.iuRowsFailedSuffix(uiState.failedRows)) else append(strings.iuSuccessfullySuffix)
+                    append(strings.iuCheckInventoryHome)
                 },
                 onDismiss = onDismiss,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -448,8 +453,8 @@ private fun UploadStatusSection(
                 icon = Icons.Filled.Cancel,
                 iconTint = ErrorRed,
                 iconBg = ErrorRedContainer,
-                title = "Import failed",
-                message = "Check the file format and column names, then try again.",
+                title = strings.iuImportFailed,
+                message = strings.iuImportFailedDesc,
                 onDismiss = onDismiss,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -469,6 +474,7 @@ private fun StatusCard(
     onDismiss: (() -> Unit)? = null,
     trailingAction: (@Composable () -> Unit)? = null
 ) {
+    val strings = LocalStrings.current
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -497,7 +503,7 @@ private fun StatusCard(
                 }
                 if (onDismiss != null) {
                     IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Filled.Close, contentDescription = "Dismiss", tint = TextSecondary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Filled.Close, contentDescription = strings.commonDismiss, tint = TextSecondary, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -512,20 +518,24 @@ private fun StatusCard(
 
 // ── Format guide card ───────────────────────────────────────────────card──────────
 
-private val REQUIRED_COLUMNS = listOf(
-    "drug_name"        to "Drug name as it appears in the catalogue",
-    "public_price"     to "Retail price shown to the public (EGP)",
-    "pharmacist_price" to "Wholesale price for pharmacists (EGP)",
-    "discount"         to "Discount percentage — enter 0 if none",
-    "quantity"         to "Available quantity in stock"
+@Composable
+private fun requiredColumns(strings: com.pharmatrade.core.common.i18n.Strings) = listOf(
+    "drug_name" to strings.iuColDrugName,
+    "public_price" to strings.iuColPublicPrice,
+    "pharmacist_price" to strings.iuColPharmacistPrice,
+    "discount" to strings.iuColDiscount,
+    "quantity" to strings.iuColQuantity
 )
-private val OPTIONAL_COLUMNS = listOf(
-    "limit" to "Maximum units a buyer can order per transaction"
+
+@Composable
+private fun optionalColumns(strings: com.pharmatrade.core.common.i18n.Strings) = listOf(
+    "limit" to strings.iuColLimit
 )
 
 @Composable
 private fun FormatGuideCard(initiallyExpanded: Boolean, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(initiallyExpanded) }
+    val strings = LocalStrings.current
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -552,7 +562,7 @@ private fun FormatGuideCard(initiallyExpanded: Boolean, modifier: Modifier = Mod
                         Icon(Icons.Filled.TableChart, null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
                     }
                     Text(
-                        "Sheet format guide",
+                        strings.iuSheetFormatGuide,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary
@@ -560,7 +570,7 @@ private fun FormatGuideCard(initiallyExpanded: Boolean, modifier: Modifier = Mod
                 }
                 Icon(
                     if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    contentDescription = if (expanded) strings.commonCollapse else strings.commonExpand,
                     tint = TextSecondary
                 )
             }
@@ -571,19 +581,19 @@ private fun FormatGuideCard(initiallyExpanded: Boolean, modifier: Modifier = Mod
                 ) {
                     HorizontalDivider(color = DividerGray)
                     Text(
-                        "REQUIRED COLUMNS",
+                        strings.iuRequiredColumns,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = TextSecondary
                     )
-                    REQUIRED_COLUMNS.forEach { (col, desc) -> ColumnChipRow(col, desc, required = true) }
+                    requiredColumns(strings).forEach { (col, desc) -> ColumnChipRow(col, desc, required = true) }
                     Text(
-                        "OPTIONAL COLUMNS",
+                        strings.iuOptionalColumns,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = TextSecondary
                     )
-                    OPTIONAL_COLUMNS.forEach { (col, desc) -> ColumnChipRow(col, desc, required = false) }
+                    optionalColumns(strings).forEach { (col, desc) -> ColumnChipRow(col, desc, required = false) }
                 }
             }
         }
@@ -628,10 +638,11 @@ private fun LastUploadSummaryCard(
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalStrings.current
     val (statusColor, statusBg, statusLabel) = when (lastUpload.status.lowercase()) {
-        "success", "completed", "done" -> Triple(SecondaryGreenDark, SecondaryGreenContainer, "Completed")
-        "failed", "error"              -> Triple(ErrorRed, ErrorRedContainer, "Failed")
-        "processing"                   -> Triple(PrimaryBlue, PrimaryBlueContainer, "Processing")
+        "success", "completed", "done" -> Triple(SecondaryGreenDark, SecondaryGreenContainer, strings.iuStatusCompleted)
+        "failed", "error"              -> Triple(ErrorRed, ErrorRedContainer, strings.iuStatusFailed)
+        "processing"                   -> Triple(PrimaryBlue, PrimaryBlueContainer, strings.iuStatusProcessing)
         else -> Triple(WarningAmber, WarningAmberContainer, lastUpload.status.replaceFirstChar { it.uppercase() })
     }
     Card(
@@ -648,7 +659,7 @@ private fun LastUploadSummaryCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Last Upload",
+                        strings.iuLastUpload,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = TextSecondary
@@ -669,7 +680,7 @@ private fun LastUploadSummaryCard(
                     IconButton(onClick = onRefresh, modifier = Modifier.size(28.dp)) {
                         Icon(
                             Icons.Filled.Refresh,
-                            contentDescription = "Refresh status",
+                            contentDescription = strings.iuRefreshStatusContentDescription,
                             tint = PrimaryBlue,
                             modifier = Modifier.size(16.dp)
                         )
@@ -685,10 +696,10 @@ private fun LastUploadSummaryCard(
                 HorizontalDivider(color = DividerGray)
                 Spacer(Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    RowStat("Total Rows", lastUpload.totalRows.toString(), TextPrimary, CardGray, Modifier.weight(1f))
-                    RowStat("Imported", lastUpload.processedRows.toString(), SecondaryGreenDark, SecondaryGreenContainer, Modifier.weight(1f))
+                    RowStat(strings.iuTotalRows, lastUpload.totalRows.toString(), TextPrimary, CardGray, Modifier.weight(1f))
+                    RowStat(strings.iuImported, lastUpload.processedRows.toString(), SecondaryGreenDark, SecondaryGreenContainer, Modifier.weight(1f))
                     RowStat(
-                        "Failed", lastUpload.failedRows.toString(),
+                        strings.iuFailed, lastUpload.failedRows.toString(),
                         if (lastUpload.failedRows > 0) ErrorRed else TextSecondary,
                         if (lastUpload.failedRows > 0) ErrorRedContainer else CardGray,
                         Modifier.weight(1f)

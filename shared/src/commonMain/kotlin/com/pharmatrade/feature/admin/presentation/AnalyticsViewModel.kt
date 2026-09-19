@@ -2,6 +2,8 @@ package com.pharmatrade.feature.admin.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.admin.domain.model.PendingUser
 import com.pharmatrade.feature.admin.domain.model.RegistrationStats
@@ -58,7 +60,7 @@ class AnalyticsViewModel(
                     removeRequest(id)
                     update { copy(snackbarMessage = "Request approved successfully") }
                 }
-                is Result.Error -> update { copy(error = result.message) }
+                is Result.Error -> update { copy(error = LanguageManager.strings.friendlyError(result.message)) }
                 is Result.Loading -> Unit
             }
         }
@@ -71,7 +73,7 @@ class AnalyticsViewModel(
                     removeRequest(id)
                     update { copy(snackbarMessage = "Request declined") }
                 }
-                is Result.Error -> update { copy(error = result.message) }
+                is Result.Error -> update { copy(error = LanguageManager.strings.friendlyError(result.message)) }
                 is Result.Loading -> Unit
             }
         }
@@ -101,7 +103,9 @@ class AnalyticsViewModel(
             update { copy(isLoadingRequests = true, error = null) }
             when (val result = getRequestsUseCase(entityType)) {
                 is Result.Success -> update { copy(isLoadingRequests = false, requests = result.data) }
-                is Result.Error -> update { copy(isLoadingRequests = false, error = result.message) }
+                is Result.Error -> update {
+                    copy(isLoadingRequests = false, error = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }

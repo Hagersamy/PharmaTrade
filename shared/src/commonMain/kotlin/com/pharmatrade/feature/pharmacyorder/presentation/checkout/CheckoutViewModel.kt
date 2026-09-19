@@ -2,6 +2,8 @@ package com.pharmatrade.feature.pharmacyorder.presentation.checkout
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.pharmacyorder.domain.PharmacyCartBus
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrderDetail
@@ -54,7 +56,9 @@ class CheckoutViewModel(
                     // screen — tell Home to stop reusing this supplier's draft order id.
                     PharmacyCartBus.notifyResolved(supplierId)
                 }
-                is Result.Error -> updateOrder(orderId) { copy(isLoading = false, error = result.message) }
+                is Result.Error -> updateOrder(orderId) {
+                    copy(isLoading = false, error = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -69,7 +73,9 @@ class CheckoutViewModel(
                 is Result.Success -> {
                     _uiState.value = _uiState.value.copy(orders = _uiState.value.orders.filterNot { it.orderId == orderId })
                 }
-                is Result.Error -> updateOrder(orderId) { copy(isCancelling = false, error = result.message) }
+                is Result.Error -> updateOrder(orderId) {
+                    copy(isCancelling = false, error = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }

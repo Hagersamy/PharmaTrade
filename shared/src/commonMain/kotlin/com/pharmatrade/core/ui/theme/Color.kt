@@ -21,6 +21,7 @@ data class AppColors(
     val secondaryGreenContainer: Color,
     val warningAmber: Color,
     val warningAmberContainer: Color,
+    val warningAmberOnContainer: Color,
     val errorRed: Color,
     val errorRedContainer: Color,
     val surfaceWhite: Color,
@@ -31,7 +32,18 @@ data class AppColors(
     val textSecondary: Color,
     val textHint: Color,
     val discountBadge: Color,
-    val discountBadgeContainer: Color
+    val discountBadgeContainer: Color,
+    // Background/content pair for full-bleed app bars specifically (as opposed to `surfaceWhite`,
+    // which is the screen's card/surface color) — kept saturated blue-on-white in light mode, but
+    // flipped to a flat dark surface with light text in dark mode instead of staying bright blue,
+    // since a saturated accent-colored bar reads as jarring/mismatched against an otherwise dark UI.
+    val topBarContainer: Color,
+    val topBarContent: Color,
+    // Dedicated "in transit" hue for the Shipped order status — it used to share primaryBlue with
+    // Pending, so the two most different states in the order lifecycle (waiting vs. already moving)
+    // rendered as the same-colored chip.
+    val inTransitTeal: Color,
+    val inTransitTealContainer: Color
 )
 
 val LightAppColors = AppColors(
@@ -45,6 +57,7 @@ val LightAppColors = AppColors(
     secondaryGreenContainer = Color(0xFFD1FAE5),
     warningAmber = Color(0xFFD97706),
     warningAmberContainer = Color(0xFFFEF3C7),
+    warningAmberOnContainer = Color(0xFF92400E),
     errorRed = Color(0xFFDC2626),
     errorRedContainer = Color(0xFFFEE2E2),
     surfaceWhite = Color(0xFFFFFFFF),
@@ -55,7 +68,11 @@ val LightAppColors = AppColors(
     textSecondary = Color(0xFF64748B),
     textHint = Color(0xFF94A3B8),
     discountBadge = Color(0xFF7C3AED),
-    discountBadgeContainer = Color(0xFFEDE9FE)
+    discountBadgeContainer = Color(0xFFEDE9FE),
+    topBarContainer = Color(0xFF1E40AF),
+    topBarContent = Color(0xFFFFFFFF),
+    inTransitTeal = Color(0xFF0E7490),
+    inTransitTealContainer = Color(0xFFCFFAFE)
 )
 
 val DarkAppColors = AppColors(
@@ -72,6 +89,9 @@ val DarkAppColors = AppColors(
     secondaryGreenContainer = Color(0xFF065F46),
     warningAmber = Color(0xFFFBBF24),
     warningAmberContainer = Color(0xFF78350F),
+    // Light amber, not the light-mode's dark-brown text — warningAmberContainer here is a dark
+    // brown, and dark-on-dark text was unreadable (the bug that motivated adding this token).
+    warningAmberOnContainer = Color(0xFFFDE68A),
     // Material's own recommended dark-theme error color — desaturated on purpose, since a fully
     // saturated red (fine on a white background) reads as neon/alarming against a dark surface.
     errorRed = Color(0xFFCF6679),
@@ -85,7 +105,13 @@ val DarkAppColors = AppColors(
     textHint = Color(0xFF64748B),
     // Desaturated (not a vivid violet) for the same reason as errorRed above.
     discountBadge = Color(0xFF9575CD),
-    discountBadgeContainer = Color(0xFF4C1D95)
+    discountBadgeContainer = Color(0xFF4C1D95),
+    // Flat dark surface instead of staying saturated blue — a bright accent-colored app bar reads
+    // as a light-mode header pasted onto a dark screen rather than a considered dark theme.
+    topBarContainer = Color(0xFF1E293B),
+    topBarContent = Color(0xFFF1F5F9),
+    inTransitTeal = Color(0xFF22D3EE),
+    inTransitTealContainer = Color(0xFF164E63)
 )
 
 val LocalAppColors = staticCompositionLocalOf { LightAppColors }
@@ -102,6 +128,7 @@ val SecondaryGreenContainer: Color @Composable get() = LocalAppColors.current.se
 
 val WarningAmber: Color @Composable get() = LocalAppColors.current.warningAmber
 val WarningAmberContainer: Color @Composable get() = LocalAppColors.current.warningAmberContainer
+val WarningAmberOnContainer: Color @Composable get() = LocalAppColors.current.warningAmberOnContainer
 
 val ErrorRed: Color @Composable get() = LocalAppColors.current.errorRed
 val ErrorRedContainer: Color @Composable get() = LocalAppColors.current.errorRedContainer
@@ -116,3 +143,9 @@ val TextHint: Color @Composable get() = LocalAppColors.current.textHint
 
 val DiscountBadge: Color @Composable get() = LocalAppColors.current.discountBadge
 val DiscountBadgeContainer: Color @Composable get() = LocalAppColors.current.discountBadgeContainer
+
+val TopBarContainer: Color @Composable get() = LocalAppColors.current.topBarContainer
+val TopBarContent: Color @Composable get() = LocalAppColors.current.topBarContent
+
+val InTransitTeal: Color @Composable get() = LocalAppColors.current.inTransitTeal
+val InTransitTealContainer: Color @Composable get() = LocalAppColors.current.inTransitTealContainer

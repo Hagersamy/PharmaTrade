@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.DiscountBadge
 import com.pharmatrade.core.ui.components.EmptyState
@@ -40,6 +41,7 @@ fun PharmacyHomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val strings = LocalStrings.current
 
     // searchMatchedDrugIds is null when there's no active search (show everything loaded so
     // far); once set, it's the authoritative result from the backend's real name-search endpoint
@@ -76,11 +78,11 @@ fun PharmacyHomeScreen(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            SectionHeader(title = "All Suppliers' Drugs")
+            SectionHeader(title = strings.pharmacyAllSuppliersDrugs)
             OutlinedTextField(
                 value = uiState.catalogFilter,
                 onValueChange = viewModel::onCatalogFilterChange,
-                placeholder = { Text("Search drug name") },
+                placeholder = { Text(strings.pharmacySearchDrugName) },
                 leadingIcon = { Icon(Icons.Filled.Search, null, tint = TextSecondary) },
                 trailingIcon = {
                     when {
@@ -90,7 +92,7 @@ fun PharmacyHomeScreen(
                             color = PrimaryBlue
                         )
                         uiState.catalogFilter.isNotEmpty() -> IconButton(onClick = { viewModel.onCatalogFilterChange("") }) {
-                            Icon(Icons.Filled.Close, contentDescription = "Clear", tint = TextSecondary)
+                            Icon(Icons.Filled.Close, contentDescription = strings.commonClear, tint = TextSecondary)
                         }
                     }
                 },
@@ -126,7 +128,7 @@ fun PharmacyHomeScreen(
                         ) {
                             Text(uiState.catalogActionError!!, style = MaterialTheme.typography.bodySmall, color = ErrorRed, modifier = Modifier.weight(1f))
                             IconButton(onClick = viewModel::dismissCatalogActionError, modifier = Modifier.size(20.dp)) {
-                                Icon(Icons.Filled.Close, contentDescription = "Dismiss", tint = ErrorRed, modifier = Modifier.size(14.dp))
+                                Icon(Icons.Filled.Close, contentDescription = strings.commonDismiss, tint = ErrorRed, modifier = Modifier.size(14.dp))
                             }
                         }
                     }
@@ -148,8 +150,8 @@ fun PharmacyHomeScreen(
                     }
                     filteredCatalog.isEmpty() -> item {
                         EmptyState(
-                            title = if (uiState.catalogItems.isEmpty()) "No drugs available" else "No matches",
-                            message = if (uiState.catalogItems.isEmpty()) "Check back later" else "Try a different search term",
+                            title = if (uiState.catalogItems.isEmpty()) strings.pharmacyNoDrugsAvailable else strings.pharmacyNoMatches,
+                            message = if (uiState.catalogItems.isEmpty()) strings.pharmacyCheckBackLater else strings.pharmacyTryDifferentSearch,
                             icon = Icons.Filled.Medication,
                             modifier = Modifier.height(220.dp)
                         )
@@ -201,6 +203,7 @@ private fun CatalogDrugCard(
 ) {
     val outOfStock = item.quantityAvailable <= 0
     val lowStock = !outOfStock && item.quantityAvailable < 10
+    val strings = LocalStrings.current
 
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -228,36 +231,24 @@ private fun CatalogDrugCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.drugName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary, maxLines = 1)
-                if (item.dosageForm.isNotBlank() || item.strength.isNotBlank()) {
-                    Text(
-                        listOf(item.dosageForm, item.strength).filter { it.isNotBlank() }.joinToString(" · "),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary,
-                        maxLines = 1
-                    )
-                }
                 Spacer(Modifier.height(3.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Icon(Icons.Filled.Storefront, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(11.dp))
                     Text(item.supplierName, style = MaterialTheme.typography.labelSmall, color = PrimaryBlue, fontWeight = FontWeight.Medium, maxLines = 1)
                 }
                 Spacer(Modifier.height(3.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    StockChip(outOfStock = outOfStock, lowStock = lowStock, quantity = item.quantityAvailable)
-                }
+                StockChip(outOfStock = outOfStock, lowStock = lowStock, quantity = item.quantityAvailable)
             }
 
             Column(horizontalAlignment = Alignment.End) {
-                if (item.discountPct > 0) {
-                    Text(
-                        "EGP ${formatDecimal(item.unitPrice, 2)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextHint,
-                        textDecoration = TextDecoration.LineThrough
-                    )
-                }
                 Text(
-                    "EGP ${formatDecimal(item.effectivePrice, 2)}",
+                    "EGP ${formatDecimal(item.publicPrice, 2)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextHint,
+                    textDecoration = TextDecoration.LineThrough
+                )
+                Text(
+                    "EGP ${formatDecimal(item.pharmacistPrice, 2)}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
@@ -290,7 +281,7 @@ private fun CatalogDrugCard(
                     if (isProcessing) {
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
                     } else {
-                        Icon(Icons.Filled.Add, contentDescription = "Add to cart", tint = Color.White, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Filled.Add, contentDescription = strings.commonAddToCart, tint = Color.White, modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -310,6 +301,7 @@ fun CartQuantityStepper(
     onIncrease: () -> Unit,
     onDecrease: () -> Unit
 ) {
+    val strings = LocalStrings.current
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
@@ -321,7 +313,7 @@ fun CartQuantityStepper(
             enabled = !isProcessing,
             modifier = Modifier.size(28.dp)
         ) {
-            Icon(Icons.Filled.Remove, contentDescription = "Decrease quantity", tint = SecondaryGreenDark, modifier = Modifier.size(16.dp))
+            Icon(Icons.Filled.Remove, contentDescription = strings.commonDecreaseQuantity, tint = SecondaryGreenDark, modifier = Modifier.size(16.dp))
         }
         Box(modifier = Modifier.widthIn(min = 18.dp), contentAlignment = Alignment.Center) {
             if (isProcessing) {
@@ -335,17 +327,18 @@ fun CartQuantityStepper(
             enabled = !isProcessing && canIncrease,
             modifier = Modifier.size(28.dp)
         ) {
-            Icon(Icons.Filled.Add, contentDescription = "Increase quantity", tint = if (canIncrease) SecondaryGreenDark else TextHint, modifier = Modifier.size(16.dp))
+            Icon(Icons.Filled.Add, contentDescription = strings.commonIncreaseQuantity, tint = if (canIncrease) SecondaryGreenDark else TextHint, modifier = Modifier.size(16.dp))
         }
     }
 }
 
 @Composable
 private fun StockChip(outOfStock: Boolean, lowStock: Boolean, quantity: Int) {
+    val strings = LocalStrings.current
     val (label, color, bg) = when {
-        outOfStock -> Triple("Out of stock", ErrorRed, ErrorRedContainer)
-        lowStock -> Triple("Only $quantity left", WarningAmber, WarningAmberContainer)
-        else -> Triple("$quantity in stock", SecondaryGreenDark, SecondaryGreenContainer)
+        outOfStock -> Triple(strings.pharmacyOutOfStock, ErrorRed, ErrorRedContainer)
+        lowStock -> Triple(strings.pharmacyOnlyLeft(quantity), WarningAmber, WarningAmberContainer)
+        else -> Triple(strings.pharmacyInStock(quantity), SecondaryGreenDark, SecondaryGreenContainer)
     }
     Surface(shape = RoundedCornerShape(20.dp), color = bg) {
         Text(
@@ -367,17 +360,39 @@ private fun CatalogQuantityDialog(
 ) {
     val maxQuantity = item.quantityAvailable
     var quantity by remember(item.id) { mutableStateOf(initialQuantity.coerceIn(1, maxQuantity.coerceAtLeast(1))) }
+    val strings = LocalStrings.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(item.drugName, fontWeight = FontWeight.Bold) },
         text = {
             Column {
+                if (item.dosageForm.isNotBlank() || item.strength.isNotBlank()) {
+                    Text(
+                        listOf(item.dosageForm, item.strength).filter { it.isNotBlank() }.joinToString(" · "),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary
+                    )
+                    Spacer(Modifier.height(2.dp))
+                }
                 Text(
-                    "From ${item.supplierName} · EGP ${formatDecimal(item.effectivePrice, 2)}/unit · $maxQuantity in stock",
+                    strings.pharmacyFromSupplierPriceStock(item.supplierName, formatDecimal(item.effectivePrice, 2), maxQuantity),
                     style = MaterialTheme.typography.labelSmall,
                     color = TextSecondary
                 )
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "${strings.catalogPublicPriceLabel}: EGP ${formatDecimal(item.publicPrice, 2)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary
+                    )
+                    Text(
+                        "${strings.catalogPharmacistPriceLabel}: EGP ${formatDecimal(item.pharmacistPrice, 2)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary
+                    )
+                }
                 Spacer(Modifier.height(16.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -388,7 +403,7 @@ private fun CatalogQuantityDialog(
                         onClick = { if (quantity > 1) quantity-- },
                         enabled = quantity > 1
                     ) {
-                        Icon(Icons.Filled.Remove, contentDescription = "Decrease quantity", tint = if (quantity > 1) PrimaryBlue else TextHint)
+                        Icon(Icons.Filled.Remove, contentDescription = strings.commonDecreaseQuantity, tint = if (quantity > 1) PrimaryBlue else TextHint)
                     }
                     Text(
                         "$quantity",
@@ -402,12 +417,12 @@ private fun CatalogQuantityDialog(
                         onClick = { if (quantity < maxQuantity) quantity++ },
                         enabled = quantity < maxQuantity
                     ) {
-                        Icon(Icons.Filled.Add, contentDescription = "Increase quantity", tint = if (quantity < maxQuantity) PrimaryBlue else TextHint)
+                        Icon(Icons.Filled.Add, contentDescription = strings.commonIncreaseQuantity, tint = if (quantity < maxQuantity) PrimaryBlue else TextHint)
                     }
                 }
                 if (quantity >= maxQuantity) {
                     Text(
-                        "Max available reached",
+                        strings.pharmacyMaxAvailableReached,
                         style = MaterialTheme.typography.labelSmall,
                         color = WarningAmber,
                         modifier = Modifier.fillMaxWidth(),
@@ -418,11 +433,11 @@ private fun CatalogQuantityDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(quantity) }, enabled = quantity in 1..maxQuantity) {
-                Text("Add to cart")
+                Text(strings.commonAddToCart)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(strings.commonCancel) }
         }
     )
 }

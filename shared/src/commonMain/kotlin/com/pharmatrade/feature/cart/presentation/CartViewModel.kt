@@ -2,6 +2,8 @@ package com.pharmatrade.feature.cart.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.SellerListing
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.cart.domain.model.Cart
@@ -68,7 +70,7 @@ class CartViewModel(
     fun placeOrder() {
         val cart = _uiState.value.cart
         if (cart.isEmpty()) {
-            _uiState.value = _uiState.value.copy(error = "Your cart is empty")
+            _uiState.value = _uiState.value.copy(error = LanguageManager.strings.errorCartEmpty)
             return
         }
         val violations = validateCartUseCase(cart)
@@ -87,7 +89,7 @@ class CartViewModel(
                     )
                 }
                 is Result.Error -> _uiState.value = _uiState.value.copy(
-                    isPlacingOrder = false, error = result.message
+                    isPlacingOrder = false, error = LanguageManager.strings.friendlyError(result.message)
                 )
                 else -> Unit
             }

@@ -2,6 +2,8 @@ package com.pharmatrade.feature.pharmacyorder.presentation.ordermode
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrderMode
 import com.pharmatrade.feature.pharmacyorder.domain.model.PharmacySupplier
@@ -55,7 +57,9 @@ class OrderModeViewModel(
             update { copy(isLoadingSuppliers = true, suppliersError = null) }
             when (val result = getSuppliersUseCase()) {
                 is Result.Success -> update { copy(isLoadingSuppliers = false, suppliers = result.data) }
-                is Result.Error -> update { copy(isLoadingSuppliers = false, suppliersError = result.message) }
+                is Result.Error -> update {
+                    copy(isLoadingSuppliers = false, suppliersError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -67,7 +71,9 @@ class OrderModeViewModel(
             update { copy(isCreating = true, createError = null) }
             when (val result = createOrderUseCase(mode, _uiState.value.notes)) {
                 is Result.Success -> update { copy(isCreating = false, createdOrderId = result.data.id) }
-                is Result.Error -> update { copy(isCreating = false, createError = result.message) }
+                is Result.Error -> update {
+                    copy(isCreating = false, createError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }

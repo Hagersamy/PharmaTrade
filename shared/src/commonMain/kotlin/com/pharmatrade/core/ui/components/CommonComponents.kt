@@ -17,12 +17,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.theme.*
 
@@ -114,6 +118,18 @@ fun DiscountBadge(discountPercentage: Double, modifier: Modifier = Modifier) {
     }
 }
 
+// A plain presence dot (not a count) — used where a numeric Badge would be overkill, e.g.
+// flagging a single order row as having an unread notification about it.
+@Composable
+fun UnreadDot(modifier: Modifier = Modifier, color: Color = ErrorRed) {
+    Box(
+        modifier = modifier
+            .size(8.dp)
+            .clip(CircleShape)
+            .background(color)
+    )
+}
+
 @Composable
 fun RatingRow(rating: Float, modifier: Modifier = Modifier) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
@@ -155,7 +171,10 @@ fun PharmaTextField(
     errorMessage: String? = null,
     singleLine: Boolean = true,
     readOnly: Boolean = false,
-    keyboardType: KeyboardType = KeyboardType.Text
+    keyboardType: KeyboardType = KeyboardType.Text,
+    imeAction: ImeAction = ImeAction.Default,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    onImeAction: (() -> Unit)? = null
 ) {
     Column(modifier = modifier) {
         OutlinedTextField(
@@ -169,9 +188,14 @@ fun PharmaTextField(
             isError = isError,
             singleLine = singleLine,
             readOnly = readOnly,
+            visualTransformation = visualTransformation,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
+            keyboardActions = KeyboardActions(
+                onDone = { onImeAction?.invoke() },
+                onNext = { onImeAction?.invoke() }
+            ),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = PrimaryBlue,
                 unfocusedBorderColor = DividerGray,
@@ -198,6 +222,7 @@ fun MinimumOrderWarning(
     shortfall: Double,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalStrings.current
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -215,22 +240,25 @@ fun MinimumOrderWarning(
         Spacer(Modifier.width(8.dp))
         Column {
             Text(
-                text = "Minimum Order Not Met — $sellerName",
+                text = strings.minOrderNotMetTitle(sellerName),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF92400E)
+                color = WarningAmberOnContainer
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text = "Current: EGP ${formatDecimal(currentAmount, 2)} / Minimum: EGP ${formatDecimal(minimumAmount, 2)}",
+                text = strings.minOrderCurrentVsMinimum(
+                    "EGP ${formatDecimal(currentAmount, 2)}",
+                    "EGP ${formatDecimal(minimumAmount, 2)}"
+                ),
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF92400E)
+                color = WarningAmberOnContainer
             )
             Text(
-                text = "Add EGP ${formatDecimal(shortfall, 2)} more from this seller",
+                text = strings.minOrderAddMoreFromSeller("EGP ${formatDecimal(shortfall, 2)}"),
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF92400E)
+                color = WarningAmberOnContainer
             )
         }
     }
@@ -248,6 +276,9 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
 
 @Composable
 fun ErrorScreen(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    // message is expected to already be a safe, localized, user-facing string — ViewModels
+    // sanitize raw backend/exception text via Strings.friendlyError() before it reaches state,
+    // so it is never displayed verbatim here.
     Column(
         modifier = modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -267,7 +298,7 @@ fun ErrorScreen(message: String, onRetry: () -> Unit, modifier: Modifier = Modif
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(24.dp))
-        PharmaButton(text = "Retry", onClick = onRetry)
+        PharmaButton(text = LocalStrings.current.commonRetry, onClick = onRetry)
     }
 }
 
@@ -356,7 +387,7 @@ fun PharmaTopBar(
     onNavigateBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
-    Surface(shadowElevation = 2.dp, color = MaterialTheme.colorScheme.primary) {
+    Surface(shadowElevation = 2.dp, color = TopBarContainer) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -369,8 +400,8 @@ fun PharmaTopBar(
                 IconButton(onClick = onNavigateBack) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
+                        contentDescription = LocalStrings.current.commonBack,
+                        tint = TopBarContent
                     )
                 }
                 Spacer(Modifier.width(4.dp))
@@ -378,7 +409,7 @@ fun PharmaTopBar(
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineSmall,
-                color = Color.White,
+                color = TopBarContent,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )

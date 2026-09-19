@@ -69,7 +69,7 @@ data class PendingUserDto(
     }
 }
 
-private const val BASE = "https://unbuckled-word-defuse.ngrok-free.dev/api/v1/"
+private const val BASE = "https://pharma-trade-backend-production-e64c.up.railway.app/api/v1/"
 
 /**
  * Converts whatever the server sends for a licence image to a usable HTTPS URL.
@@ -96,8 +96,8 @@ private fun JsonElement?.toLicenceUrl(): String? {
             BASE
         )
         .replace(
-            "http://unbuckled-word-defuse.ngrok-free.dev",
-            "https://unbuckled-word-defuse.ngrok-free.dev"
+            "http://pharma-trade-backend-production-e64c.up.railway.app",
+            "https://pharma-trade-backend-production-e64c.up.railway.app"
         )
 }
 

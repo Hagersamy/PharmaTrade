@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.EmptyState
 import com.pharmatrade.core.ui.components.PharmaButton
@@ -42,6 +43,7 @@ fun PharmacyCartScreen(
     onCheckoutAll: (orders: List<Pair<String, String>>) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
 
     val itemsBySupplier = remember(uiState.catalogItems, uiState.cartQuantities) {
         val itemsById = uiState.catalogItems.associateBy { it.id }
@@ -55,13 +57,13 @@ fun PharmacyCartScreen(
 
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
         Box(modifier = Modifier.padding(16.dp)) {
-            SectionHeader(title = "My Cart")
+            SectionHeader(title = strings.pharmacyCartTitle)
         }
 
         if (carts.isEmpty()) {
             EmptyState(
-                title = "Your cart is empty",
-                message = "Add drugs from the catalog on Home to start an order",
+                title = strings.pharmacyCartEmptyTitle,
+                message = strings.pharmacyCartEmptyMessage,
                 icon = Icons.Filled.ShoppingCart,
                 modifier = Modifier.weight(1f).fillMaxWidth()
             )
@@ -88,7 +90,7 @@ fun PharmacyCartScreen(
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
                             Text(
-                                "${uiState.totalCartItems} item${if (uiState.totalCartItems == 1) "" else "s"} · ${carts.size} order${if (carts.size == 1) "" else "s"}",
+                                strings.pharmacyCartItemsOrdersSummary(uiState.totalCartItems, carts.size),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = TextSecondary
                             )
@@ -101,7 +103,7 @@ fun PharmacyCartScreen(
                         }
                     }
                     PharmaButton(
-                        text = "Checkout all (${carts.size} order${if (carts.size == 1) "" else "s"})",
+                        text = strings.pharmacyCartCheckoutAll(carts.size),
                         onClick = { onCheckoutAll(carts.map { it.orderId to it.supplierId }) },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -120,6 +122,7 @@ private fun SupplierCartCard(
     onDecrease: (SupplierCatalogItem) -> Unit,
     onRemoveOrder: () -> Unit
 ) {
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -137,7 +140,7 @@ private fun SupplierCartCard(
                     Text(cart.supplierName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
                 }
                 TextButton(onClick = onRemoveOrder) {
-                    Text("Remove order", color = ErrorRed)
+                    Text(strings.pharmacyCartRemoveOrder, color = ErrorRed)
                 }
             }
 
@@ -154,7 +157,7 @@ private fun SupplierCartCard(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(item.drugName, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, maxLines = 1)
                         Text(
-                            "EGP ${formatDecimal(item.effectivePrice, 2)} × $quantity = EGP ${formatDecimal(item.effectivePrice * quantity, 2)}",
+                            strings.pharmacyCartLineTotal(formatDecimal(item.effectivePrice, 2), quantity, formatDecimal(item.effectivePrice * quantity, 2)),
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
@@ -175,7 +178,7 @@ private fun SupplierCartCard(
             Spacer(Modifier.height(8.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Subtotal", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                Text(strings.commonSubtotal, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                 Text(
                     "EGP ${formatDecimal(cart.subtotal, 2)}",
                     style = MaterialTheme.typography.bodyMedium,

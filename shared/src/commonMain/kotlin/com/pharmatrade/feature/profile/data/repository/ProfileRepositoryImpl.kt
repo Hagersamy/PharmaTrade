@@ -4,7 +4,6 @@ import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.feature.profile.data.remote.ProfileApi
 import com.pharmatrade.feature.profile.data.remote.dto.ChangePasswordRequest
-import com.pharmatrade.feature.profile.data.remote.dto.DeactivateAccountRequest
 import com.pharmatrade.feature.profile.data.remote.dto.RequestZoneUpdateRequest
 import com.pharmatrade.feature.profile.data.remote.dto.UpdateBranchRequest
 import com.pharmatrade.feature.profile.data.remote.dto.UpdateSupplierRequest
@@ -127,20 +126,6 @@ class ProfileRepositoryImpl(
         Result.Error(parseHttpError(e), e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to update branch", e)
-    }
-
-    override suspend fun deactivateAccount(phone: String): Result<Unit> = try {
-        val response = api.deactivateAccount(DeactivateAccountRequest(phone))
-        if (response.isSuccessful) {
-            SessionManager.logout()
-            Result.Success(Unit)
-        } else {
-            Result.Error(response.errorMessage ?: "Failed to deactivate account")
-        }
-    } catch (e: ResponseException) {
-        Result.Error(parseHttpError(e), e)
-    } catch (e: Exception) {
-        Result.Error(e.message ?: "Failed to deactivate account", e)
     }
 
     override suspend fun requestZoneUpdate(zoneIds: List<Int>, reason: String): Result<ZoneUpdateRequest> = try {

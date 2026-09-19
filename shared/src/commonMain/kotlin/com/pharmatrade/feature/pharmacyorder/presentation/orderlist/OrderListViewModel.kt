@@ -2,6 +2,8 @@ package com.pharmatrade.feature.pharmacyorder.presentation.orderlist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.pharmacyorder.domain.PharmacyCartBus
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrdersPage
@@ -43,7 +45,12 @@ class OrderListViewModel(
     val uiState: StateFlow<OrderListUiState> = _uiState.asStateFlow()
 
     init {
-        loadOrders()
+        // Deliberately does NOT call loadOrders() here — AppNavigation's entry<NavKeys.Home>
+        // lifecycle observer calls it on ON_RESUME, which fires immediately (synchronous catch-up,
+        // since the Activity is already RESUMED when this VM is constructed) and covers first load
+        // on its own. Calling it here too used to double every one of the (up to 4, for "All")
+        // requests this fires on startup.
+
         // Fires when a draft order is confirmed or cancelled (checkout/allocation), which runs on
         // a separate back-stack entry with no direct reference back to this ViewModel — reload so
         // a just-placed order shows up here without waiting for this screen to be recreated.
@@ -54,7 +61,9 @@ class OrderListViewModel(
 
     fun onTabSelected(tab: OrderListTab) {
         if (tab == _uiState.value.selectedTab) return
-        update { copy(selectedTab = tab) }
+        // Clear the previous tab's orders so the loading spinner shows immediately instead of
+        // leaving stale orders from the old tab on screen until the new ones arrive.
+        update { copy(selectedTab = tab, orders = emptyList(), total = 0) }
         loadOrders()
     }
 
@@ -67,7 +76,9 @@ class OrderListViewModel(
             } else {
                 when (val result = getPharmacyOrdersUseCase(status = tab.apiStatus, perPage = 20)) {
                     is Result.Success -> update { copy(isLoading = false, orders = result.data.orders, total = result.data.total) }
-                    is Result.Error -> update { copy(isLoading = false, error = result.message) }
+                    is Result.Error -> update {
+                        copy(isLoading = false, error = LanguageManager.strings.friendlyError(result.message))
+                    }
                     is Result.Loading -> Unit
                 }
             }
@@ -82,7 +93,7 @@ class OrderListViewModel(
 
         val firstError = results.filterIsInstance<Result.Error>().firstOrNull()
         if (firstError != null && results.none { it is Result.Success }) {
-            update { copy(isLoading = false, error = firstError.message) }
+            update { copy(isLoading = false, error = LanguageManager.strings.friendlyError(firstError.message)) }
             return
         }
 

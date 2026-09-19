@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatBackendTimestamp
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.ErrorScreen
@@ -50,7 +51,7 @@ fun SellerOrderDetailScreen(
                 .padding(padding)
                 .background(BackgroundGray)
         ) {
-            PharmaTopBar(title = "Order Details", onNavigateBack = onNavigateBack)
+            PharmaTopBar(title = LocalStrings.current.orderDetailsTitle, onNavigateBack = onNavigateBack)
 
             when {
                 uiState.isLoading && uiState.order == null -> Box(Modifier.weight(1f).fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -125,6 +126,7 @@ fun SellerOrderDetailScreen(
 
 @Composable
 private fun OrderHeaderCard(order: SupplierOrderDetail) {
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -135,13 +137,13 @@ private fun OrderHeaderCard(order: SupplierOrderDetail) {
                 Column {
                     Text(order.orderNumber, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
                     order.confirmedAt?.let {
-                        Text("Confirmed ${formatBackendTimestamp(it)}", style = MaterialTheme.typography.labelSmall, color = TextHint)
+                        Text(strings.sellerOrderConfirmedAt(formatBackendTimestamp(it)), style = MaterialTheme.typography.labelSmall, color = TextHint)
                     }
                     order.shippedAt?.let {
-                        Text("Shipped ${formatBackendTimestamp(it)}", style = MaterialTheme.typography.labelSmall, color = TextHint)
+                        Text(strings.sellerOrderShippedAt(formatBackendTimestamp(it)), style = MaterialTheme.typography.labelSmall, color = TextHint)
                     }
                     order.deliveredAt?.let {
-                        Text("Delivered ${formatBackendTimestamp(it)}", style = MaterialTheme.typography.labelSmall, color = TextHint)
+                        Text(strings.sellerOrderDeliveredAt(formatBackendTimestamp(it)), style = MaterialTheme.typography.labelSmall, color = TextHint)
                     }
                 }
                 OrderStatusChip(status = order.status)
@@ -150,7 +152,7 @@ private fun OrderHeaderCard(order: SupplierOrderDetail) {
             HorizontalDivider(color = DividerGray)
             Spacer(Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Subtotal", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                Text(strings.commonSubtotal, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                 Text(
                     "EGP ${formatDecimal(order.subtotal, 2)}",
                     style = MaterialTheme.typography.titleMedium,
@@ -160,7 +162,7 @@ private fun OrderHeaderCard(order: SupplierOrderDetail) {
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                "Platform commission: ${formatDecimal(order.commissionPct, 1)}% (EGP ${formatDecimal(order.commissionValue, 2)})",
+                strings.sellerOrderPlatformCommission(formatDecimal(order.commissionPct, 1), formatDecimal(order.commissionValue, 2)),
                 style = MaterialTheme.typography.labelSmall,
                 color = TextSecondary
             )
@@ -171,9 +173,10 @@ private fun OrderHeaderCard(order: SupplierOrderDetail) {
 @Composable
 private fun PharmacyInfoCard(order: SupplierOrderDetail) {
     if (order.pharmacyBranchName.isBlank()) return
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Pharmacy", style = MaterialTheme.typography.labelSmall, color = TextHint)
+            Text(strings.commonPharmacy, style = MaterialTheme.typography.labelSmall, color = TextHint)
             Spacer(Modifier.height(4.dp))
             Text(order.pharmacyBranchName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
             if (order.pharmacyBranchAddress.isNotBlank()) {
@@ -188,6 +191,7 @@ private fun PharmacyInfoCard(order: SupplierOrderDetail) {
 
 @Composable
 private fun OrderItemCard(item: SupplierOrderItem) {
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(item.drugName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
@@ -198,12 +202,12 @@ private fun OrderItemCard(item: SupplierOrderItem) {
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
-                    "Requested ${item.quantityRequested} · Confirmed ${item.quantityConfirmed ?: "—"}",
+                    strings.orderRequestedConfirmed(item.quantityRequested, item.quantityConfirmed?.toString() ?: "—"),
                     style = MaterialTheme.typography.labelSmall,
                     color = TextSecondary
                 )
                 Text(
-                    "EGP ${formatDecimal(item.unitPrice, 2)}/unit → EGP ${formatDecimal(item.lineTotal, 2)}",
+                    strings.orderPriceToTotal(formatDecimal(item.unitPrice, 2), formatDecimal(item.lineTotal, 2)),
                     style = MaterialTheme.typography.labelSmall,
                     color = TextSecondary
                 )
@@ -221,19 +225,20 @@ private fun ActionButtons(
     onShip: () -> Unit,
     onDeliver: () -> Unit
 ) {
+    val strings = LocalStrings.current
     when {
         order.canConfirm -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            PharmaButton(text = "Confirm Order", onClick = onConfirm, enabled = !isSubmitting, modifier = Modifier.fillMaxWidth())
-            PharmaOutlinedButton(text = "Report Shortage", onClick = onReportShortage, enabled = !isSubmitting, modifier = Modifier.fillMaxWidth())
+            PharmaButton(text = strings.sellerOrderConfirmOrder, onClick = onConfirm, enabled = !isSubmitting, modifier = Modifier.fillMaxWidth())
+            PharmaOutlinedButton(text = strings.sellerOrderReportShortage, onClick = onReportShortage, enabled = !isSubmitting, modifier = Modifier.fillMaxWidth())
         }
         order.canShip -> PharmaButton(
-            text = "Mark as Shipped",
+            text = strings.sellerOrderMarkShipped,
             onClick = onShip,
             isLoading = isSubmitting,
             modifier = Modifier.fillMaxWidth()
         )
         order.canDeliver -> PharmaButton(
-            text = "Mark as Delivered",
+            text = strings.sellerOrderMarkDelivered,
             onClick = onDeliver,
             isLoading = isSubmitting,
             modifier = Modifier.fillMaxWidth()
@@ -251,17 +256,18 @@ private fun ConfirmOrderDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val strings = LocalStrings.current
     AlertDialog(
         onDismissRequest = { if (!isSubmitting) onDismiss() },
         icon = { Icon(Icons.Filled.LocalShipping, null, tint = PrimaryBlue) },
-        title = { Text("Confirm Order", fontWeight = FontWeight.Bold) },
+        title = { Text(strings.sellerOrderConfirmOrder, fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    "Enter how many units you can fulfil for each item.",
+                    strings.sellerOrderConfirmDialogInstructions,
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
@@ -272,7 +278,7 @@ private fun ConfirmOrderDialog(
                         OutlinedTextField(
                             value = quantities[item.id] ?: item.quantityRequested.toString(),
                             onValueChange = { onQuantityChange(item.id, it) },
-                            label = { Text("Confirmed qty (requested ${item.quantityRequested})") },
+                            label = { Text(strings.sellerOrderConfirmedQtyLabel(item.quantityRequested)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
@@ -289,12 +295,12 @@ private fun ConfirmOrderDialog(
                 if (isSubmitting) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
                 } else {
-                    Text("Confirm")
+                    Text(strings.commonConfirm)
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isSubmitting) { Text("Cancel") }
+            TextButton(onClick = onDismiss, enabled = !isSubmitting) { Text(strings.commonCancel) }
         }
     )
 }
@@ -311,17 +317,18 @@ private fun ReportShortageDialog(
     onSubmit: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val strings = LocalStrings.current
     AlertDialog(
         onDismissRequest = { if (!isSubmitting) onDismiss() },
         icon = { Icon(Icons.Filled.Warning, null, tint = WarningAmber) },
-        title = { Text("Report Shortage", fontWeight = FontWeight.Bold) },
+        title = { Text(strings.sellerOrderReportShortage, fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    "Enter how many units are actually available. The rest will be reported as short.",
+                    strings.sellerOrderShortageDialogInstructions,
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
@@ -332,7 +339,7 @@ private fun ReportShortageDialog(
                         OutlinedTextField(
                             value = quantities[item.id] ?: item.quantityRequested.toString(),
                             onValueChange = { onQuantityChange(item.id, it) },
-                            label = { Text("Available qty (requested ${item.quantityRequested})") },
+                            label = { Text(strings.sellerOrderAvailableQtyLabel(item.quantityRequested)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
@@ -342,7 +349,7 @@ private fun ReportShortageDialog(
                 OutlinedTextField(
                     value = notes,
                     onValueChange = onNotesChange,
-                    label = { Text("Notes (e.g. stock ran out at warehouse)") },
+                    label = { Text(strings.sellerOrderNotesLabel) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -356,12 +363,12 @@ private fun ReportShortageDialog(
                 if (isSubmitting) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
                 } else {
-                    Text("Submit")
+                    Text(strings.commonSubmit)
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isSubmitting) { Text("Cancel") }
+            TextButton(onClick = onDismiss, enabled = !isSubmitting) { Text(strings.commonCancel) }
         }
     )
 }

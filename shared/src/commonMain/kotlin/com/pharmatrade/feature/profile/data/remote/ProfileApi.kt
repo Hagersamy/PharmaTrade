@@ -4,7 +4,6 @@ import com.pharmatrade.core.network.ApiClient
 import com.pharmatrade.core.network.dto.ApiResponse
 import com.pharmatrade.feature.profile.data.remote.dto.BranchProfileDto
 import com.pharmatrade.feature.profile.data.remote.dto.ChangePasswordRequest
-import com.pharmatrade.feature.profile.data.remote.dto.DeactivateAccountRequest
 import com.pharmatrade.feature.profile.data.remote.dto.ProfileResponseDto
 import com.pharmatrade.feature.profile.data.remote.dto.RequestZoneUpdateRequest
 import com.pharmatrade.feature.profile.data.remote.dto.SupplierProfileDto
@@ -13,7 +12,6 @@ import com.pharmatrade.feature.profile.data.remote.dto.UpdateSupplierRequest
 import com.pharmatrade.feature.profile.data.remote.dto.ZoneUpdateRequestDto
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
@@ -51,12 +49,6 @@ class ProfileApi(private val client: HttpClient = ApiClient.httpClient) {
 
     suspend fun updateBranch(request: UpdateBranchRequest): ApiResponse<BranchProfileDto> =
         client.patch("profile/branch") {
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }.body()
-
-    suspend fun deactivateAccount(request: DeactivateAccountRequest): ApiResponse<JsonElement?> =
-        client.delete("profile") {
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()

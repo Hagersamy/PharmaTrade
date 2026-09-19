@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.model.Seller
 import com.pharmatrade.core.common.model.SellerListing
 import com.pharmatrade.core.common.util.formatDecimal
@@ -35,6 +38,7 @@ fun BuyerSearchScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val focusRequester = remember { FocusRequester() }
+    val strings = LocalStrings.current
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
@@ -50,12 +54,12 @@ fun BuyerSearchScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.commonBack, tint = Color.White)
                 }
                 OutlinedTextField(
                     value = uiState.query,
                     onValueChange = viewModel::onQueryChange,
-                    placeholder = { Text("Search sellers, drugs...", color = Color.White.copy(alpha = 0.6f)) },
+                    placeholder = { Text(strings.searchSellersDrugsPlaceholder, color = Color.White.copy(alpha = 0.6f)) },
                     trailingIcon = {
                         if (uiState.query.isNotBlank()) {
                             IconButton(onClick = { viewModel.onQueryChange("") }) {
@@ -95,7 +99,7 @@ fun BuyerSearchScreen(
                 modifier = Modifier.weight(1f),
                 selected = uiState.filterSellers,
                 onClick = viewModel::toggleFilterSellers,
-                label = { Text("Sellers") },
+                label = { Text(strings.searchSellersLabel) },
                 leadingIcon = {
                     Icon(
                         if (uiState.filterSellers) Icons.Filled.CheckCircle else Icons.Filled.Store,
@@ -113,7 +117,7 @@ fun BuyerSearchScreen(
                 modifier = Modifier.weight(1f),
                 selected = uiState.filterDrugs,
                 onClick = viewModel::toggleFilterDrugs,
-                label = { Text("Drugs") },
+                label = { Text(strings.searchDrugsLabel) },
                 leadingIcon = {
                     Icon(
                         if (uiState.filterDrugs) Icons.Filled.CheckCircle else Icons.Filled.Medication,
@@ -132,8 +136,8 @@ fun BuyerSearchScreen(
                     onClick = { if (uiState.filterDrugs) showSortMenu = true }
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Sort,
-                        contentDescription = "Sort drugs",
+                        imageVector = Icons.AutoMirrored.Filled.Sort,
+                        contentDescription = strings.searchSortDrugsContentDescription,
                         tint = if (uiState.filterDrugs) PrimaryBlue else DividerGray
                     )
                 }
@@ -142,8 +146,8 @@ fun BuyerSearchScreen(
                     onDismissRequest = { showSortMenu = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Best Price") },
-                        leadingIcon = { Icon(Icons.Filled.TrendingDown, contentDescription = null) },
+                        text = { Text(strings.searchBestPrice) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.TrendingDown, contentDescription = null) },
                         trailingIcon = if (uiState.drugSortOrder == DrugSortOrder.BEST_PRICE) {
                             { Icon(Icons.Filled.Check, contentDescription = null, tint = PrimaryBlue) }
                         } else null,
@@ -153,7 +157,7 @@ fun BuyerSearchScreen(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("A–Z") },
+                        text = { Text(strings.searchAZ) },
                         leadingIcon = { Icon(Icons.Filled.SortByAlpha, contentDescription = null) },
                         trailingIcon = if (uiState.drugSortOrder == DrugSortOrder.A_Z) {
                             { Icon(Icons.Filled.Check, contentDescription = null, tint = PrimaryBlue) }
@@ -183,6 +187,7 @@ fun BuyerSearchScreen(
 
 @Composable
 private fun SearchHint() {
+    val strings = LocalStrings.current
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
@@ -193,7 +198,7 @@ private fun SearchHint() {
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                "Type to search sellers or drugs",
+                strings.searchTypeToSearchHint,
                 style = MaterialTheme.typography.bodyLarge,
                 color = TextSecondary
             )
@@ -206,14 +211,15 @@ private fun SearchResults(
     uiState: BuyerSearchUiState,
     onSellerClick: (String) -> Unit
 ) {
+    val strings = LocalStrings.current
     val hasSellers = uiState.filterSellers && uiState.filteredSellers.isNotEmpty()
     val hasDrugs = uiState.filterDrugs && uiState.filteredListings.isNotEmpty()
     val stillSearching = uiState.isSearchingDrugs
 
     if (!hasSellers && !hasDrugs && !stillSearching) {
         EmptyState(
-            title = "No Results",
-            message = "Nothing matched \"${uiState.query}\". Try different keywords.",
+            title = strings.catalogNoResults,
+            message = strings.searchNoResultsMessage(uiState.query),
             icon = Icons.Filled.SearchOff
         )
         return
@@ -229,7 +235,7 @@ private fun SearchResults(
                 item {
                     SectionLabel(
                         icon = Icons.Filled.Store,
-                        text = "Sellers (${uiState.filteredSellers.size})"
+                        text = strings.searchSellersCount(uiState.filteredSellers.size)
                     )
                 }
                 items(uiState.filteredSellers, key = { "s_${it.id}" }) { seller ->
@@ -237,10 +243,10 @@ private fun SearchResults(
                 }
             } else if (!stillSearching) {
                 item {
-                    SectionLabel(icon = Icons.Filled.Store, text = "Sellers")
+                    SectionLabel(icon = Icons.Filled.Store, text = strings.searchSellersLabel)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "No sellers matched",
+                        strings.searchNoSellersMatched,
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
                         modifier = Modifier.padding(start = 4.dp)
@@ -254,8 +260,8 @@ private fun SearchResults(
             item {
                 SectionLabel(
                     icon = Icons.Filled.Medication,
-                    text = if (stillSearching) "Drugs (searching...)"
-                    else "Drugs (${uiState.filteredListings.size})"
+                    text = if (stillSearching) strings.searchDrugsSearching
+                    else strings.searchDrugsCount(uiState.filteredListings.size)
                 )
             }
             if (stillSearching) {
@@ -271,7 +277,7 @@ private fun SearchResults(
             } else {
                 item {
                     Text(
-                        "No drugs matched",
+                        strings.searchNoDrugsMatched,
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
                         modifier = Modifier.padding(start = 4.dp)
@@ -298,6 +304,7 @@ private fun SectionLabel(icon: androidx.compose.ui.graphics.vector.ImageVector, 
 
 @Composable
 private fun SellerResultCard(seller: Seller, onClick: () -> Unit) {
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -328,13 +335,14 @@ private fun SellerResultCard(seller: Seller, onClick: () -> Unit) {
                     Text(seller.location, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
             }
-            TextButton(onClick = onClick) { Text("Browse") }
+            TextButton(onClick = onClick) { Text(strings.catalogBrowse) }
         }
     }
 }
 
 @Composable
 private fun DrugResultCard(listing: SellerListing, onSellerClick: () -> Unit) {
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -361,7 +369,7 @@ private fun DrugResultCard(listing: SellerListing, onSellerClick: () -> Unit) {
                     color = PrimaryBlue
                 )
                 TextButton(onClick = onSellerClick, contentPadding = PaddingValues(0.dp)) {
-                    Text("View Seller", style = MaterialTheme.typography.labelSmall)
+                    Text(strings.catalogViewSeller, style = MaterialTheme.typography.labelSmall)
                 }
             }
         }

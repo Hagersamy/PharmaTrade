@@ -22,7 +22,8 @@ data class AuthData(
 @Serializable
 data class LoginRequest(
     @SerialName("phone") val phone: String,
-    @SerialName("password") val password: String
+    @SerialName("password") val password: String,
+    @SerialName("device_token") val deviceToken: String
 )
 
 @Serializable

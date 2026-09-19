@@ -23,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.pharmatrade.core.common.i18n.LocalStrings
+import com.pharmatrade.core.common.i18n.Strings
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.ui.components.EmptyState
 import com.pharmatrade.core.ui.theme.*
@@ -34,6 +36,7 @@ fun AnalyticsContent(
     snackbarHostState: SnackbarHostState
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
 
     LaunchedEffect(uiState.snackbarMessage) {
         uiState.snackbarMessage?.let {
@@ -49,7 +52,7 @@ fun AnalyticsContent(
         // ── Stats section ─────────────────────────────────────────────────────
         item {
             Text(
-                text = "Registration Overview",
+                text = strings.aaRegistrationOverview,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -66,7 +69,7 @@ fun AnalyticsContent(
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         AnalyticsStatCard(
                             icon = Icons.Filled.HourglassTop,
-                            label = "Pending",
+                            label = strings.adPendingLabel,
                             value = uiState.stats.pending.toString(),
                             tint = WarningAmber,
                             bg = WarningAmberContainer,
@@ -74,7 +77,7 @@ fun AnalyticsContent(
                         )
                         AnalyticsStatCard(
                             icon = Icons.Filled.CheckCircle,
-                            label = "Approved",
+                            label = strings.aaApproved,
                             value = uiState.stats.approved.toString(),
                             tint = SecondaryGreen,
                             bg = SecondaryGreenContainer,
@@ -84,7 +87,7 @@ fun AnalyticsContent(
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         AnalyticsStatCard(
                             icon = Icons.Filled.Cancel,
-                            label = "Declined",
+                            label = strings.aaDeclined,
                             value = uiState.stats.declined.toString(),
                             tint = ErrorRed,
                             bg = ErrorRedContainer,
@@ -92,7 +95,7 @@ fun AnalyticsContent(
                         )
                         AnalyticsStatCard(
                             icon = Icons.Filled.Group,
-                            label = "Total",
+                            label = strings.aaTotal,
                             value = uiState.stats.total.toString(),
                             tint = PrimaryBlue,
                             bg = PrimaryBlueContainer,
@@ -103,7 +106,7 @@ fun AnalyticsContent(
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             AnalyticsStatCard(
                                 icon = Icons.Filled.LocalPharmacy,
-                                label = "Pending Pharmacies",
+                                label = strings.aaPendingPharmacies,
                                 value = uiState.stats.pendingPharmacies.toString(),
                                 tint = PrimaryBlue,
                                 bg = PrimaryBlueContainer,
@@ -111,7 +114,7 @@ fun AnalyticsContent(
                             )
                             AnalyticsStatCard(
                                 icon = Icons.Filled.Inventory,
-                                label = "Pending Suppliers",
+                                label = strings.aaPendingSuppliers,
                                 value = uiState.stats.pendingSuppliers.toString(),
                                 tint = WarningAmber,
                                 bg = WarningAmberContainer,
@@ -126,7 +129,7 @@ fun AnalyticsContent(
         // ── Filter tabs ───────────────────────────────────────────────────────
         item {
             Text(
-                text = "Pending Requests",
+                text = strings.aaPendingRequestsSection,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -139,7 +142,7 @@ fun AnalyticsContent(
                     FilterChip(
                         selected = uiState.filter == filter,
                         onClick = { viewModel.setFilter(filter) },
-                        label = { Text(filter.label) },
+                        label = { Text(filter.localizedLabel(strings)) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = PrimaryBlue,
                             selectedLabelColor = Color.White
@@ -168,21 +171,21 @@ fun AnalyticsContent(
                     OutlinedButton(onClick = viewModel::refresh) {
                         Icon(Icons.Filled.Refresh, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Retry")
+                        Text(strings.commonRetry)
                     }
                 }
             }
         } else if (uiState.requests.isEmpty()) {
             item {
                 EmptyState(
-                    title = "No Pending Requests",
-                    message = "All registration requests have been handled",
+                    title = strings.aaNoPendingRequestsTitle,
+                    message = strings.aaNoPendingRequestsMessage,
                     icon = Icons.Filled.CheckCircle,
                     action = {
                         OutlinedButton(onClick = viewModel::refresh) {
                             Icon(Icons.Filled.Refresh, null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Refresh")
+                            Text(strings.adRefresh)
                         }
                     }
                 )
@@ -240,6 +243,7 @@ private fun AnalyticsPendingCard(
     onApprove: (notes: String) -> Unit,
     onDecline: (reason: String) -> Unit
 ) {
+    val strings = LocalStrings.current
     var showApproveDialog by remember { mutableStateOf(false) }
     var showDeclineDialog by remember { mutableStateOf(false) }
 
@@ -262,7 +266,7 @@ private fun AnalyticsPendingCard(
     val isPharmacy = user.userType == UserType.BUYER
     val accentColor = if (isPharmacy) PrimaryBlue else WarningAmber
     val accentBg    = if (isPharmacy) PrimaryBlueContainer else WarningAmberContainer
-    val typeLabel   = if (isPharmacy) "Pharmacy" else "Supplier"
+    val typeLabel   = if (isPharmacy) strings.commonPharmacy else strings.commonSupplier
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -306,14 +310,14 @@ private fun AnalyticsPendingCard(
             Spacer(Modifier.height(10.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                AnalyticsInfoRow(Icons.Filled.Phone, "Phone", user.phone)
-                if (user.email.isNotBlank()) AnalyticsInfoRow(Icons.Filled.Email, "Email", user.email)
-                user.licenceNumber?.takeIf { it.isNotBlank() }?.let { AnalyticsInfoRow(Icons.Filled.Badge, "Licence", it) }
-                user.zoneId?.takeIf { it.isNotBlank() }?.let { AnalyticsInfoRow(Icons.Filled.LocationCity, "Zone", it) }
-                user.address?.takeIf { it.isNotBlank() }?.let { AnalyticsInfoRow(Icons.Filled.LocationOn, "Address", it) }
+                AnalyticsInfoRow(Icons.Filled.Phone, strings.profilePhone, user.phone)
+                if (user.email.isNotBlank()) AnalyticsInfoRow(Icons.Filled.Email, strings.profileEmail, user.email)
+                user.licenceNumber?.takeIf { it.isNotBlank() }?.let { AnalyticsInfoRow(Icons.Filled.Badge, strings.aaLicenceLabel, it) }
+                user.zoneId?.takeIf { it.isNotBlank() }?.let { AnalyticsInfoRow(Icons.Filled.LocationCity, strings.aaZoneLabel, it) }
+                user.address?.takeIf { it.isNotBlank() }?.let { AnalyticsInfoRow(Icons.Filled.LocationOn, strings.profileAddress, it) }
                 if (user.userType == UserType.SELLER) {
-                    if (!user.minOrderValue.isNullOrBlank()) AnalyticsInfoRow(Icons.Filled.Payments, "Min Order", "EGP ${user.minOrderValue}")
-                    if (user.additionalZoneIds.isNotEmpty()) AnalyticsInfoRow(Icons.Filled.Map, "Extra Zones", user.additionalZoneIds.joinToString(", "))
+                    if (!user.minOrderValue.isNullOrBlank()) AnalyticsInfoRow(Icons.Filled.Payments, strings.aaMinOrderLabel, "EGP ${user.minOrderValue}")
+                    if (user.additionalZoneIds.isNotEmpty()) AnalyticsInfoRow(Icons.Filled.Map, strings.aaExtraZonesLabel, user.additionalZoneIds.joinToString(", "))
                 }
             }
 
@@ -321,8 +325,8 @@ private fun AnalyticsPendingCard(
             if (!user.licenceFrontUrl.isNullOrBlank() || !user.licenceBackUrl.isNullOrBlank()) {
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    AnalyticsLicenceImage(url = user.licenceFrontUrl, label = "Front", modifier = Modifier.weight(1f))
-                    AnalyticsLicenceImage(url = user.licenceBackUrl, label = "Back", modifier = Modifier.weight(1f))
+                    AnalyticsLicenceImage(url = user.licenceFrontUrl, label = strings.adFrontLabel, modifier = Modifier.weight(1f))
+                    AnalyticsLicenceImage(url = user.licenceBackUrl, label = strings.adBackLabel, modifier = Modifier.weight(1f))
                 }
             }
 
@@ -339,7 +343,7 @@ private fun AnalyticsPendingCard(
                 ) {
                     Icon(Icons.Filled.Close, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Decline", fontWeight = FontWeight.SemiBold)
+                    Text(strings.aaDecline, fontWeight = FontWeight.SemiBold)
                 }
                 Button(
                     onClick = { showApproveDialog = true },
@@ -349,7 +353,7 @@ private fun AnalyticsPendingCard(
                 ) {
                     Icon(Icons.Filled.Check, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Approve", fontWeight = FontWeight.SemiBold)
+                    Text(strings.adApprove, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -364,24 +368,25 @@ private fun ApproveDialog(
     onConfirm: (notes: String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val strings = LocalStrings.current
     var notes by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Filled.CheckCircle, null, tint = SecondaryGreen) },
-        title = { Text("Approve $userName") },
+        title = { Text(strings.aaApproveDialogTitle(userName)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "The user will be notified and granted access to the app.",
+                    text = strings.aaApproveDialogDesc,
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("Notes (optional)") },
-                    placeholder = { Text("e.g. Licence verified. Approved.") },
+                    label = { Text(strings.aaNotesOptionalLabel) },
+                    placeholder = { Text(strings.aaNotesPlaceholder) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
                     minLines = 2,
@@ -396,10 +401,10 @@ private fun ApproveDialog(
             Button(
                 onClick = { onConfirm(notes) },
                 colors = ButtonDefaults.buttonColors(containerColor = SecondaryGreen)
-            ) { Text("Approve") }
+            ) { Text(strings.adApprove) }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+            OutlinedButton(onClick = onDismiss) { Text(strings.commonCancel) }
         }
     )
 }
@@ -412,25 +417,26 @@ private fun DeclineDialog(
     onConfirm: (reason: String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val strings = LocalStrings.current
     var reason by remember { mutableStateOf("") }
     val isValid = reason.isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Filled.Cancel, null, tint = ErrorRed) },
-        title = { Text("Decline $userName") },
+        title = { Text(strings.aaDeclineDialogTitle(userName)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "The user will be informed of the reason for declining their request.",
+                    text = strings.aaDeclineDialogDesc,
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
                 OutlinedTextField(
                     value = reason,
                     onValueChange = { reason = it },
-                    label = { Text("Reason *") },
-                    placeholder = { Text("e.g. Licence image is unclear. Please resubmit.") },
+                    label = { Text(strings.adReasonRequiredLabel) },
+                    placeholder = { Text(strings.adReasonPlaceholder) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
                     minLines = 3,
@@ -441,7 +447,7 @@ private fun DeclineDialog(
                     )
                 )
                 if (!isValid) {
-                    Text("A reason is required", style = MaterialTheme.typography.labelSmall, color = ErrorRed)
+                    Text(strings.adReasonRequiredError, style = MaterialTheme.typography.labelSmall, color = ErrorRed)
                 }
             }
         },
@@ -450,10 +456,10 @@ private fun DeclineDialog(
                 onClick = { if (isValid) onConfirm(reason) },
                 enabled = isValid,
                 colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
-            ) { Text("Decline") }
+            ) { Text(strings.aaDecline) }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+            OutlinedButton(onClick = onDismiss) { Text(strings.commonCancel) }
         }
     )
 }
@@ -472,6 +478,7 @@ private fun AnalyticsInfoRow(icon: ImageVector, label: String, value: String) {
 
 @Composable
 private fun AnalyticsLicenceImage(url: String?, label: String, modifier: Modifier = Modifier) {
+    val strings = LocalStrings.current
     Column(modifier = modifier) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = TextSecondary, modifier = Modifier.padding(bottom = 4.dp))
         Box(
@@ -481,7 +488,7 @@ private fun AnalyticsLicenceImage(url: String?, label: String, modifier: Modifie
             if (!url.isNullOrBlank()) {
                 AsyncImage(
                     model = url,
-                    contentDescription = "Licence $label",
+                    contentDescription = strings.adLicenceContentDescription(label),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp))
                 )
@@ -490,4 +497,10 @@ private fun AnalyticsLicenceImage(url: String?, label: String, modifier: Modifie
             }
         }
     }
+}
+
+private fun EntityFilter.localizedLabel(strings: Strings): String = when (this) {
+    EntityFilter.ALL      -> strings.tabAll
+    EntityFilter.PHARMACY -> strings.adPharmaciesTab
+    EntityFilter.SUPPLIER -> strings.adSuppliersTab
 }

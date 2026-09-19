@@ -99,11 +99,6 @@ data class UpdateBranchRequest(
 )
 
 @Serializable
-data class DeactivateAccountRequest(
-    @SerialName("phone") val phone: String
-)
-
-@Serializable
 data class RequestZoneUpdateRequest(
     @SerialName("zone_ids") val zoneIds: List<Int>,
     @SerialName("reason") val reason: String

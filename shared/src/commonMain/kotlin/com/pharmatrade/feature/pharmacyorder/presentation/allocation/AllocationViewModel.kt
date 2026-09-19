@@ -2,6 +2,8 @@ package com.pharmatrade.feature.pharmacyorder.presentation.allocation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.pharmacyorder.domain.PharmacyCartBus
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrderDetail
@@ -48,7 +50,9 @@ class AllocationViewModel(
                     // order id so the next "+" tap starts a fresh draft instead of erroring.
                     supplierId?.let { PharmacyCartBus.notifyResolved(it) }
                 }
-                is Result.Error -> update { copy(isLoading = false, error = result.message) }
+                is Result.Error -> update {
+                    copy(isLoading = false, error = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -60,7 +64,9 @@ class AllocationViewModel(
             update { copy(isCancelling = true) }
             when (val result = cancelOrderUseCase(orderId)) {
                 is Result.Success -> update { copy(isCancelling = false, cancelled = true) }
-                is Result.Error -> update { copy(isCancelling = false, error = result.message) }
+                is Result.Error -> update {
+                    copy(isCancelling = false, error = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }

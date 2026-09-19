@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.model.DrugCategory
 import com.pharmatrade.core.common.model.SellerListing
 import com.pharmatrade.core.common.util.formatDecimal
@@ -37,12 +38,13 @@ fun SellerDrugsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedCategory by remember { mutableStateOf<DrugCategory?>(null) }
+    val strings = LocalStrings.current
 
     LaunchedEffect(sellerId) { viewModel.loadSeller(sellerId) }
 
     LaunchedEffect(uiState.addedToCartListing) {
         uiState.addedToCartListing?.let {
-            snackbarHostState.showSnackbar("${it.drug.name} added to cart")
+            snackbarHostState.showSnackbar(strings.catalogAddedToCart(it.drug.name))
             viewModel.onAddedToCartHandled()
         }
     }
@@ -78,7 +80,7 @@ fun SellerDrugsScreen(
                             Spacer(Modifier.width(4.dp))
                             Column {
                                 Text(
-                                    uiState.seller?.businessName ?: "Loading...",
+                                    uiState.seller?.businessName ?: strings.commonLoading,
                                     style = MaterialTheme.typography.headlineSmall,
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold
@@ -98,7 +100,7 @@ fun SellerDrugsScreen(
                         }
                         BadgedBox(badge = { if (cartItemCount > 0) Badge { Text("$cartItemCount") } }) {
                             IconButton(onClick = onNavigateToCart) {
-                                Icon(Icons.Filled.ShoppingCart, "Cart", tint = Color.White)
+                                Icon(Icons.Filled.ShoppingCart, strings.navCart, tint = Color.White)
                             }
                         }
                     }
@@ -116,10 +118,10 @@ fun SellerDrugsScreen(
                             Icon(Icons.Filled.ShoppingCart, null, tint = WarningAmber, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                "Minimum Order: EGP ${formatDecimal(uiState.seller!!.minimumOrderAmount, 0)}",
+                                strings.catalogMinimumOrder(formatDecimal(uiState.seller!!.minimumOrderAmount, 0)),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF92400E)
+                                color = WarningAmberOnContainer
                             )
                         }
                     }
@@ -130,8 +132,8 @@ fun SellerDrugsScreen(
                 uiState.isLoading -> LoadingScreen()
                 uiState.error != null -> ErrorScreen(uiState.error!!, onRetry = { viewModel.loadSeller(sellerId) })
                 uiState.listings.isEmpty() -> EmptyState(
-                    title = "No Listings",
-                    message = "This seller has no active drug listings",
+                    title = strings.catalogNoListings,
+                    message = strings.catalogNoListingsMessage,
                     icon = Icons.Filled.Inventory
                 )
                 else -> {
@@ -146,7 +148,7 @@ fun SellerDrugsScreen(
                                         FilterChip(
                                             selected = selectedCategory == null,
                                             onClick = { selectedCategory = null },
-                                            label = { Text("All") }
+                                            label = { Text(strings.catalogFilterAll) }
                                         )
                                     }
                                     items(categories) { cat ->
@@ -163,7 +165,7 @@ fun SellerDrugsScreen(
                         }
                         item {
                             SectionHeader(
-                                title = "${filteredListings.size} Drugs Available",
+                                title = strings.catalogDrugsAvailable(filteredListings.size),
                                 modifier = Modifier.padding(bottom = 4.dp)
                             )
                         }
@@ -186,6 +188,7 @@ fun SellerDrugsScreen(
 
 @Composable
 private fun DrugListingCard(listing: SellerListing, onAddToCart: () -> Unit) {
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -248,14 +251,14 @@ private fun DrugListingCard(listing: SellerListing, onAddToCart: () -> Unit) {
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = "/ ${listing.unit}",
+                            text = strings.catalogPerUnit(listing.unit),
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
                         )
                     }
                     if (listing.hasDiscount) {
                         Text(
-                            text = "Was EGP ${formatDecimal(listing.pricePerUnit, 2)}",
+                            text = strings.catalogWasPrice(formatDecimal(listing.pricePerUnit, 2)),
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary,
                             textDecoration = TextDecoration.LineThrough
@@ -265,7 +268,7 @@ private fun DrugListingCard(listing: SellerListing, onAddToCart: () -> Unit) {
                         Icon(Icons.Filled.Inventory2, null, tint = TextSecondary, modifier = Modifier.size(12.dp))
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            "${listing.quantityAvailable} units available · Exp: ${listing.expiryDate}",
+                            strings.catalogUnitsAvailableExp(listing.quantityAvailable, listing.expiryDate),
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
                         )
@@ -278,7 +281,7 @@ private fun DrugListingCard(listing: SellerListing, onAddToCart: () -> Unit) {
                 ) {
                     Icon(Icons.Filled.AddShoppingCart, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Add")
+                    Text(strings.catalogAdd)
                 }
             }
         }

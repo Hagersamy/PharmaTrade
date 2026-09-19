@@ -10,8 +10,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.ui.theme.ErrorRed
 import com.pharmatrade.core.ui.theme.ErrorRedContainer
+import com.pharmatrade.core.ui.theme.InTransitTeal
+import com.pharmatrade.core.ui.theme.InTransitTealContainer
 import com.pharmatrade.core.ui.theme.PrimaryBlue
 import com.pharmatrade.core.ui.theme.PrimaryBlueContainer
 import com.pharmatrade.core.ui.theme.SecondaryGreen
@@ -22,15 +25,18 @@ import com.pharmatrade.core.ui.theme.WarningAmberContainer
 
 // Maps a raw backend order status string to a (label, textColor, backgroundColor) triple.
 @Composable
-fun orderStatusLook(status: String): Triple<String, Color, Color> = when (status.lowercase()) {
-    "draft" -> Triple("Draft", WarningAmber, WarningAmberContainer)
-    "pending_supplier_confirmation" -> Triple("Pending", PrimaryBlue, PrimaryBlueContainer)
-    "confirmed" -> Triple("Confirmed", SecondaryGreenDark, SecondaryGreenContainer)
-    "shipped" -> Triple("Shipped", PrimaryBlue, PrimaryBlueContainer)
-    "delivered" -> Triple("Delivered", SecondaryGreen, SecondaryGreenContainer)
-    "partially_available" -> Triple("Shortage", ErrorRed, ErrorRedContainer)
-    "cancelled" -> Triple("Cancelled", ErrorRed, ErrorRedContainer)
-    else -> Triple(status.replaceFirstChar { it.uppercase() }, WarningAmber, WarningAmberContainer)
+fun orderStatusLook(status: String): Triple<String, Color, Color> {
+    val strings = LocalStrings.current
+    return when (status.lowercase()) {
+        "draft" -> Triple(strings.statusDraft, WarningAmber, WarningAmberContainer)
+        "pending_supplier_confirmation" -> Triple(strings.statusPending, PrimaryBlue, PrimaryBlueContainer)
+        "confirmed" -> Triple(strings.statusConfirmed, SecondaryGreenDark, SecondaryGreenContainer)
+        "shipped" -> Triple(strings.statusShipped, InTransitTeal, InTransitTealContainer)
+        "delivered" -> Triple(strings.statusDelivered, SecondaryGreen, SecondaryGreenContainer)
+        "partially_available" -> Triple(strings.statusShortage, ErrorRed, ErrorRedContainer)
+        "cancelled" -> Triple(strings.statusCancelled, ErrorRed, ErrorRedContainer)
+        else -> Triple(status.replaceFirstChar { it.uppercase() }, WarningAmber, WarningAmberContainer)
+    }
 }
 
 @Composable

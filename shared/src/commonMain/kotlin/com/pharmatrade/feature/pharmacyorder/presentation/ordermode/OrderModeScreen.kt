@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.PharmaButton
 import com.pharmatrade.core.ui.components.PharmaTopBar
@@ -40,6 +41,7 @@ fun OrderModeScreen(
     onOrderCreated: (orderId: String, supplierId: String?) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
 
     LaunchedEffect(uiState.createdOrderId) {
         uiState.createdOrderId?.let { orderId ->
@@ -48,7 +50,7 @@ fun OrderModeScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
-        PharmaTopBar(title = "New Order", onNavigateBack = onNavigateBack)
+        PharmaTopBar(title = strings.orderModeTitle, onNavigateBack = onNavigateBack)
 
         Column(
             modifier = Modifier
@@ -59,23 +61,23 @@ fun OrderModeScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "How would you like to order?",
+                text = strings.orderModeHowToOrder,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
             )
 
             OrderModeCard(
-                title = "Best discount",
-                description = "The engine picks the cheapest suppliers automatically. May split across multiple suppliers.",
+                title = strings.orderModeBestDiscountTitle,
+                description = strings.orderModeBestDiscountDesc,
                 icon = Icons.Filled.LocalOffer,
                 isSelected = uiState.selectedMode == OrderMode.BEST_DISCOUNT,
                 onClick = { viewModel.onModeSelected(OrderMode.BEST_DISCOUNT) }
             )
 
             OrderModeCard(
-                title = "Specific supplier",
-                description = "Pick one trusted supplier. All items go to that supplier.",
+                title = strings.orderModeSpecificSupplierTitle,
+                description = strings.orderModeSpecificSupplierDesc,
                 icon = Icons.Filled.Storefront,
                 isSelected = uiState.selectedMode == OrderMode.SPECIFIC_SUPPLIER,
                 onClick = { viewModel.onModeSelected(OrderMode.SPECIFIC_SUPPLIER) }
@@ -94,8 +96,8 @@ fun OrderModeScreen(
             OutlinedTextField(
                 value = uiState.notes,
                 onValueChange = viewModel::onNotesChange,
-                label = { Text("Notes (optional)") },
-                placeholder = { Text("e.g. Urgent shortage list", color = TextSecondary) },
+                label = { Text(strings.orderModeNotesLabel) },
+                placeholder = { Text(strings.orderModeNotesPlaceholder, color = TextSecondary) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 minLines = 2,
@@ -116,7 +118,7 @@ fun OrderModeScreen(
 
         Column(modifier = Modifier.padding(20.dp)) {
             PharmaButton(
-                text = "Continue",
+                text = strings.commonContinue,
                 onClick = viewModel::confirm,
                 enabled = uiState.canConfirm,
                 isLoading = uiState.isCreating,
@@ -169,19 +171,20 @@ private fun SupplierSingleSelectDropdown(
     onSelect: (PharmacySupplier) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val strings = LocalStrings.current
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = when {
-                    isLoading -> "Loading suppliers..."
+                    isLoading -> strings.orderModeLoadingSuppliers
                     selectedSupplier != null -> selectedSupplier.name
                     else -> ""
                 },
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("Supplier *") },
-                placeholder = { Text("Select a supplier", color = TextSecondary) },
+                label = { Text(strings.orderModeSupplierRequired) },
+                placeholder = { Text(strings.orderModeSelectSupplier, color = TextSecondary) },
                 leadingIcon = { Icon(Icons.Filled.Storefront, null, tint = TextSecondary) },
                 trailingIcon = {
                     if (isLoading) {
@@ -234,8 +237,8 @@ private fun SupplierSingleSelectDropdown(
                                     )
                                     Text(
                                         buildString {
-                                            append("Min order EGP ${formatDecimal(supplier.minOrderValue, 2)}")
-                                            append(" · ${supplier.inventoryCount} items")
+                                            append(strings.orderModeSupplierMinOrder(formatDecimal(supplier.minOrderValue, 2)))
+                                            append(" · ${strings.orderModeSupplierItemCount(supplier.inventoryCount)}")
                                             supplier.zones.firstOrNull()?.let { append(" · ${it.name}") }
                                         },
                                         style = MaterialTheme.typography.labelSmall,
@@ -254,7 +257,7 @@ private fun SupplierSingleSelectDropdown(
         if (hasError) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(Icons.Filled.ErrorOutline, null, tint = ErrorRed, modifier = Modifier.size(14.dp))
-                Text("Could not load suppliers.", style = MaterialTheme.typography.bodySmall, color = ErrorRed)
+                Text(strings.orderModeCouldNotLoadSuppliers, style = MaterialTheme.typography.bodySmall, color = ErrorRed)
             }
         }
     }

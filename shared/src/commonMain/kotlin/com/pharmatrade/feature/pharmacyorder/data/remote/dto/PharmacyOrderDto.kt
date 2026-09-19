@@ -148,10 +148,10 @@ data class DrugRefDto(
 )
 
 // ── GET /pharmacy/suppliers/drugs (paginated catalog across all suppliers) ───
-// NOTE: response shape assumed — follows the same Laravel paginator convention and
-// nested `supplier: {id, name}` object confirmed on other pharmacy-order endpoints,
-// but no live sample of this specific endpoint was seen. Adjust field names if the
-// real response differs.
+// Confirmed live response shape (2026-09-11): items are keyed by "inventory_id", not "id", and
+// also carry public_price/pharmacist_price alongside unit_price/effective_price, plus a few
+// fields we don't use yet (drug_name_raw, scientific_name, savings_per_unit, order_limit).
+// ignoreUnknownKeys=true (ApiClient) means those extras are safely dropped.
 
 @Serializable
 data class SupplierCatalogPageDto(
@@ -164,7 +164,7 @@ data class SupplierCatalogPageDto(
 
 @Serializable
 data class SupplierCatalogItemDto(
-    @SerialName("id") val id: JsonElement? = null,
+    @SerialName("inventory_id") val inventoryId: JsonElement? = null,
     @SerialName("supplier") val supplier: SupplierRefDto? = null,
     @SerialName("drug_id") val drugId: JsonElement? = null,
     @SerialName("drug_name") val drugName: String? = null,
@@ -172,6 +172,8 @@ data class SupplierCatalogItemDto(
     @SerialName("strength") val strength: String? = null,
     @SerialName("quantity_available") val quantityAvailable: JsonElement? = null,
     @SerialName("unit_price") val unitPrice: JsonElement? = null,
+    @SerialName("public_price") val publicPrice: JsonElement? = null,
+    @SerialName("pharmacist_price") val pharmacistPrice: JsonElement? = null,
     @SerialName("discount_pct") val discountPct: JsonElement? = null,
     @SerialName("effective_price") val effectivePrice: JsonElement? = null,
     // See DrugRefDto note on SupplierInventoryItemDto — same fallback for a nested "drug" object.
@@ -181,7 +183,7 @@ data class SupplierCatalogItemDto(
         val price = unitPrice.rawDoubleOrZero()
         val discount = discountPct.rawDoubleOrZero()
         return SupplierCatalogItem(
-            id = id.rawIntOrZero().toString(),
+            id = inventoryId.rawIntOrZero().toString(),
             supplierId = supplier?.id.rawIntOrZero().toString(),
             supplierName = supplier?.name ?: "",
             drugId = (drugId ?: drug?.id).rawIntOrZero().toString(),
@@ -190,6 +192,8 @@ data class SupplierCatalogItemDto(
             strength = strength ?: drug?.strength ?: "",
             quantityAvailable = quantityAvailable.rawIntOrZero(),
             unitPrice = price,
+            publicPrice = publicPrice.rawDoubleOrZero(),
+            pharmacistPrice = pharmacistPrice.rawDoubleOrZero(),
             discountPct = discount,
             effectivePrice = effectivePrice?.let { it.rawDoubleOrZero() } ?: (price * (1.0 - discount / 100.0))
         )

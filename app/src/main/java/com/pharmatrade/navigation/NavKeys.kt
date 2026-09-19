@@ -52,4 +52,5 @@ sealed class NavKeys : NavKey {
 
     // Post-registration
     @Serializable data object PendingApproval : NavKeys()
+    @Serializable data object RegistrationDeclined : NavKeys()
 }

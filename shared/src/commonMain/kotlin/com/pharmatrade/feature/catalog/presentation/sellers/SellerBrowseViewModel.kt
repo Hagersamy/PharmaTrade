@@ -2,6 +2,8 @@ package com.pharmatrade.feature.catalog.presentation.sellers
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.Seller
 import com.pharmatrade.core.common.model.SellerListing
 import com.pharmatrade.core.common.result.Result
@@ -64,7 +66,7 @@ class SellerBrowseViewModel(
                     isLoading = false, sellers = result.data
                 )
                 is Result.Error -> _uiState.value = _uiState.value.copy(
-                    isLoading = false, error = result.message
+                    isLoading = false, error = LanguageManager.strings.friendlyError(result.message)
                 )
                 else -> Unit
             }

@@ -2,6 +2,8 @@ package com.pharmatrade.feature.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.Drug
 import com.pharmatrade.core.common.model.SellerListing
 import com.pharmatrade.core.common.result.Result
@@ -48,7 +50,10 @@ class SellerSearchViewModel(
                 _uiState.value = _uiState.value.copy(isSearchingCatalog = true, catalogSearchError = null)
                 when (val result = getDrugsUseCase(search = query)) {
                     is Result.Success -> _uiState.value = _uiState.value.copy(isSearchingCatalog = false, catalogResults = result.data)
-                    is Result.Error -> _uiState.value = _uiState.value.copy(isSearchingCatalog = false, catalogSearchError = result.message)
+                    is Result.Error -> _uiState.value = _uiState.value.copy(
+                        isSearchingCatalog = false,
+                        catalogSearchError = LanguageManager.strings.friendlyError(result.message)
+                    )
                     is Result.Loading -> Unit
                 }
             }

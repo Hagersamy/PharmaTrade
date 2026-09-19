@@ -34,13 +34,20 @@ import com.pharmatrade.feature.drugs.domain.usecase.GetInventoryUseCase
 import com.pharmatrade.feature.drugs.domain.usecase.GetUploadHistoryUseCase
 import com.pharmatrade.feature.drugs.domain.usecase.UpdateInventoryItemUseCase
 import com.pharmatrade.feature.drugs.domain.usecase.UploadInventoryUseCase
+import com.pharmatrade.feature.notification.data.repository.NotificationRepositoryImpl
+import com.pharmatrade.feature.notification.domain.repository.NotificationRepository
+import com.pharmatrade.feature.notification.domain.usecase.ClearAllNotificationsUseCase
+import com.pharmatrade.feature.notification.domain.usecase.DeleteNotificationUseCase
+import com.pharmatrade.feature.notification.domain.usecase.GetNotificationsUseCase
+import com.pharmatrade.feature.notification.domain.usecase.GetUnreadNotificationCountUseCase
+import com.pharmatrade.feature.notification.domain.usecase.MarkAllNotificationsAsReadUseCase
+import com.pharmatrade.feature.notification.domain.usecase.MarkNotificationAsReadUseCase
 import com.pharmatrade.feature.pharmacyorder.data.repository.PharmacyOrderRepositoryImpl
 import com.pharmatrade.feature.pharmacyorder.domain.repository.PharmacyOrderRepository
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.*
 import com.pharmatrade.feature.profile.data.repository.ProfileRepositoryImpl
 import com.pharmatrade.feature.profile.domain.repository.ProfileRepository
 import com.pharmatrade.feature.profile.domain.usecase.ChangePasswordUseCase
-import com.pharmatrade.feature.profile.domain.usecase.DeactivateAccountUseCase
 import com.pharmatrade.feature.profile.domain.usecase.GetProfileUseCase
 import com.pharmatrade.feature.profile.domain.usecase.RequestZoneUpdateUseCase
 import com.pharmatrade.feature.profile.domain.usecase.UpdateBranchProfileUseCase
@@ -71,6 +78,7 @@ class AppContainer(context: Context) {
     val pharmacyOrderRepository: PharmacyOrderRepository by lazy { PharmacyOrderRepositoryImpl(PlatformFileReader(appContext)) }
     val supplierOrderRepository: SupplierOrderRepository by lazy { SupplierOrderRepositoryImpl() }
     val profileRepository: ProfileRepository by lazy { ProfileRepositoryImpl() }
+    val notificationRepository: NotificationRepository by lazy { NotificationRepositoryImpl() }
 
     // Auth use cases
     val loginUseCase by lazy { LoginUseCase(authRepository) }
@@ -145,6 +153,13 @@ class AppContainer(context: Context) {
     val changePasswordUseCase by lazy { ChangePasswordUseCase(profileRepository) }
     val updateSupplierProfileUseCase by lazy { UpdateSupplierProfileUseCase(profileRepository) }
     val updateBranchProfileUseCase by lazy { UpdateBranchProfileUseCase(profileRepository) }
-    val deactivateAccountUseCase by lazy { DeactivateAccountUseCase(profileRepository) }
     val requestZoneUpdateUseCase by lazy { RequestZoneUpdateUseCase(profileRepository) }
+
+    // Notification use cases
+    val getNotificationsUseCase by lazy { GetNotificationsUseCase(notificationRepository) }
+    val getUnreadNotificationCountUseCase by lazy { GetUnreadNotificationCountUseCase(notificationRepository) }
+    val markNotificationAsReadUseCase by lazy { MarkNotificationAsReadUseCase(notificationRepository) }
+    val markAllNotificationsAsReadUseCase by lazy { MarkAllNotificationsAsReadUseCase(notificationRepository) }
+    val deleteNotificationUseCase by lazy { DeleteNotificationUseCase(notificationRepository) }
+    val clearAllNotificationsUseCase by lazy { ClearAllNotificationsUseCase(notificationRepository) }
 }

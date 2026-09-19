@@ -2,6 +2,8 @@ package com.pharmatrade.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.User
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.result.Result
@@ -11,7 +13,6 @@ import com.pharmatrade.feature.auth.domain.repository.ZoneRepository
 import com.pharmatrade.feature.pharmacyorder.domain.model.Branch
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.GetBranchUseCase
 import com.pharmatrade.feature.profile.domain.usecase.ChangePasswordUseCase
-import com.pharmatrade.feature.profile.domain.usecase.DeactivateAccountUseCase
 import com.pharmatrade.feature.profile.domain.usecase.GetProfileUseCase
 import com.pharmatrade.feature.profile.domain.usecase.RequestZoneUpdateUseCase
 import com.pharmatrade.feature.profile.domain.usecase.UpdateBranchProfileUseCase
@@ -61,11 +62,6 @@ data class ProfileUiState(
     val isSavingBranch: Boolean = false,
     val branchFormError: String? = null,
 
-    val showDeactivateDialog: Boolean = false,
-    val isDeactivating: Boolean = false,
-    val deactivateError: String? = null,
-    val accountDeactivated: Boolean = false,
-
     val showRequestZoneDialog: Boolean = false,
     val availableZones: List<Zone> = emptyList(),
     val isLoadingZones: Boolean = false,
@@ -85,7 +81,6 @@ class ProfileViewModel(
     private val changePasswordUseCase: ChangePasswordUseCase,
     private val updateSupplierProfileUseCase: UpdateSupplierProfileUseCase,
     private val updateBranchProfileUseCase: UpdateBranchProfileUseCase,
-    private val deactivateAccountUseCase: DeactivateAccountUseCase,
     private val requestZoneUpdateUseCase: RequestZoneUpdateUseCase,
     private val zoneRepository: ZoneRepository
 ) : ViewModel() {
@@ -122,7 +117,9 @@ class ProfileViewModel(
             update { copy(isLoadingBranch = true, branchError = null) }
             when (val result = getBranchUseCase()) {
                 is Result.Success -> update { copy(isLoadingBranch = false, branch = result.data) }
-                is Result.Error -> update { copy(isLoadingBranch = false, branchError = result.message) }
+                is Result.Error -> update {
+                    copy(isLoadingBranch = false, branchError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -180,7 +177,9 @@ class ProfileViewModel(
                         successMessage = "Profile updated"
                     )
                 }
-                is Result.Error -> update { copy(isSavingProfile = false, profileFormError = result.message) }
+                is Result.Error -> update {
+                    copy(isSavingProfile = false, profileFormError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -224,7 +223,9 @@ class ProfileViewModel(
                         successMessage = "Password changed successfully"
                     )
                 }
-                is Result.Error -> update { copy(isSavingPassword = false, passwordError = result.message) }
+                is Result.Error -> update {
+                    copy(isSavingPassword = false, passwordError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -259,11 +260,11 @@ class ProfileViewModel(
             val minValue = state.editMinOrderValue.toDoubleOrNull()
             val minQty = state.editMinOrderQty.toIntOrNull()
             if (minValue == null) {
-                update { copy(supplierError = "Enter a valid minimum order value") }
+                update { copy(supplierError = LanguageManager.strings.errorInvalidMinOrderValue) }
                 return@launch
             }
             if (minQty == null) {
-                update { copy(supplierError = "Enter a valid minimum order quantity") }
+                update { copy(supplierError = LanguageManager.strings.errorInvalidMinOrderQty) }
                 return@launch
             }
 
@@ -277,7 +278,9 @@ class ProfileViewModel(
                         successMessage = "Supplier details updated"
                     )
                 }
-                is Result.Error -> update { copy(isSavingSupplier = false, supplierError = result.message) }
+                is Result.Error -> update {
+                    copy(isSavingSupplier = false, supplierError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -329,31 +332,9 @@ class ProfileViewModel(
                         successMessage = "Branch details updated"
                     )
                 }
-                is Result.Error -> update { copy(isSavingBranch = false, branchFormError = result.message) }
-                is Result.Loading -> Unit
-            }
-        }
-    }
-
-    // --- Deactivate account ---
-
-    fun openDeactivateDialog() {
-        update { copy(showDeactivateDialog = true, deactivateError = null) }
-    }
-
-    fun dismissDeactivateDialog() {
-        update { copy(showDeactivateDialog = false) }
-    }
-
-    fun deactivateAccount() {
-        viewModelScope.launch {
-            val phone = _uiState.value.user?.phone ?: ""
-            update { copy(isDeactivating = true, deactivateError = null) }
-            when (val result = deactivateAccountUseCase(phone)) {
-                is Result.Success -> update {
-                    copy(isDeactivating = false, showDeactivateDialog = false, accountDeactivated = true)
+                is Result.Error -> update {
+                    copy(isSavingBranch = false, branchFormError = LanguageManager.strings.friendlyError(result.message))
                 }
-                is Result.Error -> update { copy(isDeactivating = false, deactivateError = result.message) }
                 is Result.Loading -> Unit
             }
         }
@@ -397,7 +378,9 @@ class ProfileViewModel(
                         )
                     }
                 }
-                is Result.Error -> update { copy(isLoadingZones = false, zonesError = result.message) }
+                is Result.Error -> update {
+                    copy(isLoadingZones = false, zonesError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -430,7 +413,9 @@ class ProfileViewModel(
                         successMessage = "Zone update request submitted for review"
                     )
                 }
-                is Result.Error -> update { copy(isSubmittingZoneRequest = false, zoneRequestError = result.message) }
+                is Result.Error -> update {
+                    copy(isSubmittingZoneRequest = false, zoneRequestError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }

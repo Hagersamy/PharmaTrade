@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.io.rememberFilePickerLauncher
 import com.pharmatrade.core.ui.components.*
@@ -39,6 +40,7 @@ fun RegisterScreen(
     onNavigateToPendingApproval: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
 
     val launchLicenceFrontPicker = rememberFilePickerLauncher(
         mimeTypes = listOf("image/*")
@@ -53,7 +55,7 @@ fun RegisterScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
-        PharmaTopBar(title = "Create Account", onNavigateBack = onNavigateBack)
+        PharmaTopBar(title = strings.regCreateAccount, onNavigateBack = onNavigateBack)
 
         Column(
             modifier = Modifier
@@ -64,7 +66,7 @@ fun RegisterScreen(
         ) {
             // ── Role selector ─────────────────────────────────────────────────
             Text(
-                text = "I am a...",
+                text = strings.regIAmA,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
@@ -88,27 +90,27 @@ fun RegisterScreen(
 
             // ── Account details ───────────────────────────────────────────────
             Text(
-                text = "Account Details",
+                text = strings.regAccountDetails,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
             )
 
-            PharmaTextField(value = uiState.name, onValueChange = viewModel::onNameChange, label = "Full Name", leadingIcon = Icons.Filled.Person)
+            PharmaTextField(value = uiState.name, onValueChange = viewModel::onNameChange, label = strings.regFullName, leadingIcon = Icons.Filled.Person)
             PharmaTextField(
                 value = uiState.businessName,
                 onValueChange = viewModel::onBusinessNameChange,
-                label = if (uiState.userType == UserType.SELLER) "Business / Company Name" else "Pharmacy Name",
+                label = if (uiState.userType == UserType.SELLER) strings.regBusinessCompanyName else strings.regPharmacyName,
                 leadingIcon = Icons.Filled.Business
             )
-            PharmaTextField(value = uiState.email, onValueChange = viewModel::onEmailChange, label = "Email Address", leadingIcon = Icons.Filled.Email)
-            PharmaTextField(value = uiState.phone, onValueChange = viewModel::onPhoneChange, label = "Phone Number", leadingIcon = Icons.Filled.Phone)
+            PharmaTextField(value = uiState.email, onValueChange = viewModel::onEmailChange, label = strings.regEmailAddress, leadingIcon = Icons.Filled.Email)
+            PharmaTextField(value = uiState.phone, onValueChange = viewModel::onPhoneChange, label = strings.loginPhoneLabel, leadingIcon = Icons.Filled.Phone)
 
-            OutlinedTextField(
+            PharmaTextField(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChange,
-                label = { Text("Password") },
-                leadingIcon = { Icon(Icons.Filled.Lock, null, tint = TextSecondary) },
+                label = strings.loginPasswordLabel,
+                leadingIcon = Icons.Filled.Lock,
                 trailingIcon = {
                     IconButton(onClick = viewModel::togglePasswordVisibility) {
                         Icon(
@@ -119,22 +121,14 @@ fun RegisterScreen(
                     }
                 },
                 visualTransformation = if (uiState.isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PrimaryBlue,
-                    unfocusedBorderColor = DividerGray,
-                    focusedLabelColor = PrimaryBlue
-                )
+                keyboardType = KeyboardType.Password
             )
 
             val passwordMismatch = uiState.confirmPassword.isNotEmpty() && uiState.confirmPassword != uiState.password
             OutlinedTextField(
                 value = uiState.confirmPassword,
                 onValueChange = viewModel::onConfirmPasswordChange,
-                label = { Text("Confirm Password") },
+                label = { Text(strings.regConfirmPassword) },
                 leadingIcon = { Icon(Icons.Filled.Lock, null, tint = if (passwordMismatch) ErrorRed else TextSecondary) },
                 trailingIcon = {
                     IconButton(onClick = viewModel::toggleConfirmPasswordVisibility) {
@@ -147,7 +141,7 @@ fun RegisterScreen(
                 },
                 visualTransformation = if (uiState.isConfirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 isError = passwordMismatch,
-                supportingText = if (passwordMismatch) { { Text("Passwords do not match", color = ErrorRed) } } else null,
+                supportingText = if (passwordMismatch) { { Text(strings.regPasswordsDoNotMatch, color = ErrorRed) } } else null,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -165,13 +159,13 @@ fun RegisterScreen(
 
             // ── Business details ──────────────────────────────────────────────
             Text(
-                text = if (uiState.userType == UserType.SELLER) "Supplier Details" else "Pharmacy Details",
+                text = if (uiState.userType == UserType.SELLER) strings.regSupplierDetails else strings.regPharmacyDetails,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
             )
 
-            PharmaTextField(value = uiState.licenceNumber, onValueChange = viewModel::onLicenceNumberChange, label = "Licence Number", leadingIcon = Icons.Filled.Badge)
+            PharmaTextField(value = uiState.licenceNumber, onValueChange = viewModel::onLicenceNumberChange, label = strings.profileLicenceNumber, leadingIcon = Icons.Filled.Badge)
 
             // ── Zone multi-select ─────────────────────────────────────────────
             ZoneMultiSelectDropdown(
@@ -183,21 +177,21 @@ fun RegisterScreen(
                 onRetry = viewModel::loadZones
             )
 
-            PharmaTextField(value = uiState.address, onValueChange = viewModel::onAddressChange, label = "Address", leadingIcon = Icons.Filled.LocationOn, singleLine = false)
+            PharmaTextField(value = uiState.address, onValueChange = viewModel::onAddressChange, label = strings.profileAddress, leadingIcon = Icons.Filled.LocationOn, singleLine = false)
 
             Divider(color = DividerGray)
 
             // ── Licence images ────────────────────────────────────────────────
-            Text(text = "Licence Images", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Text(text = strings.regLicenceImages, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
 
-            Text(text = "Front of licence", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            Text(text = strings.regFrontOfLicence, style = MaterialTheme.typography.labelMedium, color = TextSecondary)
             LicenseImagePicker(
                 selectedUri = uiState.licenceFrontUri,
                 onPickImage = launchLicenceFrontPicker,
                 onRemoveImage = { viewModel.onLicenceFrontSelected(null) }
             )
 
-            Text(text = "Back of licence", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            Text(text = strings.regBackOfLicence, style = MaterialTheme.typography.labelMedium, color = TextSecondary)
             LicenseImagePicker(
                 selectedUri = uiState.licenceBackUri,
                 onPickImage = launchLicenceBackPicker,
@@ -207,19 +201,19 @@ fun RegisterScreen(
             // ── Supplier-only fields ──────────────────────────────────────────
             if (uiState.userType == UserType.SELLER) {
                 Divider(color = DividerGray)
-                Text(text = "Order Settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Text(text = strings.regOrderSettings, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
 
                 PharmaTextField(
                     value = uiState.minOrderValue,
                     onValueChange = viewModel::onMinOrderValueChange,
-                    label = "Minimum Order Value (EGP)",
+                    label = strings.profileDialogMinOrderValueEgp,
                     leadingIcon = Icons.Filled.Payments,
                     keyboardType = KeyboardType.Decimal
                 )
                 PharmaTextField(
                     value = uiState.minOrderQty,
                     onValueChange = viewModel::onMinOrderQtyChange,
-                    label = "Minimum Order Quantity",
+                    label = strings.profileDialogMinOrderQty,
                     leadingIcon = Icons.Filled.Inventory2,
                     keyboardType = KeyboardType.Number
                 )
@@ -237,7 +231,7 @@ fun RegisterScreen(
                 }
             }
 
-            PharmaButton(text = "Create Account", onClick = viewModel::register, modifier = Modifier.fillMaxWidth(), isLoading = uiState.isLoading)
+            PharmaButton(text = strings.regCreateAccount, onClick = viewModel::register, modifier = Modifier.fillMaxWidth(), isLoading = uiState.isLoading)
 
             Spacer(Modifier.height(8.dp))
         }
@@ -253,6 +247,7 @@ private fun LicenseImagePicker(
     onRemoveImage: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalStrings.current
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -269,7 +264,7 @@ private fun LicenseImagePicker(
         if (selectedUri != null) {
             AsyncImage(
                 model = selectedUri,
-                contentDescription = "Pharmacy license",
+                contentDescription = strings.regPharmacyLicenseContentDescription,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp))
             )
@@ -281,14 +276,14 @@ private fun LicenseImagePicker(
                     .size(32.dp)
                     .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(50))
             ) {
-                Icon(Icons.Filled.Close, contentDescription = "Remove image", tint = Color.White, modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.Close, contentDescription = strings.regRemoveImageContentDescription, tint = Color.White, modifier = Modifier.size(18.dp))
             }
         } else {
             Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Icon(Icons.Filled.FileUpload, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(40.dp))
                 Spacer(Modifier.height(8.dp))
-                Text("Tap to upload license photo", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = PrimaryBlue)
-                Text("JPG, PNG accepted", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                Text(strings.regTapToUpload, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = PrimaryBlue)
+                Text(strings.regJpgPngAccepted, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
             }
         }
     }
@@ -307,11 +302,12 @@ private fun ZoneMultiSelectDropdown(
     onRetry: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val grouped = remember(zones) { zones.groupBy { it.governorate ?: "Other" } }
+    val strings = LocalStrings.current
+    val grouped = remember(zones, strings) { zones.groupBy { it.governorate ?: strings.regOtherGovernorate } }
     val selectedIds = remember(selectedZones) { selectedZones.map { it.id }.toSet() }
 
     val fieldText = when {
-        isLoading -> "Loading zones..."
+        isLoading -> strings.regLoadingZones
         selectedZones.isNotEmpty() -> selectedZones.joinToString(", ") { it.name }
         else -> ""
     }
@@ -322,8 +318,8 @@ private fun ZoneMultiSelectDropdown(
                 value = fieldText,
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("Zones *") },
-                placeholder = { Text("Select one or more zones", color = TextSecondary) },
+                label = { Text(strings.regZonesRequired) },
+                placeholder = { Text(strings.regSelectZones, color = TextSecondary) },
                 leadingIcon = { Icon(Icons.Filled.LocationCity, null, tint = TextSecondary) },
                 trailingIcon = {
                     if (isLoading) {
@@ -407,7 +403,7 @@ private fun ZoneMultiSelectDropdown(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            "Done",
+                            strings.commonDone,
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = PrimaryBlue,
@@ -427,7 +423,7 @@ private fun ZoneMultiSelectDropdown(
                         selected = true,
                         onClick = { onToggle(zone) },
                         label = { Text(zone.name, style = MaterialTheme.typography.labelMedium) },
-                        trailingIcon = { Icon(Icons.Filled.Close, contentDescription = "Remove ${zone.name}", modifier = Modifier.size(16.dp)) },
+                        trailingIcon = { Icon(Icons.Filled.Close, contentDescription = strings.regRemoveZoneContentDescription(zone.name), modifier = Modifier.size(16.dp)) },
                         colors = InputChipDefaults.inputChipColors(
                             selectedContainerColor = PrimaryBlueContainer,
                             selectedLabelColor = PrimaryBlue,
@@ -441,9 +437,9 @@ private fun ZoneMultiSelectDropdown(
         if (hasError) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(Icons.Filled.ErrorOutline, null, tint = ErrorRed, modifier = Modifier.size(14.dp))
-                Text("Could not load zones.", style = MaterialTheme.typography.bodySmall, color = ErrorRed)
+                Text(strings.regCouldNotLoadZones, style = MaterialTheme.typography.bodySmall, color = ErrorRed)
                 TextButton(onClick = onRetry, contentPadding = PaddingValues(0.dp)) {
-                    Text("Retry", style = MaterialTheme.typography.bodySmall)
+                    Text(strings.commonRetry, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -459,9 +455,10 @@ private fun UserTypeCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalStrings.current
     val icon = if (type == UserType.SELLER) Icons.Filled.LocalPharmacy else Icons.Filled.MedicalServices
-    val label = if (type == UserType.SELLER) "Seller Agent" else "Pharmacy"
-    val description = if (type == UserType.SELLER) "Distribute drugs" else "Buy drugs"
+    val label = if (type == UserType.SELLER) strings.regSellerAgent else strings.commonPharmacy
+    val description = if (type == UserType.SELLER) strings.regDistributeDrugs else strings.regBuyDrugs
 
     Box(
         modifier = modifier

@@ -40,6 +40,7 @@ import com.pharmatrade.feature.admin.presentation.AnalyticsViewModel
 import com.pharmatrade.feature.auth.presentation.login.LoginScreen
 import com.pharmatrade.feature.auth.presentation.login.LoginViewModel
 import com.pharmatrade.feature.auth.presentation.pending.PendingApprovalScreen
+import com.pharmatrade.feature.auth.presentation.pending.RegistrationOutcome
 import com.pharmatrade.feature.auth.presentation.register.RegisterScreen
 import com.pharmatrade.feature.auth.presentation.register.RegisterViewModel
 import com.pharmatrade.feature.cart.presentation.CartScreen
@@ -48,8 +49,10 @@ import com.pharmatrade.feature.catalog.presentation.drugs.SellerDrugsScreen
 import com.pharmatrade.feature.catalog.presentation.drugs.SellerDrugsViewModel
 import com.pharmatrade.feature.home.HomeScreen
 import com.pharmatrade.feature.home.HomeTab
-import com.pharmatrade.feature.home.NotificationsScreen
 import com.pharmatrade.feature.home.ProfileViewModel
+import com.pharmatrade.feature.notification.presentation.NotificationViewModel
+import com.pharmatrade.feature.notification.presentation.NotificationsScreen
+import com.pharmatrade.push.NotificationDeepLink
 import com.pharmatrade.feature.pharmacyorder.presentation.allocation.AllocationScreen
 import com.pharmatrade.feature.pharmacyorder.presentation.allocation.AllocationViewModel
 import com.pharmatrade.feature.pharmacyorder.presentation.checkout.CheckoutScreen
@@ -77,13 +80,14 @@ import com.pharmatrade.feature.supplierorder.presentation.orderlist.SellerOrders
 import kotlinx.coroutines.launch
 
 @Composable
-fun AppNavigation(container: AppContainer) {
+fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<NotificationDeepLink?>) {
     // Restored once per process launch: if SessionManager already holds a persisted session
     // (see SessionManager.init in PharmaTradeApp.onCreate), skip straight past the login screen.
     val startKey = remember {
         when {
             !SessionManager.isLoggedIn -> NavKeys.Login
             SessionManager.user?.isPending == true -> NavKeys.PendingApproval
+            SessionManager.user?.isDeclined == true -> NavKeys.RegistrationDeclined
             SessionManager.user?.userType == UserType.ADMIN -> NavKeys.AdminDashboard
             else -> NavKeys.Home
         }
@@ -132,6 +136,52 @@ fun AppNavigation(container: AppContainer) {
 
     val cartState by cartViewModel.uiState.collectAsState()
 
+    // Hoisted here (not inside entry<NavKeys.Notifications>) so the same instance backs both the
+    // Home bell icon's unread badge and the notifications list screen — marking everything read
+    // there must be reflected back on the badge without waiting for Home to recreate its ViewModels.
+    val notificationViewModel: NotificationViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer {
+                NotificationViewModel(
+                    getNotificationsUseCase = container.getNotificationsUseCase,
+                    getUnreadCountUseCase = container.getUnreadNotificationCountUseCase,
+                    markAsReadUseCase = container.markNotificationAsReadUseCase,
+                    markAllAsReadUseCase = container.markAllNotificationsAsReadUseCase,
+                    deleteNotificationUseCase = container.deleteNotificationUseCase,
+                    clearAllNotificationsUseCase = container.clearAllNotificationsUseCase
+                )
+            }
+        }
+    )
+    val notificationState by notificationViewModel.uiState.collectAsState()
+
+    // Consumes a push-notification tap that launched or resumed this Activity (see MainActivity's
+    // pendingDeepLink). Re-fires whenever MainActivity sets a new value (cold start or a warm
+    // onNewIntent), reuses the same type -> destination mapping as tapping a notification row
+    // in-app, and is dropped (not queued) if the session isn't logged in.
+    val deepLink by pendingDeepLink
+    LaunchedEffect(deepLink) {
+        val link = deepLink ?: return@LaunchedEffect
+        if (SessionManager.isLoggedIn) {
+            resolveNotificationDestination(link.type, link.notifiableId)?.let { navigator.navigate(it) }
+        }
+        pendingDeepLink.value = null
+    }
+
+    // Catches a session ending outside the user's own "Sign Out" tap — e.g. ApiClient's
+    // onUnauthorized callback (see PharmaTradeApp.setupAutoLogoutOnInvalidToken) clearing
+    // SessionManager after a 401. Those flows only clear session state; nothing else force-navigates
+    // off whatever protected screen was showing. Guarded by the backstack check so it's a no-op for
+    // the explicit logout buttons above, which already navigate to Login themselves before this
+    // recomposes.
+    val sessionUser by SessionManager.currentUser.collectAsState()
+    LaunchedEffect(sessionUser) {
+        if (sessionUser == null && backStack.lastOrNull() != NavKeys.Login) {
+            selectHomeTab(HomeTab.HOME)
+            navigator.navigate(NavKeys.Login, popUpTo = Navigator.PopUpTo(target = null))
+        }
+    }
+
     NavDisplay(
         backStack = backStack,
         onBack = { navigator.goBack() },
@@ -159,6 +209,9 @@ fun AppNavigation(container: AppContainer) {
                     },
                     onNavigateToPendingApproval = {
                         navigator.navigate(NavKeys.PendingApproval, popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true))
+                    },
+                    onNavigateToRegistrationDeclined = {
+                        navigator.navigate(NavKeys.RegistrationDeclined, popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true))
                     }
                 )
             }
@@ -187,11 +240,27 @@ fun AppNavigation(container: AppContainer) {
                 val userName = SessionManager.user?.name ?: ""
                 PendingApprovalScreen(
                     userName = userName,
+                    outcome = RegistrationOutcome.PENDING,
                     onBackToLogin = {
                         coroutineScope.launch { container.logoutUseCase() }
                         // Reset the Home tab-visit history so the next login always lands back on
                         // the Home tab, instead of resuming whatever tab (e.g. Profile) was open
                         // when this session logged out.
+                        selectHomeTab(HomeTab.HOME)
+                        navigator.navigate(NavKeys.Login, popUpTo = Navigator.PopUpTo(target = null))
+                    }
+                )
+            }
+
+            // Reachable either at cold-start (a previously-restored session whose account was
+            // declined since the last login) or by tapping a "registration_declined" notification.
+            entry<NavKeys.RegistrationDeclined> {
+                val userName = SessionManager.user?.name ?: ""
+                PendingApprovalScreen(
+                    userName = userName,
+                    outcome = RegistrationOutcome.DECLINED,
+                    onBackToLogin = {
+                        coroutineScope.launch { container.logoutUseCase() }
                         selectHomeTab(HomeTab.HOME)
                         navigator.navigate(NavKeys.Login, popUpTo = Navigator.PopUpTo(target = null))
                     }
@@ -233,17 +302,25 @@ fun AppNavigation(container: AppContainer) {
                                 changePasswordUseCase = container.changePasswordUseCase,
                                 updateSupplierProfileUseCase = container.updateSupplierProfileUseCase,
                                 updateBranchProfileUseCase = container.updateBranchProfileUseCase,
-                                deactivateAccountUseCase = container.deactivateAccountUseCase,
                                 requestZoneUpdateUseCase = container.requestZoneUpdateUseCase,
                                 zoneRepository = container.zoneRepository
                             )
                         }
                     }
                 )
+                val adminLifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(adminLifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) notificationViewModel.refreshUnreadCount()
+                    }
+                    adminLifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { adminLifecycleOwner.lifecycle.removeObserver(observer) }
+                }
                 AdminDashboardScreen(
                     viewModel = vm,
                     analyticsViewModel = analyticsVm,
                     profileViewModel = adminProfileVm,
+                    unreadNotificationCount = notificationState.unreadCount,
                     onNavigateToNotifications = { navigator.navigate(NavKeys.Notifications) },
                     onLogout = {
                         coroutineScope.launch { container.logoutUseCase() }
@@ -304,7 +381,6 @@ fun AppNavigation(container: AppContainer) {
                                 changePasswordUseCase = container.changePasswordUseCase,
                                 updateSupplierProfileUseCase = container.updateSupplierProfileUseCase,
                                 updateBranchProfileUseCase = container.updateBranchProfileUseCase,
-                                deactivateAccountUseCase = container.deactivateAccountUseCase,
                                 requestZoneUpdateUseCase = container.requestZoneUpdateUseCase,
                                 zoneRepository = container.zoneRepository
                             )
@@ -324,6 +400,8 @@ fun AppNavigation(container: AppContainer) {
                             sellerVm.loadData()
                             orderListVm.loadOrders()
                             pharmacyHomeVm.loadActiveOrdersCount()
+                            notificationViewModel.refreshUnreadCount()
+                            notificationViewModel.refreshList()
                         }
                     }
                     lifecycleOwner.lifecycle.addObserver(observer)
@@ -337,6 +415,9 @@ fun AppNavigation(container: AppContainer) {
                     profileViewModel = profileVm,
                     selectedTab = homeSelectedTab,
                     onTabSelected = ::selectHomeTab,
+                    unreadNotificationCount = notificationState.unreadCount,
+                    unreadPharmacyOrderIds = notificationState.unreadPharmacyOrderIds,
+                    unreadSupplierOrderIds = notificationState.unreadSupplierOrderIds,
                     onNavigateToNotifications = { navigator.navigate(NavKeys.Notifications) },
                     onNavigateToSearch = {
                         val key = if (SessionManager.currentUser.value?.userType == UserType.SELLER) {
@@ -396,7 +477,14 @@ fun AppNavigation(container: AppContainer) {
             }
 
             entry<NavKeys.Notifications> {
-                NotificationsScreen(onNavigateBack = { navigator.goBack() })
+                NotificationsScreen(
+                    viewModel = notificationViewModel,
+                    onNavigateBack = { navigator.goBack() },
+                    onNotificationClick = { notification ->
+                        resolveNotificationDestination(notification.type, notification.notifiableId)
+                            ?.let { navigator.navigate(it) }
+                    }
+                )
             }
 
             entry<NavKeys.BuyerSearch> {
@@ -656,6 +744,18 @@ fun AppNavigation(container: AppContainer) {
             }
         }
     )
+}
+
+// Single source of truth for the backend's notification "type" -> screen routing table, shared by
+// both an in-app notification-row tap (entry<NavKeys.Notifications>) and a push-notification tap
+// that launched/resumed the app (the pendingDeepLink LaunchedEffect above). "general" and any
+// unrecognized type resolve to null, meaning no navigation happens.
+private fun resolveNotificationDestination(type: String, notifiableId: String?): NavKeys? = when (type) {
+    "new_order" -> notifiableId?.let { NavKeys.SupplierOrderDetail(it) }
+    "order_confirmed", "shortage_reported", "order_shipped", "order_delivered" -> notifiableId?.let { NavKeys.OrderDetail(it) }
+    "registration_approved" -> NavKeys.Home
+    "registration_declined" -> NavKeys.RegistrationDeclined
+    else -> null
 }
 
 @Composable

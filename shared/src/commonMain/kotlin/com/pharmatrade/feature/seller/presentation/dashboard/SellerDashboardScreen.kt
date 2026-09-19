@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatBackendTimestamp
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.*
@@ -38,6 +40,7 @@ fun SellerDashboardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val strings = LocalStrings.current
 
     LaunchedEffect(uiState.snackbarMessage) {
         uiState.snackbarMessage?.let {
@@ -55,7 +58,7 @@ fun SellerDashboardScreen(
                 containerColor = PrimaryBlue,
                 contentColor = Color.White
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Listing")
+                Icon(Icons.Filled.Add, contentDescription = strings.sdAddListingContentDescription)
             }
         }
     ) { padding ->
@@ -77,13 +80,13 @@ fun SellerDashboardScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Seller Dashboard",
+                                text = strings.sdSellerDashboardTitle,
                                 style = MaterialTheme.typography.headlineMedium,
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = uiState.seller?.businessName ?: "Loading...",
+                                text = uiState.seller?.businessName ?: strings.commonLoading,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White.copy(alpha = 0.8f)
                             )
@@ -96,7 +99,7 @@ fun SellerDashboardScreen(
                                 Icon(Icons.Filled.Settings, null, tint = Color.White)
                             }
                             IconButton(onClick = onLogout) {
-                                Icon(Icons.Filled.Logout, null, tint = Color.White)
+                                Icon(Icons.AutoMirrored.Filled.Logout, null, tint = Color.White)
                             }
                         }
                     }
@@ -105,19 +108,19 @@ fun SellerDashboardScreen(
                         Spacer(Modifier.height(16.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             StatChip(
-                                label = "Listings",
+                                label = strings.sdStatListings,
                                 value = "${uiState.totalItems}",
                                 icon = Icons.Filled.Inventory,
                                 modifier = Modifier.weight(1f)
                             )
                             StatChip(
-                                label = "Min Order",
+                                label = strings.sdStatMinOrder,
                                 value = "EGP ${formatDecimal(uiState.seller!!.minimumOrderAmount, 0)}",
                                 icon = Icons.Filled.ShoppingCart,
                                 modifier = Modifier.weight(1f)
                             )
                             StatChip(
-                                label = "Rating",
+                                label = strings.sdStatRating,
                                 value = "${uiState.seller!!.rating}★",
                                 icon = Icons.Filled.Star,
                                 modifier = Modifier.weight(1f)
@@ -137,7 +140,7 @@ fun SellerDashboardScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     TappableSearchBar(
-                        hint = "Search your listings...",
+                        hint = strings.sdSearchListingsPlaceholder,
                         onClick = onSearchTap,
                         modifier = Modifier.weight(1f)
                     )
@@ -149,7 +152,7 @@ fun SellerDashboardScreen(
                             .clickable(onClick = onNavigateToUploadInventory),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Filled.CloudUpload, contentDescription = "Upload Inventory", tint = Color.White, modifier = Modifier.size(22.dp))
+                        Icon(Icons.Filled.CloudUpload, contentDescription = strings.sdUploadInventoryContentDescription, tint = Color.White, modifier = Modifier.size(22.dp))
                     }
                 }
             }
@@ -161,12 +164,12 @@ fun SellerDashboardScreen(
                     onRetry = viewModel::loadData
                 )
                 uiState.inventoryItems.isEmpty() -> EmptyState(
-                    title = "No Listings Yet",
-                    message = "Add listings manually or upload your inventory as an Excel sheet",
+                    title = strings.sdNoListingsYetTitle,
+                    message = strings.sdNoListingsYetMessage,
                     icon = Icons.Filled.Inventory,
                     action = {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            PharmaButton(text = "Add Listing", onClick = onNavigateToAddListing)
+                            PharmaButton(text = strings.sdAddListingContentDescription, onClick = onNavigateToAddListing)
                             OutlinedButton(
                                 onClick = onNavigateToUploadInventory,
                                 shape = RoundedCornerShape(8.dp),
@@ -175,7 +178,7 @@ fun SellerDashboardScreen(
                             ) {
                                 Icon(Icons.Filled.UploadFile, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Upload Excel Sheet", color = PrimaryBlue)
+                                Text(strings.sdUploadExcelSheet, color = PrimaryBlue)
                             }
                         }
                     }
@@ -206,7 +209,7 @@ fun SellerDashboardScreen(
                     ) {
                         item {
                             SectionHeader(
-                                title = "My Drug Listings (${uiState.totalItems})",
+                                title = strings.sdMyDrugListings(uiState.totalItems),
                                 modifier = Modifier.padding(bottom = 4.dp)
                             )
                         }
@@ -242,11 +245,11 @@ fun SellerDashboardScreen(
         AlertDialog(
             onDismissRequest = viewModel::dismissMinOrderDialog,
             icon = { Icon(Icons.Filled.ShoppingCart, null, tint = PrimaryBlue) },
-            title = { Text("Minimum Order Amount", fontWeight = FontWeight.Bold) },
+            title = { Text(strings.sdMinOrderAmountTitle, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
                     Text(
-                        text = "Set the minimum purchase amount customers must meet when ordering from you.",
+                        text = strings.sdMinOrderAmountBody,
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )
@@ -254,8 +257,8 @@ fun SellerDashboardScreen(
                     OutlinedTextField(
                         value = uiState.newMinOrderInput,
                         onValueChange = viewModel::onMinOrderInputChange,
-                        label = { Text("Amount (EGP)") },
-                        prefix = { Text("EGP ") },
+                        label = { Text(strings.sdAmountEgpLabel) },
+                        prefix = { Text(strings.sdEgpPrefix) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -264,12 +267,12 @@ fun SellerDashboardScreen(
             },
             confirmButton = {
                 Button(onClick = viewModel::updateMinimumOrder) {
-                    Text("Save")
+                    Text(strings.commonSave)
                 }
             },
             dismissButton = {
                 TextButton(onClick = viewModel::dismissMinOrderDialog) {
-                    Text("Cancel")
+                    Text(strings.commonCancel)
                 }
             }
         )
@@ -283,16 +286,17 @@ fun SellerDashboardScreen(
 
 @Composable
 private fun EditInventoryItemDialog(uiState: SellerDashboardUiState, viewModel: SellerDashboardViewModel) {
+    val strings = LocalStrings.current
     AlertDialog(
         onDismissRequest = { if (!uiState.isSavingEdit) viewModel.dismissEditDialog() },
         icon = { Icon(Icons.Filled.Edit, null, tint = PrimaryBlue) },
-        title = { Text("Edit Inventory Item", fontWeight = FontWeight.Bold) },
+        title = { Text(strings.sdEditInventoryItemTitle, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = uiState.editDrugNameInput,
                     onValueChange = viewModel::onEditDrugNameChange,
-                    label = { Text("Drug name") },
+                    label = { Text(strings.sdDrugNameLabel) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -300,7 +304,7 @@ private fun EditInventoryItemDialog(uiState: SellerDashboardUiState, viewModel: 
                 OutlinedTextField(
                     value = uiState.editQuantityInput,
                     onValueChange = viewModel::onEditQuantityChange,
-                    label = { Text("Quantity available") },
+                    label = { Text(strings.sdQuantityAvailableLabel) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -308,7 +312,7 @@ private fun EditInventoryItemDialog(uiState: SellerDashboardUiState, viewModel: 
                 OutlinedTextField(
                     value = uiState.editPriceInput,
                     onValueChange = viewModel::onEditPriceChange,
-                    label = { Text("Unit price (EGP)") },
+                    label = { Text(strings.sdUnitPriceEgpLabel) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -316,7 +320,7 @@ private fun EditInventoryItemDialog(uiState: SellerDashboardUiState, viewModel: 
                 OutlinedTextField(
                     value = uiState.editDiscountInput,
                     onValueChange = viewModel::onEditDiscountChange,
-                    label = { Text("Discount %") },
+                    label = { Text(strings.sdDiscountPctLabel) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -342,13 +346,13 @@ private fun EditInventoryItemDialog(uiState: SellerDashboardUiState, viewModel: 
                 if (uiState.isSavingEdit) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
                 } else {
-                    Text("Save")
+                    Text(strings.commonSave)
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = viewModel::dismissEditDialog, enabled = !uiState.isSavingEdit) {
-                Text("Cancel")
+                Text(strings.commonCancel)
             }
         }
     )
@@ -372,6 +376,7 @@ private fun StatChip(label: String, value: String, icon: androidx.compose.ui.gra
 
 @Composable
 private fun SellerInventoryListItemCard(item: InventoryItem, onEdit: () -> Unit) {
+    val strings = LocalStrings.current
     val isMatched = item.isCatalogMatched
     val catalogDrug = item.catalogDrug
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
@@ -432,7 +437,7 @@ private fun SellerInventoryListItemCard(item: InventoryItem, onEdit: () -> Unit)
                     }
                     */
                     IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = PrimaryBlue, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Filled.Edit, contentDescription = strings.sdEditContentDescription, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -476,13 +481,13 @@ private fun SellerInventoryListItemCard(item: InventoryItem, onEdit: () -> Unit)
             Spacer(Modifier.height(12.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                InfoItem(label = "Stock", value = "${item.quantityAvailable}", modifier = Modifier.weight(1f))
-                InfoItem(label = "Discount", value = "${formatDecimal(item.discountPct, 0)}%", modifier = Modifier.weight(1f))
+                InfoItem(label = strings.sdStock, value = "${item.quantityAvailable}", modifier = Modifier.weight(1f))
+                InfoItem(label = strings.sdDiscount, value = "${formatDecimal(item.discountPct, 0)}%", modifier = Modifier.weight(1f))
             }
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                InfoItem(label = "Public Price", value = "EGP ${formatDecimal(item.publicPrice, 2)}", modifier = Modifier.weight(1f))
-                InfoItem(label = "Pharmacist Price", value = "EGP ${formatDecimal(item.pharmacistPrice, 2)}", modifier = Modifier.weight(1f))
+                InfoItem(label = strings.sdPublicPrice, value = "EGP ${formatDecimal(item.publicPrice, 2)}", modifier = Modifier.weight(1f))
+                InfoItem(label = strings.sdPharmacistPrice, value = "EGP ${formatDecimal(item.pharmacistPrice, 2)}", modifier = Modifier.weight(1f))
             }
 
             if (item.discountPct > 0) {
@@ -495,7 +500,7 @@ private fun SellerInventoryListItemCard(item: InventoryItem, onEdit: () -> Unit)
                         .padding(10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Effective price:", style = MaterialTheme.typography.labelSmall, color = SecondaryGreenDark)
+                    Text(strings.sdEffectivePriceLabel, style = MaterialTheme.typography.labelSmall, color = SecondaryGreenDark)
                     Text(
                         "EGP ${formatDecimal(item.effectivePrice, 2)}",
                         style = MaterialTheme.typography.labelSmall,
@@ -510,7 +515,7 @@ private fun SellerInventoryListItemCard(item: InventoryItem, onEdit: () -> Unit)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Icon(Icons.Filled.Schedule, null, tint = TextHint, modifier = Modifier.size(12.dp))
                     Text(
-                        "Updated ${formatBackendTimestamp(item.lastUpdated)}",
+                        strings.sdUpdatedAt(formatBackendTimestamp(item.lastUpdated)),
                         style = MaterialTheme.typography.labelSmall,
                         color = TextHint
                     )

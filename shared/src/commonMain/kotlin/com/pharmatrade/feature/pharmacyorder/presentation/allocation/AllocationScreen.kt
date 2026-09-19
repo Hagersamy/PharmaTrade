@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.DiscountBadge
 import com.pharmatrade.core.ui.components.ErrorScreen
@@ -38,6 +39,7 @@ fun AllocationScreen(
     onCancelled: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
 
     LaunchedEffect(uiState.cancelled) {
         if (uiState.cancelled) onCancelled()
@@ -48,14 +50,14 @@ fun AllocationScreen(
     // later (e.g. from Active Orders) and explicitly Confirm or Cancel; only the "Cancel order"
     // button below actually cancels it.
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
-        PharmaTopBar(title = "Allocation", onNavigateBack = onNavigateBack)
+        PharmaTopBar(title = strings.allocationTitle, onNavigateBack = onNavigateBack)
 
         when {
             uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = PrimaryBlue)
                     Spacer(Modifier.height(16.dp))
-                    Text("Finding the best prices…", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                    Text(strings.allocationFindingBestPrices, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                 }
             }
             uiState.error != null && uiState.order == null -> ErrorScreen(
@@ -91,7 +93,7 @@ fun AllocationScreen(
                         ) {
                             Icon(Icons.Filled.Savings, contentDescription = null, tint = SecondaryGreenDark, modifier = Modifier.size(16.dp))
                             Text(
-                                "You saved EGP ${formatDecimal(order.savings, 2)}",
+                                strings.allocationYouSaved(formatDecimal(order.savings, 2)),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = SecondaryGreenDark
@@ -115,12 +117,12 @@ fun AllocationScreen(
 
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     PharmaButton(
-                        text = "Confirm order",
+                        text = strings.allocationConfirmOrder,
                         onClick = { onConfirmed(order.id) },
                         modifier = Modifier.fillMaxWidth()
                     )
                     PharmaOutlinedButton(
-                        text = "Cancel order",
+                        text = strings.orderCancelOrder,
                         onClick = viewModel::cancelOrder,
                         enabled = !uiState.isCancelling,
                         modifier = Modifier.fillMaxWidth()
@@ -134,6 +136,7 @@ fun AllocationScreen(
 @Composable
 private fun SupplierOrderCard(supplierOrder: SupplierOrder) {
     var expanded by remember { mutableStateOf(true) }
+    val strings = LocalStrings.current
 
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.animateContentSize().padding(16.dp)) {
@@ -153,7 +156,7 @@ private fun SupplierOrderCard(supplierOrder: SupplierOrder) {
                 }
                 Icon(
                     if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    contentDescription = if (expanded) strings.commonCollapse else strings.commonExpand,
                     tint = TextSecondary
                 )
             }
@@ -169,6 +172,7 @@ private fun SupplierOrderCard(supplierOrder: SupplierOrder) {
 
 @Composable
 private fun DrugLineRow(line: OrderDrugLine) {
+    val strings = LocalStrings.current
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -180,7 +184,7 @@ private fun DrugLineRow(line: OrderDrugLine) {
                 DiscountBadge(discountPercentage = line.discountPct)
             }
             Text(
-                "Qty ${line.qtyConfirmed ?: line.qtyRequested} × EGP ${formatDecimal(line.unitPrice, 2)}",
+                strings.allocationQtyPrice(line.qtyConfirmed ?: line.qtyRequested, formatDecimal(line.unitPrice, 2)),
                 style = MaterialTheme.typography.labelSmall,
                 color = TextSecondary
             )

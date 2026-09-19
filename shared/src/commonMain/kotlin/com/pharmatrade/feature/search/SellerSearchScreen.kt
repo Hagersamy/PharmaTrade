@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.model.Drug
 import com.pharmatrade.core.common.model.SellerListing
 import com.pharmatrade.core.common.util.formatDecimal
@@ -36,6 +37,7 @@ fun SellerSearchScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val focusRequester = remember { FocusRequester() }
+    val strings = LocalStrings.current
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
@@ -51,12 +53,12 @@ fun SellerSearchScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.commonBack, tint = Color.White)
                 }
                 OutlinedTextField(
                     value = uiState.query,
                     onValueChange = viewModel::onQueryChange,
-                    placeholder = { Text("Search the drug catalog...", color = Color.White.copy(alpha = 0.6f)) },
+                    placeholder = { Text(strings.sellerSearchCatalogPlaceholder, color = Color.White.copy(alpha = 0.6f)) },
                     trailingIcon = {
                         if (uiState.query.isNotBlank()) {
                             IconButton(onClick = { viewModel.onQueryChange("") }) {
@@ -92,8 +94,8 @@ fun SellerSearchScreen(
             uiState.isSearchingCatalog && uiState.catalogResults.isEmpty() -> LoadingScreen()
             uiState.catalogSearchError != null -> ErrorScreen(message = uiState.catalogSearchError!!, onRetry = { viewModel.onQueryChange(uiState.query) })
             uiState.catalogResults.isEmpty() -> EmptyState(
-                title = "No Results",
-                message = "No catalog drugs matched \"${uiState.query}\"",
+                title = strings.catalogNoResults,
+                message = strings.sellerSearchNoResultsMessage(uiState.query),
                 icon = Icons.Filled.SearchOff
             )
             else -> DrugCatalogResults(
@@ -115,6 +117,7 @@ private fun DrugCatalogResults(
 ) {
     // Matched by drug name against the seller's own listings already loaded on this screen —
     // there's no backend call that maps a catalog id straight to "do I already list this".
+    val strings = LocalStrings.current
     val listingByDrugName = remember(ownListings) {
         ownListings.associateBy { it.drug.name.trim().lowercase() }
     }
@@ -123,7 +126,7 @@ private fun DrugCatalogResults(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
-            SectionHeader("Catalog results (${drugs.size})", modifier = Modifier.padding(bottom = 4.dp))
+            SectionHeader(strings.sellerSearchCatalogResultsCount(drugs.size), modifier = Modifier.padding(bottom = 4.dp))
         }
         items(drugs, key = { it.id }) { drug ->
             val existingListing = listingByDrugName[drug.name.trim().lowercase()]
@@ -144,6 +147,7 @@ private fun DrugCatalogSearchCard(
     onEdit: () -> Unit,
     onAddListing: () -> Unit
 ) {
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -175,7 +179,7 @@ private fun DrugCatalogSearchCard(
                     }
                     if (existingListing != null) {
                         Text(
-                            "Already listed · EGP ${formatDecimal(existingListing.finalPrice, 2)}",
+                            strings.sellerSearchAlreadyListed(formatDecimal(existingListing.finalPrice, 2)),
                             style = MaterialTheme.typography.labelSmall,
                             color = SecondaryGreenDark,
                             fontWeight = FontWeight.SemiBold
@@ -185,11 +189,11 @@ private fun DrugCatalogSearchCard(
             }
             if (existingListing != null) {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit your listing", tint = PrimaryBlue, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Edit, contentDescription = strings.sellerSearchEditListingContentDescription, tint = PrimaryBlue, modifier = Modifier.size(20.dp))
                 }
             } else {
                 IconButton(onClick = onAddListing) {
-                    Icon(Icons.Filled.AddCircleOutline, contentDescription = "Add as listing", tint = PrimaryBlue, modifier = Modifier.size(22.dp))
+                    Icon(Icons.Filled.AddCircleOutline, contentDescription = strings.sellerSearchAddAsListingContentDescription, tint = PrimaryBlue, modifier = Modifier.size(22.dp))
                 }
             }
         }
@@ -200,12 +204,14 @@ private fun DrugCatalogSearchCard(
 private fun AllListingsContent(
     listings: List<SellerListing>,
     onEdit: (String) -> Unit,
-    headerText: String = "All Listings (${listings.size})"
+    headerText: String? = null
 ) {
+    val strings = LocalStrings.current
+    val resolvedHeaderText = headerText ?: strings.sellerSearchAllListingsCount(listings.size)
     if (listings.isEmpty()) {
         EmptyState(
-            title = "No Listings",
-            message = "You have no drug listings yet",
+            title = strings.sellerSearchNoListingsTitle,
+            message = strings.sellerSearchNoListingsMessage,
             icon = Icons.Filled.Inventory
         )
         return
@@ -215,7 +221,7 @@ private fun AllListingsContent(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
-            SectionHeader(headerText, modifier = Modifier.padding(bottom = 4.dp))
+            SectionHeader(resolvedHeaderText, modifier = Modifier.padding(bottom = 4.dp))
         }
         items(listings, key = { it.id }) { listing ->
             SellerListingSearchCard(listing = listing, onEdit = { onEdit(listing.id) })
@@ -225,6 +231,7 @@ private fun AllListingsContent(
 
 @Composable
 private fun SellerListingSearchCard(listing: SellerListing, onEdit: () -> Unit) {
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -257,7 +264,7 @@ private fun SellerListingSearchCard(listing: SellerListing, onEdit: () -> Unit) 
                         color = TextSecondary
                     )
                     Text(
-                        "EGP ${formatDecimal(listing.finalPrice, 2)}  ·  ${listing.quantityAvailable} ${listing.unit}",
+                        strings.sellerSearchPriceQty(formatDecimal(listing.finalPrice, 2), listing.quantityAvailable, listing.unit),
                         style = MaterialTheme.typography.labelSmall,
                         color = PrimaryBlue,
                         fontWeight = FontWeight.SemiBold

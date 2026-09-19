@@ -7,7 +7,16 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import com.pharmatrade.core.common.i18n.AppLanguage
+import com.pharmatrade.core.common.i18n.ArabicStrings
+import com.pharmatrade.core.common.i18n.EnglishStrings
+import com.pharmatrade.core.common.i18n.LanguageManager
+import com.pharmatrade.core.common.i18n.LocalStrings
 
 // onPrimary/onSecondary are text/icon color drawn on top of a still-colored button in both
 // themes, so they stay white rather than following AppColors.surfaceWhite (which is the
@@ -64,7 +73,16 @@ fun PharmaTradeTheme(content: @Composable () -> Unit) {
     val appColors = if (isDark) DarkAppColors else LightAppColors
     val scheme = colorScheme(appColors, isDark)
     ApplyStatusBarStyle(scheme)
-    CompositionLocalProvider(LocalAppColors provides appColors) {
+
+    val language by LanguageManager.language.collectAsState()
+    val strings = if (language == AppLanguage.ARABIC) ArabicStrings else EnglishStrings
+    val direction = if (language.isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
+
+    CompositionLocalProvider(
+        LocalAppColors provides appColors,
+        LocalStrings provides strings,
+        LocalLayoutDirection provides direction
+    ) {
         MaterialTheme(
             colorScheme = scheme,
             typography = PharmaTypography,

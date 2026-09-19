@@ -10,6 +10,8 @@ data class SupplierCatalogItem(
     val strength: String = "",
     val quantityAvailable: Int,
     val unitPrice: Double,
+    val publicPrice: Double,
+    val pharmacistPrice: Double,
     val discountPct: Double,
     val effectivePrice: Double
 )

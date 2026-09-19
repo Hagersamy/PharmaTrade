@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.model.Drug
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.*
@@ -39,6 +40,7 @@ fun DrugFormScreen(
     onSaved: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
 
     LaunchedEffect(editingListingId) {
         editingListingId?.let { viewModel.loadForEdit(it) }
@@ -52,7 +54,7 @@ fun DrugFormScreen(
 
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
         PharmaTopBar(
-            title = if (editingListingId != null) "Edit Listing" else "Add Drug Listing",
+            title = if (editingListingId != null) strings.dfEditListingTitle else strings.dfAddDrugListingTitle,
             onNavigateBack = onNavigateBack
         )
 
@@ -65,7 +67,7 @@ fun DrugFormScreen(
         ) {
             // Drug selector
             if (editingListingId == null) {
-                SectionHeader("Select Drug")
+                SectionHeader(strings.dfSelectDrug)
                 DrugSingleSelectDropdown(
                     drugs = uiState.availableDrugs,
                     selectedDrug = viewModel.selectedDrug,
@@ -98,12 +100,12 @@ fun DrugFormScreen(
             }
 
             Divider(color = DividerGray)
-            SectionHeader("Pricing & Availability")
+            SectionHeader(strings.dfPricingAvailability)
 
             OutlinedTextField(
                 value = uiState.priceInput,
                 onValueChange = viewModel::onPriceChange,
-                label = { Text("Price per Unit (EGP)") },
+                label = { Text(strings.dfPricePerUnit) },
                 leadingIcon = { Icon(Icons.Filled.AttachMoney, null, tint = TextSecondary) },
                 prefix = { Text("EGP ") },
                 singleLine = true,
@@ -116,7 +118,7 @@ fun DrugFormScreen(
             OutlinedTextField(
                 value = uiState.discountInput,
                 onValueChange = viewModel::onDiscountChange,
-                label = { Text("Discount Percentage") },
+                label = { Text(strings.dfDiscountPercentage) },
                 leadingIcon = { Icon(Icons.Filled.Discount, null, tint = TextSecondary) },
                 suffix = { Text("%") },
                 singleLine = true,
@@ -139,7 +141,7 @@ fun DrugFormScreen(
                         .padding(12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Customer pays:", style = MaterialTheme.typography.bodyMedium, color = SecondaryGreenDark)
+                    Text(strings.dfCustomerPays, style = MaterialTheme.typography.bodyMedium, color = SecondaryGreenDark)
                     Text(
                         "EGP ${formatDecimal(finalPrice, 2)}",
                         style = MaterialTheme.typography.titleMedium,
@@ -153,7 +155,7 @@ fun DrugFormScreen(
                 OutlinedTextField(
                     value = uiState.quantityInput,
                     onValueChange = viewModel::onQuantityChange,
-                    label = { Text("Quantity Available") },
+                    label = { Text(strings.dfQuantityAvailable) },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
@@ -170,7 +172,7 @@ fun DrugFormScreen(
                     OutlinedTextField(
                         value = uiState.unitInput,
                         onValueChange = {},
-                        label = { Text("Unit") },
+                        label = { Text(strings.dfUnit) },
                         readOnly = true,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitExpanded) },
                         modifier = Modifier.menuAnchor(),
@@ -194,7 +196,7 @@ fun DrugFormScreen(
             OutlinedTextField(
                 value = uiState.expiryInput,
                 onValueChange = viewModel::onExpiryChange,
-                label = { Text("Expiry Date (e.g. 2026-12-31)") },
+                label = { Text(strings.dfExpiryDate) },
                 leadingIcon = { Icon(Icons.Filled.CalendarMonth, null, tint = TextSecondary) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -218,7 +220,7 @@ fun DrugFormScreen(
             }
 
             PharmaButton(
-                text = if (editingListingId != null) "Update Listing" else "Add Listing",
+                text = if (editingListingId != null) strings.dfUpdateListing else strings.dfAddListing,
                 onClick = viewModel::save,
                 modifier = Modifier.fillMaxWidth(),
                 isLoading = uiState.isLoading
@@ -235,10 +237,11 @@ fun DrugFormScreen(
 
 @Composable
 private fun AddDrugDialog(uiState: DrugFormUiState, viewModel: DrugFormViewModel) {
+    val strings = LocalStrings.current
     AlertDialog(
         onDismissRequest = { if (!uiState.isCreatingDrug) viewModel.dismissAddDrugDialog() },
         icon = { Icon(Icons.Filled.AddCircleOutline, null, tint = PrimaryBlue) },
-        title = { Text("Add New Drug", fontWeight = FontWeight.Bold) },
+        title = { Text(strings.dfAddNewDrugTitle, fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 modifier = Modifier
@@ -248,14 +251,14 @@ private fun AddDrugDialog(uiState: DrugFormUiState, viewModel: DrugFormViewModel
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    "This registers a new drug in the catalogue so you can list it for sale.",
+                    strings.dfAddNewDrugDesc,
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
                 OutlinedTextField(
                     value = uiState.newDrugName,
                     onValueChange = viewModel::onNewDrugNameChange,
-                    label = { Text("Drug name *") },
+                    label = { Text(strings.dfDrugNameRequired) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -263,7 +266,7 @@ private fun AddDrugDialog(uiState: DrugFormUiState, viewModel: DrugFormViewModel
                 OutlinedTextField(
                     value = uiState.newDrugTradeName,
                     onValueChange = viewModel::onNewDrugTradeNameChange,
-                    label = { Text("Trade name *") },
+                    label = { Text(strings.dfTradeNameRequired) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -271,7 +274,7 @@ private fun AddDrugDialog(uiState: DrugFormUiState, viewModel: DrugFormViewModel
                 OutlinedTextField(
                     value = uiState.newDrugScientificName,
                     onValueChange = viewModel::onNewDrugScientificNameChange,
-                    label = { Text("Scientific name") },
+                    label = { Text(strings.dfScientificName) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -279,7 +282,7 @@ private fun AddDrugDialog(uiState: DrugFormUiState, viewModel: DrugFormViewModel
                 OutlinedTextField(
                     value = uiState.newDrugManufacturer,
                     onValueChange = viewModel::onNewDrugManufacturerChange,
-                    label = { Text("Manufacturer") },
+                    label = { Text(strings.dfManufacturer) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -288,7 +291,7 @@ private fun AddDrugDialog(uiState: DrugFormUiState, viewModel: DrugFormViewModel
                     OutlinedTextField(
                         value = uiState.newDrugDosageForm,
                         onValueChange = viewModel::onNewDrugDosageFormChange,
-                        label = { Text("Dosage form") },
+                        label = { Text(strings.dfDosageForm) },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp)
@@ -296,7 +299,7 @@ private fun AddDrugDialog(uiState: DrugFormUiState, viewModel: DrugFormViewModel
                     OutlinedTextField(
                         value = uiState.newDrugStrength,
                         onValueChange = viewModel::onNewDrugStrengthChange,
-                        label = { Text("Strength") },
+                        label = { Text(strings.dfStrength) },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp)
@@ -305,7 +308,7 @@ private fun AddDrugDialog(uiState: DrugFormUiState, viewModel: DrugFormViewModel
                 OutlinedTextField(
                     value = uiState.newDrugBarcode,
                     onValueChange = viewModel::onNewDrugBarcodeChange,
-                    label = { Text("Barcode (optional)") },
+                    label = { Text(strings.dfBarcodeOptional) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -336,13 +339,13 @@ private fun AddDrugDialog(uiState: DrugFormUiState, viewModel: DrugFormViewModel
                 if (uiState.isCreatingDrug) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
                 } else {
-                    Text("Add Drug")
+                    Text(strings.dfAddDrugButton)
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = viewModel::dismissAddDrugDialog, enabled = !uiState.isCreatingDrug) {
-                Text("Cancel")
+                Text(strings.dfCancel)
             }
         }
     )
@@ -365,6 +368,7 @@ private fun DrugSingleSelectDropdown(
     onAddNewDrug: () -> Unit,
     onRetry: () -> Unit
 ) {
+    val strings = LocalStrings.current
     var expanded by remember { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -375,8 +379,8 @@ private fun DrugSingleSelectDropdown(
                     onSearchQueryChange(it)
                     expanded = true
                 },
-                label = { Text("Drug *") },
-                placeholder = { Text("Type to search drugs…", color = TextSecondary) },
+                label = { Text(strings.dfDrugFieldRequired) },
+                placeholder = { Text(strings.dfTypeToSearchDrugs, color = TextSecondary) },
                 leadingIcon = { Icon(Icons.Filled.Medication, null, tint = TextSecondary) },
                 trailingIcon = {
                     if (isLoading) {
@@ -457,7 +461,7 @@ private fun DrugSingleSelectDropdown(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Icon(Icons.Filled.AddCircleOutline, null, tint = PrimaryBlue, modifier = Modifier.size(20.dp))
-                            Text("Can't find your drug? Add it", color = PrimaryBlue, fontWeight = FontWeight.SemiBold)
+                            Text(strings.dfCantFindDrugAddIt, color = PrimaryBlue, fontWeight = FontWeight.SemiBold)
                         }
                     },
                     onClick = {
@@ -472,9 +476,9 @@ private fun DrugSingleSelectDropdown(
         if (hasError) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(Icons.Filled.ErrorOutline, null, tint = ErrorRed, modifier = Modifier.size(14.dp))
-                Text("Could not load drugs.", style = MaterialTheme.typography.bodySmall, color = ErrorRed)
+                Text(strings.dfCouldNotLoadDrugs, style = MaterialTheme.typography.bodySmall, color = ErrorRed)
                 TextButton(onClick = onRetry, contentPadding = PaddingValues(0.dp)) {
-                    Text("Retry", style = MaterialTheme.typography.bodySmall)
+                    Text(strings.dfRetry, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

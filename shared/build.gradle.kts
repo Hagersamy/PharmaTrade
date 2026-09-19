@@ -42,7 +42,6 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.viewmodel.compose)
             implementation(libs.androidx.lifecycle.runtime.compose)
-            implementation(libs.androidx.navigation.compose)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -50,6 +49,12 @@ kotlin {
         androidMain.dependencies {
             implementation(project.dependencies.platform("androidx.compose:compose-bom:${libs.versions.composeBom.get()}"))
             implementation(libs.ktor.client.okhttp)
+            implementation(project.dependencies.platform("com.google.firebase:firebase-bom:${libs.versions.firebaseBom.get()}"))
+            implementation(libs.firebase.messaging)
+            // Used directly by FilePicker.android.kt (rememberLauncherForActivityResult /
+            // ActivityResultContracts) — previously resolved only as a transitive dependency of
+            // androidx-navigation-compose, which masked this being undeclared.
+            implementation(libs.androidx.activity.compose)
         }
         val desktopMain by getting {
             dependencies {

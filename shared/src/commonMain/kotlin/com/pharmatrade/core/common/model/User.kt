@@ -22,6 +22,7 @@ data class User(
     val minOrderQty: String? = null
 ) {
     val isPending: Boolean get() = status?.lowercase() == "pending"
+    val isDeclined: Boolean get() = status?.lowercase() in setOf("rejected", "declined")
 }
 
 @Serializable

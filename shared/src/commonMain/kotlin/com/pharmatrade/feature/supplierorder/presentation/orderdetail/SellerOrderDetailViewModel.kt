@@ -2,6 +2,8 @@ package com.pharmatrade.feature.supplierorder.presentation.orderdetail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.supplierorder.domain.model.ConfirmItemInput
 import com.pharmatrade.feature.supplierorder.domain.model.ShortageItemInput
@@ -58,7 +60,9 @@ class SellerOrderDetailViewModel(
                         shortageQuantities = result.data.items.associate { it.id to it.quantityRequested.toString() }
                     )
                 }
-                is Result.Error -> update { copy(isLoading = false, error = result.message) }
+                is Result.Error -> update {
+                    copy(isLoading = false, error = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -85,7 +89,9 @@ class SellerOrderDetailViewModel(
                     update { copy(isSubmitting = false, showConfirmDialog = false, snackbarMessage = "Order confirmed") }
                     loadOrder()
                 }
-                is Result.Error -> update { copy(isSubmitting = false, actionError = result.message) }
+                is Result.Error -> update {
+                    copy(isSubmitting = false, actionError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -121,7 +127,9 @@ class SellerOrderDetailViewModel(
                     update { copy(isSubmitting = false, showShortageDialog = false, snackbarMessage = "Shortage reported") }
                     loadOrder()
                 }
-                is Result.Error -> update { copy(isSubmitting = false, actionError = result.message) }
+                is Result.Error -> update {
+                    copy(isSubmitting = false, actionError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -135,7 +143,9 @@ class SellerOrderDetailViewModel(
                     update { copy(isSubmitting = false, snackbarMessage = "Order marked as shipped") }
                     loadOrder()
                 }
-                is Result.Error -> update { copy(isSubmitting = false, actionError = result.message) }
+                is Result.Error -> update {
+                    copy(isSubmitting = false, actionError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -149,7 +159,9 @@ class SellerOrderDetailViewModel(
                     update { copy(isSubmitting = false, snackbarMessage = "Order marked as delivered") }
                     loadOrder()
                 }
-                is Result.Error -> update { copy(isSubmitting = false, actionError = result.message) }
+                is Result.Error -> update {
+                    copy(isSubmitting = false, actionError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }

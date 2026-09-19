@@ -2,6 +2,8 @@ package com.pharmatrade.feature.auth.presentation.register
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.auth.domain.model.Zone
@@ -56,7 +58,9 @@ class RegisterViewModel(
             update { copy(isLoadingZones = true, zonesError = null) }
             when (val result = zoneRepository.getZones()) {
                 is Result.Success -> update { copy(isLoadingZones = false, zones = result.data) }
-                is Result.Error -> update { copy(isLoadingZones = false, zonesError = result.message) }
+                is Result.Error -> update {
+                    copy(isLoadingZones = false, zonesError = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }
@@ -108,7 +112,9 @@ class RegisterViewModel(
             )
             when (result) {
                 is Result.Success -> update { copy(isLoading = false, isSuccess = true) }
-                is Result.Error -> update { copy(isLoading = false, error = result.message) }
+                is Result.Error -> update {
+                    copy(isLoading = false, error = LanguageManager.strings.friendlyError(result.message))
+                }
                 is Result.Loading -> Unit
             }
         }

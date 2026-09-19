@@ -2,6 +2,8 @@ package com.pharmatrade.feature.admin.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.admin.domain.model.PendingUser
@@ -57,7 +59,9 @@ class AdminDashboardViewModel(
                         snackbarMessage = "${user.name} approved successfully"
                     )
                 }
-                is Result.Error -> _uiState.value = _uiState.value.copy(error = result.message)
+                is Result.Error -> _uiState.value = _uiState.value.copy(
+                    error = LanguageManager.strings.friendlyError(result.message)
+                )
                 is Result.Loading -> Unit
             }
         }
@@ -72,7 +76,9 @@ class AdminDashboardViewModel(
                         snackbarMessage = "${user.name} rejected"
                     )
                 }
-                is Result.Error -> _uiState.value = _uiState.value.copy(error = result.message)
+                is Result.Error -> _uiState.value = _uiState.value.copy(
+                    error = LanguageManager.strings.friendlyError(result.message)
+                )
                 is Result.Loading -> Unit
             }
         }
@@ -113,8 +119,8 @@ class AdminDashboardViewModel(
                 approvedThisMonth = stats?.approved ?: 0,
                 activeUsers = stats?.approved ?: 0,
                 error = when {
-                    pharmaciesResult is Result.Error -> pharmaciesResult.message
-                    suppliersResult is Result.Error -> suppliersResult.message
+                    pharmaciesResult is Result.Error -> LanguageManager.strings.friendlyError(pharmaciesResult.message)
+                    suppliersResult is Result.Error -> LanguageManager.strings.friendlyError(suppliersResult.message)
                     else -> null
                 }
             )

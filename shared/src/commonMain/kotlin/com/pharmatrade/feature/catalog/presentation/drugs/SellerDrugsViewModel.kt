@@ -2,6 +2,8 @@ package com.pharmatrade.feature.catalog.presentation.drugs
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.Seller
 import com.pharmatrade.core.common.model.SellerListing
 import com.pharmatrade.core.common.result.Result
@@ -35,7 +37,7 @@ class SellerDrugsViewModel(
             val seller = (sellersResult as? Result.Success)?.data?.find { it.id == sellerId }
             val listingsResult = getListingsUseCase(sellerId)
             val listings = (listingsResult as? Result.Success)?.data ?: emptyList()
-            val error = (listingsResult as? Result.Error)?.message
+            val error = (listingsResult as? Result.Error)?.message?.let { LanguageManager.strings.friendlyError(it) }
 
             _uiState.value = _uiState.value.copy(
                 isLoading = false, seller = seller, listings = listings, error = error

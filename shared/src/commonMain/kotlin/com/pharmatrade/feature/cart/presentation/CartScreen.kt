@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.feature.cart.domain.model.CartItem
 import com.pharmatrade.feature.cart.domain.model.OrderValidation
@@ -31,6 +32,7 @@ fun CartScreen(
     onOrderSuccess: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
 
     LaunchedEffect(uiState.orderPlacedId) {
         uiState.orderPlacedId?.let {
@@ -41,12 +43,12 @@ fun CartScreen(
 
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
         PharmaTopBar(
-            title = "My Cart (${uiState.cart.getTotalItems()} items)",
+            title = strings.cartTitle(uiState.cart.getTotalItems()),
             onNavigateBack = onNavigateBack,
             actions = {
                 if (!uiState.cart.isEmpty()) {
                     TextButton(onClick = viewModel::clearCart) {
-                        Text("Clear", color = Color.White)
+                        Text(strings.commonClear, color = Color.White)
                     }
                 }
             }
@@ -54,11 +56,11 @@ fun CartScreen(
 
         if (uiState.cart.isEmpty()) {
             EmptyState(
-                title = "Cart is Empty",
-                message = "Browse sellers and add drugs to your cart",
+                title = strings.cartEmptyTitle,
+                message = strings.cartEmptyMessage,
                 icon = Icons.Filled.ShoppingCart,
                 action = {
-                    PharmaButton(text = "Browse Sellers", onClick = onNavigateBack)
+                    PharmaButton(text = strings.cartBrowseSellers, onClick = onNavigateBack)
                 }
             )
         } else {
@@ -138,7 +140,7 @@ fun CartScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Order Total", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                            Text(strings.cartOrderTotal, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                             Text(
                                 "EGP ${formatDecimal(uiState.cart.getTotalAmount(), 2)}",
                                 style = MaterialTheme.typography.headlineMedium,
@@ -147,7 +149,7 @@ fun CartScreen(
                             )
                         }
                         PharmaButton(
-                            text = "Place Order",
+                            text = strings.cartPlaceOrder,
                             onClick = viewModel::placeOrder,
                             isLoading = uiState.isPlacingOrder,
                             enabled = uiState.validationErrors.isEmpty() && !uiState.cart.isEmpty()
@@ -156,7 +158,7 @@ fun CartScreen(
                     if (uiState.validationErrors.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "Resolve minimum order issues before placing your order",
+                            strings.cartResolveMinimumWarning,
                             style = MaterialTheme.typography.bodySmall,
                             color = WarningAmber,
                             textAlign = TextAlign.Center,
@@ -176,6 +178,7 @@ private fun SellerGroupHeader(
     minimumOrder: Double,
     isBelowMinimum: Boolean
 ) {
+    val strings = LocalStrings.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -198,12 +201,12 @@ private fun SellerGroupHeader(
                     businessName,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    color = if (isBelowMinimum) Color(0xFF92400E) else SecondaryGreenDark
+                    color = if (isBelowMinimum) WarningAmberOnContainer else SecondaryGreenDark
                 )
                 Text(
-                    "Min. order: EGP ${formatDecimal(minimumOrder, 0)}",
+                    strings.cartMinOrder(formatDecimal(minimumOrder, 0)),
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (isBelowMinimum) Color(0xFF92400E) else SecondaryGreenDark
+                    color = if (isBelowMinimum) WarningAmberOnContainer else SecondaryGreenDark
                 )
             }
         }
@@ -223,6 +226,7 @@ private fun CartItemCard(
     onDecrease: () -> Unit,
     onRemove: () -> Unit
 ) {
+    val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -297,7 +301,7 @@ private fun CartItemCard(
                     onClick = onRemove,
                     contentPadding = PaddingValues(0.dp)
                 ) {
-                    Text("Remove", style = MaterialTheme.typography.labelSmall, color = ErrorRed)
+                    Text(strings.commonRemove, style = MaterialTheme.typography.labelSmall, color = ErrorRed)
                 }
             }
         }
