@@ -48,6 +48,12 @@ fun Strings.friendlyError(raw: String?): String {
         return errorEmailInUse
     }
 
+    // Backend phone validation on register (e.g. "The phone has already been taken.",
+    // "The phone format is invalid.") — RegisterUseCase only checks for blank locally, so any
+    // duplicate/malformed phone is only ever caught server-side and needs its own bucket here,
+    // otherwise it falls through to the generic error below with no actionable detail.
+    if (text.contains("phone")) return errorInvalidPhone
+
     val networkHints = listOf(
         "timeout", "timed out", "unable to resolve host", "failed to connect",
         "no address associated", "network is unreachable", "connection refused",

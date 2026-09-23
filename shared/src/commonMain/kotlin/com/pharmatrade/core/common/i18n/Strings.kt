@@ -11,6 +11,7 @@ interface Strings {
     val errorNetwork: String
     val errorInvalidCredentials: String
     val errorEmailInUse: String
+    val errorInvalidPhone: String
     val errorInvalidPrice: String
     val errorInvalidDiscount: String
     val errorInvalidQuantity: String

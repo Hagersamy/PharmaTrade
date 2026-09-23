@@ -7,6 +7,7 @@ object ArabicStrings : Strings {
     override val errorNetwork = "تعذر الاتصال بالخادم. تحقق من اتصالك بالإنترنت وحاول مرة أخرى."
     override val errorInvalidCredentials = "رقم الهاتف أو كلمة المرور غير صحيحة."
     override val errorEmailInUse = "هذا البريد الإلكتروني مسجل بالفعل."
+    override val errorInvalidPhone = "رقم الهاتف غير صحيح. يرجى التحقق والمحاولة مرة أخرى."
     override val errorInvalidPrice = "أدخل سعراً صحيحاً."
     override val errorInvalidDiscount = "أدخل نسبة خصم صحيحة (0-99)."
     override val errorInvalidQuantity = "أدخل كمية صحيحة."

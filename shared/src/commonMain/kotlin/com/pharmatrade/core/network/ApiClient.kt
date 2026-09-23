@@ -2,6 +2,7 @@ package com.pharmatrade.core.network
 
 import com.pharmatrade.core.common.session.SessionManager
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -56,8 +57,16 @@ object ApiClient {
             socketTimeoutMillis = 60_000
         }
         HttpResponseValidator {
-            validateResponse { response ->
-                if (response.status == HttpStatusCode.Unauthorized && SessionManager.authToken != null) {
+            // Not validateResponse: Ktor's own expectSuccess-driven validator always runs before any
+            // validator this app adds (see HttpClient's plugin merge order + HttpCallValidator's
+            // "last added executes first" reversal), so it throws ClientRequestException for every
+            // non-2xx before this block would ever be reached. handleResponseExceptionWithRequest is
+            // invoked from the pipeline's catch blocks instead, so it still runs after that exception.
+            handleResponseExceptionWithRequest { cause, _ ->
+                if (cause is ClientRequestException &&
+                    cause.response.status == HttpStatusCode.Unauthorized &&
+                    SessionManager.authToken != null
+                ) {
                     onUnauthorized?.invoke()
                 }
             }

@@ -5,6 +5,7 @@ object EnglishStrings : Strings {
     override val errorNetwork = "Couldn't connect to the server. Check your internet connection and try again."
     override val errorInvalidCredentials = "Incorrect phone number or password."
     override val errorEmailInUse = "This email is already registered."
+    override val errorInvalidPhone = "Invalid phone number. Please check and try again."
     override val errorInvalidPrice = "Enter a valid price."
     override val errorInvalidDiscount = "Enter a valid discount (0-99)."
     override val errorInvalidQuantity = "Enter a valid quantity."

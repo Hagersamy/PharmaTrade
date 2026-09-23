@@ -26,9 +26,10 @@ android {
     productFlavors {
         create("dev") {
             dimension = "env"
-            // No applicationIdSuffix: keeping the same applicationId as prod avoids a mismatch
-            // with google-services.json, which only registers com.pharmatrade.agleb in Firebase.
-            // Trade-off: dev and prod can't be installed on the same device at once.
+            // Separate applicationId so dev registers as its own Firebase app (com.pharmatrade.dev.agleb)
+            // in the same Firebase project as prod — requires that package name to also be registered
+            // in the Firebase console and included in app/google-services.json (see console steps).
+            applicationId = "com.pharmatrade.dev.agleb"
             versionNameSuffix = "-dev"
             buildConfigField("String", "BASE_URL", "\"https://unbuckled-word-defuse.ngrok-free.dev/api/v1/\"")
         }
@@ -40,7 +41,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
