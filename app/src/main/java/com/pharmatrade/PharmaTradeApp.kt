@@ -8,9 +8,11 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.google.firebase.messaging.FirebaseMessaging
 import com.pharmatrade.core.common.i18n.LanguageManager
+import com.pharmatrade.core.common.reminder.UploadReminderStore
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.core.network.ApiClient
 import com.pharmatrade.di.AppContainer
+import com.pharmatrade.push.AndroidUploadReminderScheduler
 import com.russhwolf.settings.SharedPreferencesSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +40,9 @@ class PharmaTradeApp : Application() {
         SessionManager.init(SharedPreferencesSettings(prefs))
         val languagePrefs = getSharedPreferences("pharmatrade_prefs", MODE_PRIVATE)
         LanguageManager.init(SharedPreferencesSettings(languagePrefs))
+        val reminderPrefs = getSharedPreferences("pharmatrade_reminders", MODE_PRIVATE)
+        UploadReminderStore.init(SharedPreferencesSettings(reminderPrefs))
+        UploadReminderStore.startSync(appScope, AndroidUploadReminderScheduler(this))
         container = AppContainer(this)
         setupAutoLogoutOnInvalidToken()
         setupCoil()

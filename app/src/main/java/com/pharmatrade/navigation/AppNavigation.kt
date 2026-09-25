@@ -755,6 +755,7 @@ private fun resolveNotificationDestination(type: String, notifiableId: String?):
     "order_confirmed", "shortage_reported", "order_shipped", "order_delivered" -> notifiableId?.let { NavKeys.OrderDetail(it) }
     "registration_approved" -> NavKeys.Home
     "registration_declined" -> NavKeys.RegistrationDeclined
+    "upload_reminder" -> NavKeys.InventoryUpload
     else -> null
 }
 

@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.pharmatrade.core.common.error.friendlyError
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.UserType
+import com.pharmatrade.core.common.reminder.ReminderTime
+import com.pharmatrade.core.common.reminder.UploadReminderStore
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.auth.domain.model.Zone
 import com.pharmatrade.feature.auth.domain.repository.ZoneRepository
@@ -34,6 +36,8 @@ data class RegisterUiState(
     // Supplier (SELLER) only
     val minOrderValue: String = "",
     val minOrderQty: String = "",
+    // Daily "upload your data" reminder times — saved on-device for this account after sign-up
+    val reminderTimes: List<ReminderTime> = emptyList(),
     val isPasswordVisible: Boolean = false,
     val isConfirmPasswordVisible: Boolean = false,
     val isLoading: Boolean = false,
@@ -89,6 +93,11 @@ class RegisterViewModel(
     fun onLicenceBackSelected(uri: String?) = update { copy(licenceBackUri = uri, error = null) }
     fun onMinOrderValueChange(v: String) = update { copy(minOrderValue = v, error = null) }
     fun onMinOrderQtyChange(v: String) = update { copy(minOrderQty = v, error = null) }
+    fun onReminderAdded(time: ReminderTime) = update {
+        if (time in reminderTimes || reminderTimes.size >= ReminderTime.MAX_PER_DAY) this
+        else copy(reminderTimes = (reminderTimes + time).sorted())
+    }
+    fun onReminderRemoved(time: ReminderTime) = update { copy(reminderTimes = reminderTimes - time) }
 
     fun register() {
         viewModelScope.launch {
@@ -111,7 +120,12 @@ class RegisterViewModel(
                 minOrderQty = state.minOrderQty.takeIf { it.isNotBlank() }
             )
             when (result) {
-                is Result.Success -> update { copy(isLoading = false, isSuccess = true) }
+                is Result.Success -> {
+                    if (state.userType == UserType.SELLER) {
+                        UploadReminderStore.save(state.phone, state.reminderTimes)
+                    }
+                    update { copy(isLoading = false, isSuccess = true) }
+                }
                 is Result.Error -> update {
                     copy(isLoading = false, error = LanguageManager.strings.friendlyError(result.message))
                 }

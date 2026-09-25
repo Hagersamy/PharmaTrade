@@ -217,6 +217,14 @@ fun RegisterScreen(
                     leadingIcon = Icons.Filled.Inventory2,
                     keyboardType = KeyboardType.Number
                 )
+
+                Divider(color = DividerGray)
+                Text(text = strings.regUploadReminders, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                UploadRemindersEditor(
+                    times = uiState.reminderTimes,
+                    onAdd = viewModel::onReminderAdded,
+                    onRemove = viewModel::onReminderRemoved
+                )
             }
 
             // ── Error banner ──────────────────────────────────────────────────

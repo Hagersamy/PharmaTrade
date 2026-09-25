@@ -6,6 +6,9 @@
     <!-- Required to show a notification on Android 13+ when a push arrives. Requested at runtime
          after login (see MainActivity), not just declared here. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Seller agent's daily "upload your data" alarms are wiped on reboot; this lets the app
+         re-arm them (see UploadReminderRestoreReceiver). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name=".PharmaTradeApp"
@@ -37,6 +40,19 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <receiver
+            android:name=".push.UploadReminderReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".push.UploadReminderRestoreReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Used by the system for any push that arrives while the app is backgrounded/killed and
              FCM auto-displays it (notification-payload pushes), as well as by our own

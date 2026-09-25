@@ -30,8 +30,10 @@ import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.model.User
 import com.pharmatrade.core.common.model.UserType
+import com.pharmatrade.core.common.reminder.ReminderTime
 import com.pharmatrade.core.ui.components.PharmaButton
 import com.pharmatrade.core.ui.components.PharmaTextField
+import com.pharmatrade.core.ui.components.UploadRemindersEditor
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.feature.auth.domain.model.Zone
 import com.pharmatrade.feature.pharmacyorder.domain.model.Branch
@@ -215,6 +217,12 @@ fun ProfileScreen(viewModel: ProfileViewModel, user: User?, onLogout: () -> Unit
                     }
                 }
             }
+
+            UploadRemindersCard(
+                times = uiState.reminderTimes,
+                onAdd = viewModel::addReminder,
+                onRemove = viewModel::removeReminder
+            )
         }
 
         if (user?.userType == UserType.BUYER) {
@@ -254,6 +262,39 @@ fun ProfileScreen(viewModel: ProfileViewModel, user: User?, onLogout: () -> Unit
     }
     if (uiState.showRequestZoneDialog) {
         RequestZoneDialog(uiState, viewModel)
+    }
+}
+
+@Composable
+private fun UploadRemindersCard(
+    times: List<ReminderTime>,
+    onAdd: (ReminderTime) -> Unit,
+    onRemove: (ReminderTime) -> Unit
+) {
+    val strings = LocalStrings.current
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.NotificationsActive, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    strings.regUploadReminders,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            }
+            Divider(color = DividerGray)
+            UploadRemindersEditor(times = times, onAdd = onAdd, onRemove = onRemove)
+        }
     }
 }
 

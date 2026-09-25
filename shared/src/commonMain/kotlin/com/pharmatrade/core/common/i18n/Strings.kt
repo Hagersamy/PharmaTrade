@@ -329,6 +329,17 @@ interface Strings {
     val regSellerAgent: String
     val regDistributeDrugs: String
     val regBuyDrugs: String
+    val regUploadReminders: String
+    val regUploadRemindersHint: String
+    val regAddReminderTime: String
+    val regNoRemindersYet: String
+    val regReminderDialogTitle: String
+    val regReminderAdd: String
+    fun regRemoveReminderContentDescription(time: String): String
+    val timeAm: String
+    val timePm: String
+    val uploadReminderNotificationTitle: String
+    val uploadReminderNotificationBody: String
 
     // ── Search ──────────────────────────────────────────────────────────────
     val searchSellersDrugsPlaceholder: String
