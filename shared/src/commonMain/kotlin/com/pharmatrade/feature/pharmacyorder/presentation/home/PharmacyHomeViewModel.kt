@@ -21,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -55,6 +56,10 @@ data class PharmacyHomeUiState(
     // supplier catalog itself has no search param, so results are catalogItems filtered down to
     // these ids once enough pages have been loaded to contain them.
     val searchMatchedDrugIds: Set<String>? = null,
+    // The query searchMatchedDrugIds was computed for. Items whose own name contains it also
+    // match — /drugs?search= is capped at 100 results (alphabetical), so later names like
+    // "ZOVIRAX" could otherwise be cut off even though they're in the loaded catalog.
+    val searchedQuery: String = "",
     val isSearching: Boolean = false,
     val processingItemIds: Set<String> = emptySet(),
     val catalogActionError: String? = null,
@@ -68,6 +73,12 @@ data class PharmacyHomeUiState(
 ) {
     val totalCartItems: Int get() = supplierCarts.values.sumOf { it.itemCount }
     val canLoadMoreCatalog: Boolean get() = catalogPage in 1 until catalogLastPage
+
+    fun matchesSearch(item: SupplierCatalogItem): Boolean {
+        val matchedIds = searchMatchedDrugIds ?: return true
+        return item.drugId in matchedIds ||
+            (searchedQuery.isNotBlank() && item.drugName.contains(searchedQuery, ignoreCase = true))
+    }
 }
 
 class PharmacyHomeViewModel(
@@ -132,6 +143,9 @@ class PharmacyHomeViewModel(
         }
         if (draftOrders.isEmpty()) return
 
+        // NOTE: never treat an empty `items` here as "abandoned draft" — GET pharmacy/orders/{id}
+        // does not return an `items` array for drafts at all, so every draft looks empty even
+        // when it has lines. Cancelling on that basis wipes out real carts.
         val details = draftOrders.mapNotNull { summary ->
             (getOrderDetailUseCase(summary.id) as? Result.Success)?.data
         }.filter { it.items.isNotEmpty() }
@@ -234,7 +248,12 @@ class PharmacyHomeViewModel(
                 copy(
                     isLoadingCatalogFirstPage = false,
                     isLoadingCatalogMore = false,
-                    catalogItems = catalogItems + result.data.items.filter { it.effectivePrice > 0 },
+                    // The backend can return the same supplier+drug more than once — within a page,
+                    // or again on a later page when its offset pagination shifts between requests.
+                    // id (supplierId_drugId) is the LazyColumn key and the cart key, so a repeat
+                    // would crash the list with "Key was already used"; keep the first occurrence.
+                    catalogItems = (catalogItems + result.data.items.filter { it.effectivePrice > 0 })
+                        .distinctBy { it.id },
                     catalogPage = result.data.currentPage,
                     catalogLastPage = result.data.lastPage
                 )
@@ -259,21 +278,22 @@ class PharmacyHomeViewModel(
     // restore sequence in init) is already mid-fetch, loadNextCatalogPageSuspend's own guard
     // returns immediately without advancing — that used to be treated as "stuck" and aborted the
     // whole load-more-for-search flow, which is why search only ever covered the pages loaded so
-    // far. Now it waits for that other fetch to finish and tries again instead of giving up.
-    // Only stops for real: no more pages, a hard error, or (as a last-resort safety net so this
-    // can never spin forever) too many attempts.
+    // far. Now it suspends until that other fetch finishes (however long a page takes — they've
+    // been measured at ~3.5s each) and counts the page it loaded as progress. Only stops for
+    // real: no more pages, a hard error, or a load that completed without advancing the page.
     private suspend fun loadNextCatalogPageWaiting(): Boolean {
-        repeat(50) {
-            val state = _uiState.value
-            if (!state.canLoadMoreCatalog || state.catalogError != null) return false
-            val pageBefore = state.catalogPage
-            val wasAlreadyLoading = state.isLoadingCatalogFirstPage || state.isLoadingCatalogMore
+        val pageBefore = _uiState.value.catalogPage
+        while (true) {
+            val settled = _uiState.first { !it.isLoadingCatalogFirstPage && !it.isLoadingCatalogMore }
+            if (settled.catalogPage != pageBefore) return true
+            if (!settled.canLoadMoreCatalog || settled.catalogError != null) return false
             loadNextCatalogPageSuspend()
-            if (_uiState.value.catalogPage != pageBefore) return true
-            if (!wasAlreadyLoading) return false
-            delay(200)
+            val after = _uiState.value
+            if (after.catalogPage != pageBefore) return true
+            // Another caller grabbed the next page between our wait and our call — loop and
+            // wait for it. Anything else means our own load finished without advancing.
+            if (!after.isLoadingCatalogFirstPage && !after.isLoadingCatalogMore) return false
         }
-        return false
     }
 
     private var searchJob: Job? = null
@@ -287,18 +307,19 @@ class PharmacyHomeViewModel(
         update { copy(catalogFilter = text) }
         searchJob?.cancel()
         if (text.isBlank()) {
-            update { copy(searchMatchedDrugIds = null, isSearching = false) }
+            update { copy(searchMatchedDrugIds = null, searchedQuery = "", isSearching = false) }
             return
         }
         searchJob = viewModelScope.launch {
             delay(400)
             update { copy(isSearching = true) }
-            val matchedIds = when (val result = getDrugsUseCase(search = text.trim(), perPage = 100)) {
+            val query = text.trim()
+            val matchedIds = when (val result = getDrugsUseCase(search = query, perPage = 100)) {
                 is Result.Success -> result.data.map { it.id }.toSet()
                 else -> emptySet()
             }
             while (loadNextCatalogPageWaiting()) { /* keep going until the catalog is exhausted */ }
-            update { copy(searchMatchedDrugIds = matchedIds, isSearching = false) }
+            update { copy(searchMatchedDrugIds = matchedIds, searchedQuery = query, isSearching = false) }
         }
     }
 

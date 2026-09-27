@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Medication
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.UploadFile
@@ -30,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pharmatrade.core.common.i18n.LocalStrings
@@ -111,7 +113,12 @@ fun OrderItemsScreen(
         uiState.items.sumOf { (priceByDrugId[it.drugId]?.effectivePrice ?: 0.0) * it.quantity }
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+    // PharmaTopBar already applies statusBarsPadding(), so the Scaffold must only inset for the
+    // navigation bar — its default insets include the status bar too, doubling the top gap.
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets.navigationBars
+    ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).background(BackgroundGray)) {
             PharmaTopBar(
                 title = if (viewModel.isSpecificSupplier) (uiState.supplier?.name?.takeIf { it.isNotBlank() } ?: strings.oiSupplierInventoryFallback) else strings.oiAddItemsTitle,
@@ -209,6 +216,7 @@ private fun ColumnScope.SpecificSupplierContent(
                             addedQuantity = quantityByDrugId[invItem.drugId] ?: 0,
                             isQuickAdding = invItem.id in uiState.quickAddingItemIds,
                             onQuickAdd = { viewModel.quickAddSupplierItem(invItem) },
+                            onQuickRemove = { viewModel.quickRemoveSupplierItem(invItem) },
                             onOpenDialog = { viewModel.onSupplierItemSelected(invItem) }
                         )
                     }
@@ -338,11 +346,11 @@ private fun SupplierDrugCard(
     addedQuantity: Int,
     isQuickAdding: Boolean,
     onQuickAdd: () -> Unit,
+    onQuickRemove: () -> Unit,
     onOpenDialog: () -> Unit
 ) {
     val outOfStock = item.quantityAvailable <= 0
     val lowStock = !outOfStock && item.quantityAvailable < 10
-    val strings = LocalStrings.current
 
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -374,64 +382,114 @@ private fun SupplierDrugCard(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary,
-                    maxLines = 1
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 if (item.dosageForm.isNotBlank() || item.strength.isNotBlank()) {
                     Text(
                         listOf(item.dosageForm, item.strength).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.labelSmall,
                         color = TextSecondary,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
-                Spacer(Modifier.height(3.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    StockChip(outOfStock = outOfStock, lowStock = lowStock, quantity = item.quantityAvailable)
-                    if (addedQuantity > 0) {
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(SecondaryGreenContainer)
-                                .padding(horizontal = 8.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            Icon(Icons.Filled.Check, contentDescription = null, tint = SecondaryGreenDark, modifier = Modifier.size(11.dp))
-                            Text(
-                                strings.oiAddedToOrder(addedQuantity),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = SecondaryGreenDark,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
+                Spacer(Modifier.height(4.dp))
+                StockChip(outOfStock = outOfStock, lowStock = lowStock, quantity = item.quantityAvailable)
             }
 
-            Column(horizontalAlignment = Alignment.End) {
-                if (item.discountPct > 0) {
-                    Text(
-                        "EGP ${formatDecimal(item.unitPrice, 2)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextHint,
-                        textDecoration = TextDecoration.LineThrough
+            // Price on top, add button / stepper underneath — stacking them keeps the card's
+            // right side narrow so the drug name keeps its room once the stepper appears.
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                PriceBlock(item)
+                if (addedQuantity > 0) {
+                    QuantityStepper(
+                        quantity = addedQuantity,
+                        canIncrease = addedQuantity < item.quantityAvailable,
+                        isLoading = isQuickAdding,
+                        onDecrease = onQuickRemove,
+                        onIncrease = onQuickAdd
                     )
+                } else {
+                    QuickAddButton(enabled = !outOfStock, isLoading = isQuickAdding, onClick = onQuickAdd)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PriceBlock(item: SupplierInventoryItem) {
+    Column(horizontalAlignment = Alignment.End) {
+        if (item.discountPct > 0) {
+            Text(
+                "EGP ${formatDecimal(item.unitPrice, 2)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextHint,
+                textDecoration = TextDecoration.LineThrough,
+                maxLines = 1
+            )
+        }
+        Text(
+            "EGP ${formatDecimal(item.effectivePrice, 2)}",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary,
+            maxLines = 1
+        )
+        if (item.discountPct > 0) {
+            Spacer(Modifier.height(2.dp))
+            DiscountBadge(discountPercentage = item.discountPct)
+        }
+    }
+}
+
+@Composable
+private fun QuantityStepper(
+    quantity: Int,
+    canIncrease: Boolean,
+    isLoading: Boolean,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit
+) {
+    val strings = LocalStrings.current
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(PrimaryBlueContainer),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .clickable(enabled = !isLoading, onClick = onDecrease),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Filled.Remove, contentDescription = strings.commonDecreaseQuantity, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+        }
+        Box(modifier = Modifier.widthIn(min = 28.dp), contentAlignment = Alignment.Center) {
+            if (isLoading) {
+                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = PrimaryBlue)
+            } else {
                 Text(
-                    "EGP ${formatDecimal(item.effectivePrice, 2)}",
+                    "$quantity",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+                    color = PrimaryBlue,
+                    maxLines = 1
                 )
-                if (item.discountPct > 0) {
-                    Spacer(Modifier.height(2.dp))
-                    DiscountBadge(discountPercentage = item.discountPct)
-                }
             }
-
-            Spacer(Modifier.width(2.dp))
-
-            QuickAddButton(enabled = !outOfStock, isLoading = isQuickAdding, onClick = onQuickAdd)
+        }
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(if (canIncrease) PrimaryBlue else DividerGray)
+                .clickable(enabled = canIncrease && !isLoading, onClick = onIncrease),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = strings.oiQuickAddContentDescription, tint = Color.White, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -450,7 +508,9 @@ private fun StockChip(outOfStock: Boolean, lowStock: Boolean, quantity: Int) {
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
             style = MaterialTheme.typography.labelSmall,
             color = color,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }

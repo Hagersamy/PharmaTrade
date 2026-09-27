@@ -43,13 +43,9 @@ fun PharmacyHomeScreen(
     val listState = rememberLazyListState()
     val strings = LocalStrings.current
 
-    // searchMatchedDrugIds is null when there's no active search (show everything loaded so
-    // far); once set, it's the authoritative result from the backend's real name-search endpoint
-    // (/drugs?search=), not a local text filter.
-    val filteredCatalog = remember(uiState.catalogItems, uiState.searchMatchedDrugIds) {
-        val matchedIds = uiState.searchMatchedDrugIds
-        if (matchedIds == null) uiState.catalogItems
-        else uiState.catalogItems.filter { it.drugId in matchedIds }
+    val filteredCatalog = remember(uiState.catalogItems, uiState.searchMatchedDrugIds, uiState.searchedQuery) {
+        if (uiState.searchMatchedDrugIds == null) uiState.catalogItems
+        else uiState.catalogItems.filter { uiState.matchesSearch(it) }
     }
 
     // Infinite scroll for the drug catalog section at the bottom of this single list.
@@ -85,13 +81,10 @@ fun PharmacyHomeScreen(
                 placeholder = { Text(strings.pharmacySearchDrugName) },
                 leadingIcon = { Icon(Icons.Filled.Search, null, tint = TextSecondary) },
                 trailingIcon = {
-                    when {
-                        uiState.isSearching -> CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
-                            color = PrimaryBlue
-                        )
-                        uiState.catalogFilter.isNotEmpty() -> IconButton(onClick = { viewModel.onCatalogFilterChange("") }) {
+                    // Always the clear button while there's text — search progress is shown in
+                    // the results list below, not here.
+                    if (uiState.catalogFilter.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.onCatalogFilterChange("") }) {
                             Icon(Icons.Filled.Close, contentDescription = strings.commonClear, tint = TextSecondary)
                         }
                     }

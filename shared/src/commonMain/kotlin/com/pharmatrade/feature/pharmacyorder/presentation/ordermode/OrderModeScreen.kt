@@ -2,7 +2,6 @@ package com.pharmatrade.feature.pharmacyorder.presentation.ordermode
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,7 +9,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -31,7 +29,6 @@ import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.PharmaButton
 import com.pharmatrade.core.ui.components.PharmaTopBar
 import com.pharmatrade.core.ui.theme.*
-import com.pharmatrade.feature.pharmacyorder.domain.model.OrderMode
 import com.pharmatrade.feature.pharmacyorder.domain.model.PharmacySupplier
 
 @Composable
@@ -60,52 +57,14 @@ fun OrderModeScreen(
                 .weight(1f, fill = false),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = strings.orderModeHowToOrder,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
-
-            OrderModeCard(
-                title = strings.orderModeBestDiscountTitle,
-                description = strings.orderModeBestDiscountDesc,
-                icon = Icons.Filled.LocalOffer,
-                isSelected = uiState.selectedMode == OrderMode.BEST_DISCOUNT,
-                onClick = { viewModel.onModeSelected(OrderMode.BEST_DISCOUNT) }
-            )
-
-            OrderModeCard(
-                title = strings.orderModeSpecificSupplierTitle,
-                description = strings.orderModeSpecificSupplierDesc,
-                icon = Icons.Filled.Storefront,
-                isSelected = uiState.selectedMode == OrderMode.SPECIFIC_SUPPLIER,
-                onClick = { viewModel.onModeSelected(OrderMode.SPECIFIC_SUPPLIER) }
-            )
-
-            if (uiState.selectedMode == OrderMode.SPECIFIC_SUPPLIER) {
-                SupplierSingleSelectDropdown(
-                    suppliers = uiState.suppliers,
-                    selectedSupplier = uiState.selectedSupplier,
-                    isLoading = uiState.isLoadingSuppliers,
-                    hasError = uiState.suppliersError != null,
-                    onSelect = viewModel::onSupplierSelected
-                )
-            }
-
-            OutlinedTextField(
-                value = uiState.notes,
-                onValueChange = viewModel::onNotesChange,
-                label = { Text(strings.orderModeNotesLabel) },
-                placeholder = { Text(strings.orderModeNotesPlaceholder, color = TextSecondary) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                minLines = 2,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PrimaryBlue,
-                    unfocusedBorderColor = DividerGray,
-                    focusedLabelColor = PrimaryBlue
-                )
+            // Specific supplier is the only order mode now (the ViewModel pre-selects it), so the
+            // screen is just the supplier picker — no mode question or single-option card.
+            SupplierSingleSelectDropdown(
+                suppliers = uiState.suppliers,
+                selectedSupplier = uiState.selectedSupplier,
+                isLoading = uiState.isLoadingSuppliers,
+                hasError = uiState.suppliersError != null,
+                onSelect = viewModel::onSupplierSelected
             )
 
             if (uiState.createError != null) {
@@ -125,39 +84,6 @@ fun OrderModeScreen(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-    }
-}
-
-@Composable
-private fun OrderModeCard(
-    title: String,
-    description: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .border(
-                width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) PrimaryBlue else DividerGray,
-                shape = RoundedCornerShape(14.dp)
-            )
-            .background(if (isSelected) PrimaryBlueContainer else SurfaceWhite)
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Icon(icon, contentDescription = null, tint = if (isSelected) PrimaryBlue else TextSecondary, modifier = Modifier.size(28.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = if (isSelected) PrimaryBlue else TextPrimary)
-            Spacer(Modifier.height(2.dp))
-            Text(description, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-        }
-        RadioButton(selected = isSelected, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = PrimaryBlue))
     }
 }
 

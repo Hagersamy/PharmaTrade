@@ -22,6 +22,7 @@ fun Strings.friendlyError(raw: String?): String {
         "business name cannot be empty" -> return errorBusinessNameRequired
         "licence number is required" -> return errorLicenceNumberRequired
         "please select at least one zone" -> return errorZoneRequired
+        "a reason is required" -> return errorReasonRequired
         "address is required" -> return errorAddressRequired
         "please upload the front of your licence" -> return errorLicenceFrontRequired
         "please upload the back of your licence" -> return errorLicenceBackRequired
@@ -43,6 +44,10 @@ fun Strings.friendlyError(raw: String?): String {
         "login failed", "invalid login", "credentials do not match", "credentials"
     )
     if (credentialHints.any { text.contains(it) }) return errorInvalidCredentials
+
+    // POST supplier/inventory 422: "This drug already exists in your inventory. Use edit to
+    // update it." — the supplier picked a drug they already list; tell them to edit instead.
+    if (text.contains("already exists in your inventory")) return errorDrugAlreadyInInventory
 
     if (text.contains("email") && (text.contains("taken") || text.contains("already") || text.contains("exists"))) {
         return errorEmailInUse

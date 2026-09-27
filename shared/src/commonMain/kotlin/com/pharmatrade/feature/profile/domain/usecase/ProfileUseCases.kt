@@ -64,7 +64,7 @@ class UpdateBranchProfileUseCase(private val repository: ProfileRepository) {
 
 class RequestZoneUpdateUseCase(private val repository: ProfileRepository) {
     suspend operator fun invoke(zoneIds: List<Int>, reason: String): Result<ZoneUpdateRequest> {
-        if (zoneIds.isEmpty()) return Result.Error("Select at least one zone")
+        if (zoneIds.isEmpty()) return Result.Error("Please select at least one zone")
         if (reason.isBlank()) return Result.Error("A reason is required")
         return repository.requestZoneUpdate(zoneIds, reason.trim())
     }

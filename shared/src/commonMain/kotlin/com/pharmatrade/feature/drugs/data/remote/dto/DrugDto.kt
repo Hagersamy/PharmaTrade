@@ -93,26 +93,37 @@ data class InventoryItemDto(
     @SerialName("public_price") val publicPrice: String? = null,
     @SerialName("pharmacist_price") val pharmacistPrice: String? = null,
     @SerialName("discount_pct") val discountPct: String? = null,
-    // Only present in the PUT /supplier/inventory/{id} response, not the list endpoint —
-    // fall back to computing it from unit_price/discount_pct when absent.
+    // Returned by POST/PUT and (as of 2026-09-25) the list endpoint too; equals pharmacist_price.
+    // Falls back to pharmacist_price, then to a computed discount, when absent.
     @SerialName("effective_price") val effectivePrice: Double? = null,
     @SerialName("last_updated") val lastUpdated: String? = null,
     @SerialName("drug") val drug: CatalogDrugDto? = null
 ) {
     fun toDomain(): InventoryItem {
-        val price = unitPrice?.toDoubleOrNull() ?: 0.0
+        val rawUnit = unitPrice?.toDoubleOrNull() ?: 0.0
+        val public = publicPrice?.toDoubleOrNull() ?: 0.0
+        val pharmacist = pharmacistPrice?.toDoubleOrNull() ?: 0.0
         val discount = discountPct?.toDoubleOrNull() ?: 0.0
+        // Observed backend behaviour (2026-09-25): on save it copies pharmacist_price into
+        // unit_price and reports effective_price = pharmacist_price. So once the app sends the
+        // discounted pharmacist_price, unit_price is the DISCOUNTED price and public_price is
+        // the only field holding the "Price per Unit" the supplier entered. Map accordingly:
+        //   unitPrice      -> the entered price per unit (public_price, else raw unit_price)
+        //   effectivePrice -> what the pharmacy pays (effective_price, else pharmacist_price)
+        val listPrice = public.takeIf { it > 0 } ?: rawUnit
         return InventoryItem(
             id = id.rawStringOrNull() ?: "",
             drugName = drugName ?: "",
             drugNameRaw = drugNameRaw ?: drugName ?: "",
             isCatalogMatched = isCatalogMatched == true,
             quantityAvailable = quantityAvailable.rawIntOrZero(),
-            unitPrice = price,
-            publicPrice = publicPrice?.toDoubleOrNull() ?: 0.0,
-            pharmacistPrice = pharmacistPrice?.toDoubleOrNull() ?: 0.0,
+            unitPrice = listPrice,
+            publicPrice = public,
+            pharmacistPrice = pharmacist,
             discountPct = discount,
-            effectivePrice = effectivePrice ?: (price * (1.0 - discount / 100.0)),
+            effectivePrice = effectivePrice
+                ?: pharmacist.takeIf { it > 0 }
+                ?: (listPrice * (1.0 - discount / 100.0)),
             lastUpdated = lastUpdated ?: "",
             catalogDrug = drug?.toDomain()
         )

@@ -75,6 +75,12 @@ class SellerDashboardViewModel(
                 loadData()
             }
             .launchIn(viewModelScope)
+
+        InventoryRefreshBus.listingAdded
+            .onEach { drugName ->
+                _uiState.value = _uiState.value.copy(snackbarMessage = LanguageManager.strings.sdListingAdded(drugName))
+            }
+            .launchIn(viewModelScope)
     }
 
     fun loadData() {

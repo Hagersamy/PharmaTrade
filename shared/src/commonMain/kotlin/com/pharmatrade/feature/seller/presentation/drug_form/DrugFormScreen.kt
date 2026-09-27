@@ -151,56 +151,16 @@ fun DrugFormScreen(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = uiState.quantityInput,
-                    onValueChange = viewModel::onQuantityChange,
-                    label = { Text(strings.dfQuantityAvailable) },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, unfocusedBorderColor = DividerGray)
-                )
-
-                var unitExpanded by remember { mutableStateOf(false) }
-                ExposedDropdownMenuBox(
-                    expanded = unitExpanded,
-                    onExpandedChange = { unitExpanded = it },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    OutlinedTextField(
-                        value = uiState.unitInput,
-                        onValueChange = {},
-                        label = { Text(strings.dfUnit) },
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitExpanded) },
-                        modifier = Modifier.menuAnchor(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, unfocusedBorderColor = DividerGray)
-                    )
-                    ExposedDropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
-                        uiState.unitOptions.forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text(option) },
-                                onClick = {
-                                    viewModel.onUnitChange(option)
-                                    unitExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
+            // Unit and expiry-date inputs were removed: POST/PUT supplier/inventory has no field
+            // for either, so whatever the supplier entered was silently discarded.
             OutlinedTextField(
-                value = uiState.expiryInput,
-                onValueChange = viewModel::onExpiryChange,
-                label = { Text(strings.dfExpiryDate) },
-                leadingIcon = { Icon(Icons.Filled.CalendarMonth, null, tint = TextSecondary) },
+                value = uiState.quantityInput,
+                onValueChange = viewModel::onQuantityChange,
+                label = { Text(strings.dfQuantityAvailable) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, unfocusedBorderColor = DividerGray)
             )
 

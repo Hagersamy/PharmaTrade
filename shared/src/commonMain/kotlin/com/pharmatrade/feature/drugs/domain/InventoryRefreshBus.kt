@@ -14,4 +14,13 @@ object InventoryRefreshBus {
     fun notifyChanged() {
         _events.tryEmit(Unit)
     }
+
+    // The Add Drug Listing form pops itself right after a successful save, so it can't show its
+    // own confirmation — the dashboard underneath it (alive on the back stack) shows it instead.
+    private val _listingAdded = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val listingAdded: SharedFlow<String> = _listingAdded
+
+    fun notifyListingAdded(drugName: String) {
+        _listingAdded.tryEmit(drugName)
+    }
 }

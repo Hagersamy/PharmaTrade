@@ -6,6 +6,7 @@ import com.pharmatrade.core.common.error.friendlyError
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.Drug
 import com.pharmatrade.core.common.result.Result
+import com.pharmatrade.feature.drugs.domain.InventoryRefreshBus
 import com.pharmatrade.feature.drugs.domain.usecase.CreateInventoryItemUseCase
 import com.pharmatrade.feature.drugs.domain.usecase.CreateSupplierDrugUseCase
 import com.pharmatrade.feature.drugs.domain.usecase.GetDrugsUseCase
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 // Some catalog rows have junk/test data where the name is just a bare number (e.g. "10", "140")
@@ -69,9 +71,10 @@ class DrugFormViewModel(
         loadDrugs()
         // Debounced live search against GET /drugs?search= as the seller types — clearing the
         // box falls back to the initial unfiltered browse list from loadDrugs() rather than an
-        // empty dropdown.
+        // empty dropdown. drop(1) skips the StateFlow's initial "" — the loadDrugs() call above
+        // already covers first load, and handling that "" too made GET /drugs fire twice on open.
         viewModelScope.launch {
-            drugSearchQueryFlow.debounce(300).distinctUntilChanged().collect { query ->
+            drugSearchQueryFlow.drop(1).debounce(300).distinctUntilChanged().collect { query ->
                 if (query.isBlank()) {
                     loadDrugs()
                     return@collect
@@ -238,7 +241,12 @@ class DrugFormViewModel(
                 createInventoryItemUseCase(drug.name, quantity, price, discount)
             }
             when (result) {
-                is Result.Success -> _uiState.value = _uiState.value.copy(isLoading = false, isSaved = true)
+                is Result.Success -> {
+                    if (state.editingListingId == null) {
+                        selectedDrug?.let { InventoryRefreshBus.notifyListingAdded(it.name) }
+                    }
+                    _uiState.value = _uiState.value.copy(isLoading = false, isSaved = true)
+                }
                 is Result.Error -> _uiState.value = _uiState.value.copy(
                     isLoading = false, error = LanguageManager.strings.friendlyError(result.message)
                 )

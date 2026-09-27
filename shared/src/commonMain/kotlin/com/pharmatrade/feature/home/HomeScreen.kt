@@ -30,10 +30,13 @@ enum class HomeTab { HOME, CART, ORDERS, PROFILE }
 
 @Composable
 fun HomeScreen(
-    sellerDashboardViewModel: SellerDashboardViewModel,
-    pharmacyHomeViewModel: PharmacyHomeViewModel,
-    orderListViewModel: OrderListViewModel,
-    sellerOrdersViewModel: SellerOrdersViewModel,
+    // Role-specific ViewModels are null for the other role: each one fetches its data as soon
+    // as it's created, so building all of them made a supplier hit pharmacy/* endpoints (and a
+    // pharmacy hit supplier/*), which the backend rejects with 403.
+    sellerDashboardViewModel: SellerDashboardViewModel?,
+    pharmacyHomeViewModel: PharmacyHomeViewModel?,
+    orderListViewModel: OrderListViewModel?,
+    sellerOrdersViewModel: SellerOrdersViewModel?,
     profileViewModel: ProfileViewModel,
     // Hoisted to the caller (rather than kept as internal state) so that a system/predictive
     // back press — handled above this screen, at the nav-graph level — can react to which tab
@@ -55,7 +58,7 @@ fun HomeScreen(
     onLogout: () -> Unit
 ) {
     val currentUser by SessionManager.currentUser.collectAsStateWithLifecycle()
-    val pharmacyHomeState by pharmacyHomeViewModel.uiState.collectAsStateWithLifecycle()
+    val pharmacyHomeState = pharmacyHomeViewModel?.uiState?.collectAsStateWithLifecycle()?.value
     val isSeller = currentUser?.userType == UserType.SELLER
 
     Scaffold(
@@ -72,8 +75,8 @@ fun HomeScreen(
                 selectedTab = selectedTab,
                 onTabSelected = onTabSelected,
                 isSeller = isSeller,
-                ordersBadgeCount = if (isSeller) 0 else pharmacyHomeState.activeOrdersTotal,
-                cartBadgeCount = if (isSeller) 0 else pharmacyHomeState.totalCartItems
+                ordersBadgeCount = pharmacyHomeState?.activeOrdersTotal ?: 0,
+                cartBadgeCount = pharmacyHomeState?.totalCartItems ?: 0
             )
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
@@ -85,7 +88,7 @@ fun HomeScreen(
         ) {
             when (selectedTab) {
                 HomeTab.HOME -> {
-                    if (isSeller) {
+                    if (sellerDashboardViewModel != null) {
                         SellerDashboardScreen(
                             viewModel = sellerDashboardViewModel,
                             showTopBar = false,
@@ -95,18 +98,20 @@ fun HomeScreen(
                             onSearchTap = onNavigateToSearch,
                             onLogout = {}
                         )
-                    } else {
+                    } else if (pharmacyHomeViewModel != null) {
                         PharmacyHomeScreen(viewModel = pharmacyHomeViewModel)
                     }
                 }
-                HomeTab.CART -> PharmacyCartScreen(viewModel = pharmacyHomeViewModel, onCheckoutAll = onCheckoutAll)
-                HomeTab.ORDERS -> if (isSeller) {
+                HomeTab.CART -> pharmacyHomeViewModel?.let {
+                    PharmacyCartScreen(viewModel = it, onCheckoutAll = onCheckoutAll)
+                }
+                HomeTab.ORDERS -> if (sellerOrdersViewModel != null) {
                     SellerOrdersScreen(
                         viewModel = sellerOrdersViewModel,
                         onOrderClick = onNavigateToSupplierOrderDetail,
                         unreadOrderIds = unreadSupplierOrderIds
                     )
-                } else {
+                } else if (orderListViewModel != null) {
                     OrderListScreen(
                         viewModel = orderListViewModel,
                         onOrderClick = onNavigateToOrderDetail,

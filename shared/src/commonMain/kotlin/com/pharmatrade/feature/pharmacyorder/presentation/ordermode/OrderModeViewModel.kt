@@ -16,7 +16,6 @@ import kotlinx.coroutines.launch
 
 data class OrderModeUiState(
     val selectedMode: OrderMode? = null,
-    val notes: String = "",
     val suppliers: List<PharmacySupplier> = emptyList(),
     val isLoadingSuppliers: Boolean = false,
     val suppliersError: String? = null,
@@ -41,6 +40,12 @@ class OrderModeViewModel(
     private val _uiState = MutableStateFlow(OrderModeUiState())
     val uiState: StateFlow<OrderModeUiState> = _uiState.asStateFlow()
 
+    init {
+        // Specific supplier is the only mode offered, so start with it selected and the
+        // supplier list loading instead of making the user tap the single option first.
+        onModeSelected(OrderMode.SPECIFIC_SUPPLIER)
+    }
+
     fun onModeSelected(mode: OrderMode) {
         update { copy(selectedMode = mode, createError = null) }
         if (mode == OrderMode.SPECIFIC_SUPPLIER && _uiState.value.suppliers.isEmpty()) {
@@ -49,8 +54,6 @@ class OrderModeViewModel(
     }
 
     fun onSupplierSelected(supplier: PharmacySupplier) = update { copy(selectedSupplier = supplier, createError = null) }
-
-    fun onNotesChange(notes: String) = update { copy(notes = notes) }
 
     private fun loadSuppliers() {
         viewModelScope.launch {
@@ -69,7 +72,7 @@ class OrderModeViewModel(
         val mode = _uiState.value.selectedMode ?: return
         viewModelScope.launch {
             update { copy(isCreating = true, createError = null) }
-            when (val result = createOrderUseCase(mode, _uiState.value.notes)) {
+            when (val result = createOrderUseCase(mode)) {
                 is Result.Success -> update { copy(isCreating = false, createdOrderId = result.data.id) }
                 is Result.Error -> update {
                     copy(isCreating = false, createError = LanguageManager.strings.friendlyError(result.message))

@@ -16,6 +16,7 @@ interface Strings {
     val errorInvalidDiscount: String
     val errorInvalidQuantity: String
     val errorSelectDrug: String
+    val errorDrugAlreadyInInventory: String
     val errorCartEmpty: String
     val errorInvalidMinOrderValue: String
     val errorInvalidMinOrderQty: String
@@ -28,6 +29,7 @@ interface Strings {
     val errorBusinessNameRequired: String
     val errorLicenceNumberRequired: String
     val errorZoneRequired: String
+    val errorReasonRequired: String
     val errorAddressRequired: String
     val errorLicenceFrontRequired: String
     val errorLicenceBackRequired: String
@@ -390,6 +392,7 @@ interface Strings {
     val sdUnitPriceEgpLabel: String
     val sdDiscountPctLabel: String
     val sdEditContentDescription: String
+    fun sdListingAdded(drugName: String): String
     val sdStock: String
     val sdDiscount: String
     val sdPublicPrice: String

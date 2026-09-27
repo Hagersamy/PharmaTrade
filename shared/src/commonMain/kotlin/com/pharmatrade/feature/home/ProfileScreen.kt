@@ -688,39 +688,43 @@ private fun RequestZoneDialog(uiState: ProfileUiState, viewModel: ProfileViewMod
         icon = { Icon(Icons.Filled.EditLocationAlt, null, tint = PrimaryBlue) },
         title = { Text(strings.profileDialogRequestZoneTitle, fontWeight = FontWeight.Bold) },
         text = {
-            Column(
-                modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    strings.profileDialogRequestZoneBody,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
-                )
-                when {
-                    uiState.isLoadingZones -> Box(
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = PrimaryBlue)
-                    }
-                    uiState.zonesError != null -> Text(
-                        strings.profileDialogZonesLoadError(uiState.zonesError),
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f, fill = false).heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        strings.profileDialogRequestZoneBody,
                         style = MaterialTheme.typography.bodySmall,
-                        color = ErrorRed
+                        color = TextSecondary
                     )
-                    else -> SelectableZoneChipsRow(
-                        zones = uiState.availableZones,
-                        selectedIds = uiState.selectedZones.map { it.id }.toSet(),
-                        onToggle = viewModel::onZoneToggle
+                    when {
+                        uiState.isLoadingZones -> Box(
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = PrimaryBlue)
+                        }
+                        uiState.zonesError != null -> Text(
+                            strings.profileDialogZonesLoadError(uiState.zonesError),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ErrorRed
+                        )
+                        else -> SelectableZoneChipsRow(
+                            zones = uiState.availableZones,
+                            selectedIds = uiState.selectedZones.map { it.id }.toSet(),
+                            onToggle = viewModel::onZoneToggle
+                        )
+                    }
+                    PharmaTextField(
+                        value = uiState.zoneChangeReason,
+                        onValueChange = viewModel::onZoneChangeReasonChange,
+                        label = strings.profileDialogReason,
+                        leadingIcon = Icons.Filled.Description
                     )
                 }
-                PharmaTextField(
-                    value = uiState.zoneChangeReason,
-                    onValueChange = viewModel::onZoneChangeReasonChange,
-                    label = strings.profileDialogReason,
-                    leadingIcon = Icons.Filled.Description
-                )
+                // Kept outside the scrolling area so it stays visible next to the buttons even when
+                // a long zone list pushes the reason field below the fold.
                 if (uiState.zoneRequestError != null) {
                     Text(uiState.zoneRequestError, color = ErrorRed, style = MaterialTheme.typography.labelSmall)
                 }

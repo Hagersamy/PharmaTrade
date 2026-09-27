@@ -125,11 +125,16 @@ class OrderItemsViewModel(
         }
     }
 
+    // NOTE: GET pharmacy/orders/{id} does not return an `items` array for draft orders, so the
+    // lines can't be re-read from the backend — `items` here is tracked from the add/remove
+    // responses instead. An empty result must never overwrite what we already hold.
     private fun loadItems() {
         viewModelScope.launch {
             update { copy(isLoadingItems = true, itemsError = null) }
             when (val result = getOrderDetailUseCase(orderId)) {
-                is Result.Success -> update { copy(isLoadingItems = false, items = result.data.items) }
+                is Result.Success -> update {
+                    copy(isLoadingItems = false, items = result.data.items.ifEmpty { items })
+                }
                 is Result.Error -> update {
                     copy(isLoadingItems = false, itemsError = LanguageManager.strings.friendlyError(result.message))
                 }
@@ -137,6 +142,10 @@ class OrderItemsViewModel(
             }
         }
     }
+
+    // Replaces a returned line in place (same id) instead of appending a second copy of it.
+    private fun List<DraftOrderItem>.upsert(item: DraftOrderItem): List<DraftOrderItem> =
+        if (any { it.id == item.id }) map { if (it.id == item.id) item else it } else this + item
 
     fun onDrugSelected(drug: Drug) = update {
         copy(pendingItem = PendingAddItem(drugId = drug.id, displayName = drug.name), addItemError = null)
@@ -155,38 +164,75 @@ class OrderItemsViewModel(
 
     fun dismissQuantityDialog() = update { copy(pendingItem = null) }
 
-    // Quick-add: tapping the "+" button adds qty=1 straight away, no dialog.
+    // "+" on the card: one more than what's in the order, capped at stock.
     fun quickAddSupplierItem(item: SupplierInventoryItem) {
+        val current = quantityInOrder(item.drugId)
+        if (current >= item.quantityAvailable) return
+        setSupplierItemQuantity(item, current + 1)
+    }
+
+    // "−" on the card: one less; reaching 0 drops the drug from the order.
+    fun quickRemoveSupplierItem(item: SupplierInventoryItem) {
+        val current = quantityInOrder(item.drugId)
+        if (current <= 0) return
+        setSupplierItemQuantity(item, current - 1)
+    }
+
+    // Sets the drug's quantity to an absolute value. The backend has no update-quantity call
+    // (only an add and a remove-whole-line) and how repeat adds of the same drug combine isn't
+    // something we can observe (drafts' lines aren't readable via GET), so rather than send a
+    // "+1" and guess the result — which double-counted — this removes the drug's existing
+    // line(s) and re-adds the exact target as one fresh line. Same approach as the Home cart.
+    private fun setSupplierItemQuantity(item: SupplierInventoryItem, target: Int) {
+        if (item.id in _uiState.value.quickAddingItemIds) return
+        val oldLines = _uiState.value.items.filter { it.drugId == item.drugId }
         viewModelScope.launch {
             update { copy(quickAddingItemIds = quickAddingItemIds + item.id, addItemError = null) }
-            when (val result = addOrderItemUseCase(orderId, item.drugId, 1)) {
-                is Result.Success -> update {
-                    copy(quickAddingItemIds = quickAddingItemIds - item.id, items = items + result.data)
+            var failure: String? = null
+            val removedIds = mutableSetOf<String>()
+            for (line in oldLines) {
+                when (val result = removeOrderItemUseCase(orderId, line.id)) {
+                    is Result.Error -> { failure = result.message; break }
+                    else -> removedIds += line.id
                 }
-                is Result.Error -> update {
-                    copy(
-                        quickAddingItemIds = quickAddingItemIds - item.id,
-                        addItemError = LanguageManager.strings.friendlyError(result.message)
-                    )
+            }
+            var added: DraftOrderItem? = null
+            if (failure == null && target > 0) {
+                when (val result = addOrderItemUseCase(orderId, item.drugId, target)) {
+                    is Result.Success -> added = result.data
+                    is Result.Error -> failure = result.message
+                    is Result.Loading -> Unit
                 }
-                is Result.Loading -> Unit
+            }
+            update {
+                val kept = items.filterNot { it.id in removedIds }
+                copy(
+                    items = added?.let { kept.upsert(it) } ?: kept,
+                    quickAddingItemIds = quickAddingItemIds - item.id,
+                    addItemError = failure?.let { LanguageManager.strings.friendlyError(it) }
+                )
             }
         }
     }
+
+    private fun quantityInOrder(drugId: String): Int =
+        _uiState.value.items.filter { it.drugId == drugId }.sumOf { it.quantity }
 
     fun confirmAddItem(quantity: Int) {
         val item = _uiState.value.pendingItem ?: return
         viewModelScope.launch {
             update { copy(isAddingItem = true, addItemError = null) }
             when (val result = addOrderItemUseCase(orderId, item.drugId, quantity)) {
-                is Result.Success -> update {
-                    copy(
-                        isAddingItem = false,
-                        pendingItem = null,
-                        items = items + result.data,
-                        searchQuery = "",
-                        searchResults = emptyList()
-                    )
+                is Result.Success -> {
+                    update {
+                        copy(
+                            isAddingItem = false,
+                            pendingItem = null,
+                            items = items.upsert(result.data),
+                            searchQuery = "",
+                            searchResults = emptyList()
+                        )
+                    }
                 }
                 is Result.Error -> update {
                     copy(isAddingItem = false, addItemError = LanguageManager.strings.friendlyError(result.message))

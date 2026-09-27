@@ -93,6 +93,7 @@ class AuthRepositoryImpl(
                             "\n  business_name=$businessName" +
                             "\n  licence_number=$licenceNumber" +
                             "\n  address=$address" +
+                            "\n  device_token=${deviceToken.ifEmpty { "<empty — FCM token not available>" }}" +
                             "\n  zones=$zoneIds"
                 )
                 api.registerPharmacy(
@@ -120,6 +121,7 @@ class AuthRepositoryImpl(
                             "\n  address=$address" +
                             "\n  min_order_value=$minOrderValue" +
                             "\n  min_order_qty=$minOrderQty" +
+                            "\n  device_token=${deviceToken.ifEmpty { "<empty — FCM token not available>" }}" +
                             "\n  zones=$zoneIds"
                 )
                 api.registerSupplier(

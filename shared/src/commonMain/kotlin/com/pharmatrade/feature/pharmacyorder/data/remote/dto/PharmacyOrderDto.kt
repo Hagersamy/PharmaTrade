@@ -114,6 +114,8 @@ data class SupplierInventoryItemDto(
     @SerialName("strength") val strength: String? = null,
     @SerialName("quantity_available") val quantityAvailable: JsonElement? = null,
     @SerialName("unit_price") val unitPrice: JsonElement? = null,
+    @SerialName("public_price") val publicPrice: JsonElement? = null,
+    @SerialName("pharmacist_price") val pharmacistPrice: JsonElement? = null,
     @SerialName("discount_pct") val discountPct: JsonElement? = null,
     @SerialName("effective_price") val effectivePrice: JsonElement? = null,
     // The sibling supplier-facing inventory endpoint (GET /supplier/inventory) nests the
@@ -124,8 +126,8 @@ data class SupplierInventoryItemDto(
     @SerialName("drug") val drug: DrugRefDto? = null
 ) {
     fun toDomain(): SupplierInventoryItem {
-        val price = unitPrice.rawDoubleOrZero()
         val discount = discountPct.rawDoubleOrZero()
+        val price = listPriceOf(publicPrice, unitPrice)
         return SupplierInventoryItem(
             id = id.rawIntOrZero().toString(),
             drugId = (drugId ?: drug?.id).rawIntOrZero().toString(),
@@ -135,7 +137,7 @@ data class SupplierInventoryItemDto(
             quantityAvailable = quantityAvailable.rawIntOrZero(),
             unitPrice = price,
             discountPct = discount,
-            effectivePrice = effectivePrice?.let { it.rawDoubleOrZero() } ?: (price * (1.0 - discount / 100.0))
+            effectivePrice = paidPriceOf(effectivePrice, pharmacistPrice, price, discount)
         )
     }
 }
@@ -180,7 +182,7 @@ data class SupplierCatalogItemDto(
     @SerialName("drug") val drug: DrugRefDto? = null
 ) {
     fun toDomain(): SupplierCatalogItem {
-        val price = unitPrice.rawDoubleOrZero()
+        val price = listPriceOf(publicPrice, unitPrice)
         val discount = discountPct.rawDoubleOrZero()
         return SupplierCatalogItem(
             id = inventoryId.rawIntOrZero().toString(),
@@ -195,10 +197,21 @@ data class SupplierCatalogItemDto(
             publicPrice = publicPrice.rawDoubleOrZero(),
             pharmacistPrice = pharmacistPrice.rawDoubleOrZero(),
             discountPct = discount,
-            effectivePrice = effectivePrice?.let { it.rawDoubleOrZero() } ?: (price * (1.0 - discount / 100.0))
+            effectivePrice = paidPriceOf(effectivePrice, pharmacistPrice, price, discount)
         )
     }
 }
+
+// The backend copies pharmacist_price (the discounted price the pharmacy pays) into unit_price on
+// save, so unit_price is no longer the undiscounted "was" price — public_price is. Same mapping
+// as InventoryItemDto on the supplier side.
+private fun listPriceOf(publicPrice: JsonElement?, unitPrice: JsonElement?): Double =
+    publicPrice.rawDoubleOrZero().takeIf { it > 0 } ?: unitPrice.rawDoubleOrZero()
+
+private fun paidPriceOf(effectivePrice: JsonElement?, pharmacistPrice: JsonElement?, listPrice: Double, discount: Double): Double =
+    effectivePrice?.rawDoubleOrZero()?.takeIf { it > 0 }
+        ?: pharmacistPrice.rawDoubleOrZero().takeIf { it > 0 }
+        ?: (listPrice * (1.0 - discount / 100.0))
 
 // ── Order detail (create / allocate / get-by-id all return this shape) ───────
 

@@ -485,29 +485,16 @@ private fun SellerInventoryListItemCard(item: InventoryItem, onEdit: () -> Unit)
                 InfoItem(label = strings.sdDiscount, value = "${formatDecimal(item.discountPct, 0)}%", modifier = Modifier.weight(1f))
             }
             Spacer(Modifier.height(8.dp))
+            // Same semantics as the drug form: the entered unit price is the public price, and
+            // "customer pays" (unit price after discount) is the pharmacist / effective price.
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                InfoItem(label = strings.sdPublicPrice, value = "EGP ${formatDecimal(item.publicPrice, 2)}", modifier = Modifier.weight(1f))
-                InfoItem(label = strings.sdPharmacistPrice, value = "EGP ${formatDecimal(item.pharmacistPrice, 2)}", modifier = Modifier.weight(1f))
-            }
-
-            if (item.discountPct > 0) {
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(SecondaryGreenContainer)
-                        .padding(10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(strings.sdEffectivePriceLabel, style = MaterialTheme.typography.labelSmall, color = SecondaryGreenDark)
-                    Text(
-                        "EGP ${formatDecimal(item.effectivePrice, 2)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = SecondaryGreenDark
-                    )
-                }
+                InfoItem(label = strings.sdPublicPrice, value = "EGP ${formatDecimal(item.unitPrice, 2)}", modifier = Modifier.weight(1f))
+                InfoItem(
+                    label = strings.sdPharmacistPrice,
+                    value = "EGP ${formatDecimal(item.effectivePrice, 2)}",
+                    modifier = Modifier.weight(1f),
+                    valueColor = if (item.discountPct > 0) SecondaryGreenDark else TextPrimary
+                )
             }
 
             if (item.lastUpdated.isNotBlank()) {

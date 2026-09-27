@@ -334,7 +334,15 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
             }
 
             entry<NavKeys.Home> {
-                val sellerVm: SellerDashboardViewModel = viewModel(
+                // Only build the logged-in role's ViewModels — each one loads its data in init{},
+                // so creating both sets made a supplier call pharmacy/* (and a pharmacy call
+                // supplier/*), all rejected with 403. Read once for this entry: logging out pops
+                // Home, and the next login gets a fresh entry with the new role.
+                val userType = remember { SessionManager.currentUser.value?.userType }
+                val isSeller = userType == UserType.SELLER
+                val isPharmacy = userType != null && !isSeller
+
+                val sellerVm: SellerDashboardViewModel? = if (isSeller) viewModel(
                     factory = viewModelFactory {
                         initializer {
                             SellerDashboardViewModel(
@@ -345,8 +353,8 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                             )
                         }
                     }
-                )
-                val pharmacyHomeVm: PharmacyHomeViewModel = viewModel(
+                ) else null
+                val pharmacyHomeVm: PharmacyHomeViewModel? = if (isPharmacy) viewModel(
                     factory = viewModelFactory {
                         initializer {
                             PharmacyHomeViewModel(
@@ -360,17 +368,17 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                             )
                         }
                     }
-                )
-                val orderListVm: OrderListViewModel = viewModel(
+                ) else null
+                val orderListVm: OrderListViewModel? = if (isPharmacy) viewModel(
                     factory = viewModelFactory {
                         initializer { OrderListViewModel(getPharmacyOrdersUseCase = container.getPharmacyOrdersUseCase) }
                     }
-                )
-                val sellerOrdersVm: SellerOrdersViewModel = viewModel(
+                ) else null
+                val sellerOrdersVm: SellerOrdersViewModel? = if (isSeller) viewModel(
                     factory = viewModelFactory {
                         initializer { SellerOrdersViewModel(getSupplierOrdersUseCase = container.getSupplierOrdersUseCase) }
                     }
-                )
+                ) else null
                 val profileVm: ProfileViewModel = viewModel(
                     factory = viewModelFactory {
                         initializer {
@@ -397,9 +405,9 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                 DisposableEffect(lifecycleOwner) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME) {
-                            sellerVm.loadData()
-                            orderListVm.loadOrders()
-                            pharmacyHomeVm.loadActiveOrdersCount()
+                            sellerVm?.loadData()
+                            orderListVm?.loadOrders()
+                            pharmacyHomeVm?.loadActiveOrdersCount()
                             notificationViewModel.refreshUnreadCount()
                             notificationViewModel.refreshList()
                         }
