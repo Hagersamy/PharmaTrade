@@ -25,11 +25,17 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
 import com.pharmatrade.core.common.i18n.LocalStrings
+import com.pharmatrade.core.common.i18n.Strings
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.io.rememberFilePickerLauncher
 import com.pharmatrade.core.ui.components.*
 import com.pharmatrade.core.ui.theme.*
+import com.pharmatrade.feature.auth.domain.model.RegisterField
+import com.pharmatrade.feature.auth.domain.model.RegisterFieldError
 import com.pharmatrade.feature.auth.domain.model.Zone
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,13 +60,29 @@ fun RegisterScreen(
         if (uiState.isSuccess) onNavigateToPendingApproval()
     }
 
+    fun errorFor(field: RegisterField): String? =
+        uiState.fieldErrors[field]?.let { strings.registerErrorText(field, it, uiState.userType) }
+
+    // Remember where each field sits so a failed submit can scroll straight to the first problem —
+    // otherwise an error on "Full name" is invisible when the user is down at the button.
+    val scrollState = rememberScrollState()
+    val fieldPositions = remember { mutableMapOf<RegisterField, Int>() }
+    fun Modifier.trackField(field: RegisterField) =
+        onGloballyPositioned { fieldPositions[field] = it.positionInParent().y.toInt() }
+    val scrollMarginPx = with(LocalDensity.current) { 24.dp.roundToPx() }
+    LaunchedEffect(uiState.validationAttempt) {
+        if (uiState.validationAttempt == 0) return@LaunchedEffect
+        val firstErrorY = uiState.fieldErrors.keys.mapNotNull { fieldPositions[it] }.minOrNull() ?: return@LaunchedEffect
+        scrollState.animateScrollTo((firstErrorY - scrollMarginPx).coerceAtLeast(0))
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
         PharmaTopBar(title = strings.regCreateAccount, onNavigateBack = onNavigateBack)
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -96,21 +118,53 @@ fun RegisterScreen(
                 color = TextPrimary
             )
 
-            PharmaTextField(value = uiState.name, onValueChange = viewModel::onNameChange, label = strings.regFullName, leadingIcon = Icons.Filled.Person)
+            PharmaTextField(
+                value = uiState.name,
+                onValueChange = viewModel::onNameChange,
+                label = strings.regFullName,
+                leadingIcon = Icons.Filled.Person,
+                isError = errorFor(RegisterField.NAME) != null,
+                errorMessage = errorFor(RegisterField.NAME),
+                modifier = Modifier.trackField(RegisterField.NAME)
+            )
             PharmaTextField(
                 value = uiState.businessName,
                 onValueChange = viewModel::onBusinessNameChange,
                 label = if (uiState.userType == UserType.SELLER) strings.regBusinessCompanyName else strings.regPharmacyName,
-                leadingIcon = Icons.Filled.Business
+                leadingIcon = Icons.Filled.Business,
+                isError = errorFor(RegisterField.BUSINESS_NAME) != null,
+                errorMessage = errorFor(RegisterField.BUSINESS_NAME),
+                modifier = Modifier.trackField(RegisterField.BUSINESS_NAME)
             )
-            PharmaTextField(value = uiState.email, onValueChange = viewModel::onEmailChange, label = strings.regEmailAddress, leadingIcon = Icons.Filled.Email)
-            PharmaTextField(value = uiState.phone, onValueChange = viewModel::onPhoneChange, label = strings.loginPhoneLabel, leadingIcon = Icons.Filled.Phone)
+            PharmaTextField(
+                value = uiState.email,
+                onValueChange = viewModel::onEmailChange,
+                label = strings.regEmailAddress,
+                leadingIcon = Icons.Filled.Email,
+                keyboardType = KeyboardType.Email,
+                isError = errorFor(RegisterField.EMAIL) != null,
+                errorMessage = errorFor(RegisterField.EMAIL),
+                modifier = Modifier.trackField(RegisterField.EMAIL)
+            )
+            PharmaTextField(
+                value = uiState.phone,
+                onValueChange = viewModel::onPhoneChange,
+                label = strings.loginPhoneLabel,
+                leadingIcon = Icons.Filled.Phone,
+                keyboardType = KeyboardType.Phone,
+                isError = errorFor(RegisterField.PHONE) != null,
+                errorMessage = errorFor(RegisterField.PHONE),
+                modifier = Modifier.trackField(RegisterField.PHONE)
+            )
 
             PharmaTextField(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChange,
                 label = strings.loginPasswordLabel,
                 leadingIcon = Icons.Filled.Lock,
+                isError = errorFor(RegisterField.PASSWORD) != null,
+                errorMessage = errorFor(RegisterField.PASSWORD),
+                modifier = Modifier.trackField(RegisterField.PASSWORD),
                 trailingIcon = {
                     IconButton(onClick = viewModel::togglePasswordVisibility) {
                         Icon(
@@ -124,7 +178,10 @@ fun RegisterScreen(
                 keyboardType = KeyboardType.Password
             )
 
-            val passwordMismatch = uiState.confirmPassword.isNotEmpty() && uiState.confirmPassword != uiState.password
+            val liveMismatch = uiState.confirmPassword.isNotEmpty() && uiState.confirmPassword != uiState.password
+            val confirmError = errorFor(RegisterField.CONFIRM_PASSWORD)
+                ?: if (liveMismatch) strings.regPasswordsDoNotMatch else null
+            val passwordMismatch = confirmError != null
             OutlinedTextField(
                 value = uiState.confirmPassword,
                 onValueChange = viewModel::onConfirmPasswordChange,
@@ -141,9 +198,9 @@ fun RegisterScreen(
                 },
                 visualTransformation = if (uiState.isConfirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 isError = passwordMismatch,
-                supportingText = if (passwordMismatch) { { Text(strings.regPasswordsDoNotMatch, color = ErrorRed) } } else null,
+                supportingText = confirmError?.let { { Text(it, color = ErrorRed) } },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().trackField(RegisterField.CONFIRM_PASSWORD),
                 shape = RoundedCornerShape(12.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -165,7 +222,15 @@ fun RegisterScreen(
                 color = TextPrimary
             )
 
-            PharmaTextField(value = uiState.licenceNumber, onValueChange = viewModel::onLicenceNumberChange, label = strings.profileLicenceNumber, leadingIcon = Icons.Filled.Badge)
+            PharmaTextField(
+                value = uiState.licenceNumber,
+                onValueChange = viewModel::onLicenceNumberChange,
+                label = strings.profileLicenceNumber,
+                leadingIcon = Icons.Filled.Badge,
+                isError = errorFor(RegisterField.LICENCE_NUMBER) != null,
+                errorMessage = errorFor(RegisterField.LICENCE_NUMBER),
+                modifier = Modifier.trackField(RegisterField.LICENCE_NUMBER)
+            )
 
             // ── Zone multi-select ─────────────────────────────────────────────
             ZoneMultiSelectDropdown(
@@ -173,29 +238,52 @@ fun RegisterScreen(
                 selectedZones = uiState.selectedZones,
                 isLoading = uiState.isLoadingZones,
                 hasError = uiState.zonesError != null,
+                errorMessage = errorFor(RegisterField.ZONES),
                 onToggle = viewModel::onZoneToggled,
-                onRetry = viewModel::loadZones
+                onRetry = viewModel::loadZones,
+                modifier = Modifier.trackField(RegisterField.ZONES)
             )
 
-            PharmaTextField(value = uiState.address, onValueChange = viewModel::onAddressChange, label = strings.profileAddress, leadingIcon = Icons.Filled.LocationOn, singleLine = false)
+            PharmaTextField(
+                value = uiState.address,
+                onValueChange = viewModel::onAddressChange,
+                label = strings.profileAddress,
+                leadingIcon = Icons.Filled.LocationOn,
+                singleLine = false,
+                isError = errorFor(RegisterField.ADDRESS) != null,
+                errorMessage = errorFor(RegisterField.ADDRESS),
+                modifier = Modifier.trackField(RegisterField.ADDRESS)
+            )
 
             Divider(color = DividerGray)
 
             // ── Licence images ────────────────────────────────────────────────
             Text(text = strings.regLicenceImages, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
 
-            Text(text = strings.regFrontOfLicence, style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            Text(
+                text = strings.regFrontOfLicence,
+                style = MaterialTheme.typography.labelMedium,
+                color = TextSecondary,
+                modifier = Modifier.trackField(RegisterField.LICENCE_FRONT)
+            )
             LicenseImagePicker(
                 selectedUri = uiState.licenceFrontUri,
                 onPickImage = launchLicenceFrontPicker,
-                onRemoveImage = { viewModel.onLicenceFrontSelected(null) }
+                onRemoveImage = { viewModel.onLicenceFrontSelected(null) },
+                errorMessage = errorFor(RegisterField.LICENCE_FRONT)
             )
 
-            Text(text = strings.regBackOfLicence, style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            Text(
+                text = strings.regBackOfLicence,
+                style = MaterialTheme.typography.labelMedium,
+                color = TextSecondary,
+                modifier = Modifier.trackField(RegisterField.LICENCE_BACK)
+            )
             LicenseImagePicker(
                 selectedUri = uiState.licenceBackUri,
                 onPickImage = launchLicenceBackPicker,
-                onRemoveImage = { viewModel.onLicenceBackSelected(null) }
+                onRemoveImage = { viewModel.onLicenceBackSelected(null) },
+                errorMessage = errorFor(RegisterField.LICENCE_BACK)
             )
 
             // ── Supplier-only fields ──────────────────────────────────────────
@@ -208,14 +296,20 @@ fun RegisterScreen(
                     onValueChange = viewModel::onMinOrderValueChange,
                     label = strings.profileDialogMinOrderValueEgp,
                     leadingIcon = Icons.Filled.Payments,
-                    keyboardType = KeyboardType.Decimal
+                    keyboardType = KeyboardType.Decimal,
+                    isError = errorFor(RegisterField.MIN_ORDER_VALUE) != null,
+                    errorMessage = errorFor(RegisterField.MIN_ORDER_VALUE),
+                    modifier = Modifier.trackField(RegisterField.MIN_ORDER_VALUE)
                 )
                 PharmaTextField(
                     value = uiState.minOrderQty,
                     onValueChange = viewModel::onMinOrderQtyChange,
                     label = strings.profileDialogMinOrderQty,
                     leadingIcon = Icons.Filled.Inventory2,
-                    keyboardType = KeyboardType.Number
+                    keyboardType = KeyboardType.Number,
+                    isError = errorFor(RegisterField.MIN_ORDER_QTY) != null,
+                    errorMessage = errorFor(RegisterField.MIN_ORDER_QTY),
+                    modifier = Modifier.trackField(RegisterField.MIN_ORDER_QTY)
                 )
 
                 Divider(color = DividerGray)
@@ -228,20 +322,82 @@ fun RegisterScreen(
             }
 
             // ── Error banner ──────────────────────────────────────────────────
-            if (uiState.error != null) {
+            // Field problems are shown under each field; this only points the user at them, or
+            // carries non-field problems (no connection, server error).
+            val bannerText = if (uiState.fieldErrors.isNotEmpty()) strings.errorFixHighlightedFields else uiState.error
+            if (bannerText != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(ErrorRedContainer).padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(Icons.Filled.ErrorOutline, null, tint = ErrorRed, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(uiState.error!!, style = MaterialTheme.typography.bodySmall, color = ErrorRed)
+                    Text(bannerText, style = MaterialTheme.typography.bodySmall, color = ErrorRed)
                 }
             }
 
             PharmaButton(text = strings.regCreateAccount, onClick = viewModel::register, modifier = Modifier.fillMaxWidth(), isLoading = uiState.isLoading)
 
             Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+// ── Field error text ──────────────────────────────────────────────────────────
+
+// Specific, actionable message for one field — never the generic "something went wrong".
+private fun Strings.registerErrorText(field: RegisterField, error: RegisterFieldError, userType: UserType): String {
+    val label = when (field) {
+        RegisterField.NAME -> regFullName
+        RegisterField.BUSINESS_NAME -> if (userType == UserType.SELLER) regBusinessCompanyName else regPharmacyName
+        RegisterField.EMAIL -> regEmailAddress
+        RegisterField.PHONE -> loginPhoneLabel
+        RegisterField.PASSWORD -> loginPasswordLabel
+        RegisterField.CONFIRM_PASSWORD -> regConfirmPassword
+        RegisterField.LICENCE_NUMBER -> profileLicenceNumber
+        RegisterField.ZONES -> regZonesRequired
+        RegisterField.ADDRESS -> profileAddress
+        RegisterField.LICENCE_FRONT -> regFrontOfLicence
+        RegisterField.LICENCE_BACK -> regBackOfLicence
+        RegisterField.MIN_ORDER_VALUE -> profileDialogMinOrderValueEgp
+        RegisterField.MIN_ORDER_QTY -> profileDialogMinOrderQty
+    }
+    return when (error) {
+        RegisterFieldError.REQUIRED -> when (field) {
+            RegisterField.NAME -> errorNameRequired
+            RegisterField.BUSINESS_NAME -> errorBusinessNameRequired
+            RegisterField.EMAIL -> errorInvalidEmail
+            RegisterField.PHONE -> errorPhoneRequired
+            RegisterField.PASSWORD -> errorPasswordTooShort
+            RegisterField.CONFIRM_PASSWORD -> errorConfirmPasswordRequired
+            RegisterField.LICENCE_NUMBER -> errorLicenceNumberRequired
+            RegisterField.ZONES -> errorZoneRequired
+            RegisterField.ADDRESS -> errorAddressRequired
+            RegisterField.LICENCE_FRONT -> errorLicenceFrontRequired
+            RegisterField.LICENCE_BACK -> errorLicenceBackRequired
+            RegisterField.MIN_ORDER_VALUE -> errorInvalidMinOrderValue
+            RegisterField.MIN_ORDER_QTY -> errorInvalidMinOrderQty
+        }
+        RegisterFieldError.INVALID_FORMAT -> when (field) {
+            RegisterField.PHONE -> errorPhoneFormat
+            RegisterField.EMAIL -> errorInvalidEmail
+            RegisterField.LICENCE_FRONT, RegisterField.LICENCE_BACK -> errorLicenceImageInvalid
+            else -> errorFieldInvalid(label)
+        }
+        RegisterFieldError.TOO_SHORT ->
+            if (field == RegisterField.PASSWORD) errorPasswordTooShort else errorFieldInvalid(label)
+        RegisterFieldError.MISMATCH -> regPasswordsDoNotMatch
+        RegisterFieldError.ALREADY_TAKEN -> when (field) {
+            RegisterField.PHONE -> errorPhoneTaken
+            RegisterField.EMAIL -> errorEmailInUse
+            else -> errorFieldTaken(label)
+        }
+        RegisterFieldError.INVALID -> when (field) {
+            RegisterField.LICENCE_FRONT, RegisterField.LICENCE_BACK -> errorLicenceImageInvalid
+            RegisterField.MIN_ORDER_VALUE -> errorInvalidMinOrderValue
+            RegisterField.MIN_ORDER_QTY -> errorInvalidMinOrderQty
+            RegisterField.PHONE -> errorPhoneFormat
+            else -> errorFieldInvalid(label)
         }
     }
 }
@@ -253,17 +409,23 @@ private fun LicenseImagePicker(
     selectedUri: String?,
     onPickImage: () -> Unit,
     onRemoveImage: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    errorMessage: String? = null
 ) {
     val strings = LocalStrings.current
+    Column(modifier = modifier) {
     Box(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .height(160.dp)
             .clip(RoundedCornerShape(12.dp))
             .border(
-                width = if (selectedUri != null) 2.dp else 1.5.dp,
-                color = if (selectedUri != null) PrimaryBlue else DividerGray,
+                width = if (selectedUri != null || errorMessage != null) 2.dp else 1.5.dp,
+                color = when {
+                    errorMessage != null -> ErrorRed
+                    selectedUri != null -> PrimaryBlue
+                    else -> DividerGray
+                },
                 shape = RoundedCornerShape(12.dp)
             )
             .background(if (selectedUri != null) PrimaryBlueContainer else SurfaceWhite)
@@ -295,6 +457,22 @@ private fun LicenseImagePicker(
             }
         }
     }
+    if (errorMessage != null) {
+        FieldErrorText(errorMessage)
+    }
+    }
+}
+
+@Composable
+private fun FieldErrorText(message: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+    ) {
+        Icon(Icons.Filled.ErrorOutline, null, tint = ErrorRed, modifier = Modifier.size(14.dp))
+        Text(message, style = MaterialTheme.typography.bodySmall, color = ErrorRed)
+    }
 }
 
 // ── Zone multi-select dropdown ────────────────────────────────────────────────
@@ -307,7 +485,9 @@ private fun ZoneMultiSelectDropdown(
     isLoading: Boolean,
     hasError: Boolean,
     onToggle: (Zone) -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    errorMessage: String? = null,
+    modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
     val strings = LocalStrings.current
@@ -320,7 +500,12 @@ private fun ZoneMultiSelectDropdown(
         else -> ""
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val borderColor = when {
+        errorMessage != null -> ErrorRed
+        expanded -> PrimaryBlue
+        else -> DividerGray
+    }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = fieldText,
@@ -346,8 +531,8 @@ private fun ZoneMultiSelectDropdown(
                     focusedBorderColor = PrimaryBlue,
                     unfocusedBorderColor = if (expanded) PrimaryBlue else DividerGray,
                     focusedLabelColor = PrimaryBlue,
-                    disabledBorderColor = if (expanded) PrimaryBlue else DividerGray,
-                    disabledLabelColor = if (expanded) PrimaryBlue else TextSecondary,
+                    disabledBorderColor = borderColor,
+                    disabledLabelColor = if (errorMessage != null) ErrorRed else if (expanded) PrimaryBlue else TextSecondary,
                     disabledTextColor = TextPrimary,
                     disabledLeadingIconColor = TextSecondary,
                     disabledTrailingIconColor = TextSecondary
@@ -440,6 +625,10 @@ private fun ZoneMultiSelectDropdown(
                     )
                 }
             }
+        }
+
+        if (errorMessage != null) {
+            FieldErrorText(errorMessage)
         }
 
         if (hasError) {

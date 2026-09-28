@@ -19,7 +19,6 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlin.math.round
 
 class DrugRepositoryImpl(
     private val fileReader: PlatformFileReader,
@@ -84,12 +83,6 @@ class DrugRepositoryImpl(
     } catch (e: Exception) {
         Result.Error(e.message ?: "Upload failed")
     }
-
-    // public_price is what the supplier enters ("Price per Unit"); pharmacist_price is what the
-    // pharmacy actually pays after the discount — the form's "Customer pays" figure. Rounded to
-    // piasters so e.g. 33.33 × 0.9 doesn't go out as 29.997000000000003.
-    private fun discountedPrice(unitPrice: Double, discountPct: Double): Double =
-        round(unitPrice * (1.0 - discountPct / 100.0) * 100.0) / 100.0
 
     private fun parseHttpError(code: Int, body: String?): String {
         if (body.isNullOrBlank()) return "Server error ($code)"
@@ -204,7 +197,6 @@ class DrugRepositoryImpl(
             quantityAvailable = quantityAvailable,
             unitPrice = unitPrice,
             publicPrice = unitPrice,
-            pharmacistPrice = discountedPrice(unitPrice, discountPct),
             discountPct = discountPct
         )
         val response = api.createInventoryItem(request)
@@ -229,7 +221,6 @@ class DrugRepositoryImpl(
             quantityAvailable = quantityAvailable,
             unitPrice = unitPrice,
             publicPrice = unitPrice,
-            pharmacistPrice = discountedPrice(unitPrice, discountPct),
             discountPct = discountPct
         )
         val response = api.updateInventoryItem(id, request)

@@ -94,7 +94,7 @@ data class InventoryItemDto(
     @SerialName("pharmacist_price") val pharmacistPrice: String? = null,
     @SerialName("discount_pct") val discountPct: String? = null,
     // Returned by POST/PUT and (as of 2026-09-25) the list endpoint too; equals pharmacist_price.
-    // Falls back to pharmacist_price, then to a computed discount, when absent.
+    // Only used as a fallback when pharmacist_price is absent.
     @SerialName("effective_price") val effectivePrice: Double? = null,
     @SerialName("last_updated") val lastUpdated: String? = null,
     @SerialName("drug") val drug: CatalogDrugDto? = null
@@ -109,8 +109,10 @@ data class InventoryItemDto(
         // discounted pharmacist_price, unit_price is the DISCOUNTED price and public_price is
         // the only field holding the "Price per Unit" the supplier entered. Map accordingly:
         //   unitPrice      -> the entered price per unit (public_price, else raw unit_price)
-        //   effectivePrice -> what the pharmacy pays (effective_price, else pharmacist_price)
+        //   pharmacistPrice / effectivePrice -> what the pharmacy pays, taken as-is from the
+        //   backend (pharmacist_price, else effective_price) — never computed client-side.
         val listPrice = public.takeIf { it > 0 } ?: rawUnit
+        val pharmacyPrice = pharmacist.takeIf { it > 0 } ?: effectivePrice ?: 0.0
         return InventoryItem(
             id = id.rawStringOrNull() ?: "",
             drugName = drugName ?: "",
@@ -119,11 +121,9 @@ data class InventoryItemDto(
             quantityAvailable = quantityAvailable.rawIntOrZero(),
             unitPrice = listPrice,
             publicPrice = public,
-            pharmacistPrice = pharmacist,
+            pharmacistPrice = pharmacyPrice,
             discountPct = discount,
-            effectivePrice = effectivePrice
-                ?: pharmacist.takeIf { it > 0 }
-                ?: (listPrice * (1.0 - discount / 100.0)),
+            effectivePrice = pharmacyPrice,
             lastUpdated = lastUpdated ?: "",
             catalogDrug = drug?.toDomain()
         )
@@ -131,15 +131,13 @@ data class InventoryItemDto(
 }
 
 // Shared body shape for both POST supplier/inventory (create) and PUT supplier/inventory/{id} (update).
-// The backend also requires public_price and pharmacist_price on top of unit_price, or it
-// rejects the request with "Public price is required." / "Pharmacist price is required."
+// pharmacist_price is deliberately not sent — the backend calculates it from price + discount.
 @Serializable
 data class InventoryItemRequest(
     @SerialName("drug_name_raw") val drugNameRaw: String,
     @SerialName("quantity_available") val quantityAvailable: Int,
     @SerialName("unit_price") val unitPrice: Double,
     @SerialName("public_price") val publicPrice: Double,
-    @SerialName("pharmacist_price") val pharmacistPrice: Double,
     @SerialName("discount_pct") val discountPct: Double
 )
 

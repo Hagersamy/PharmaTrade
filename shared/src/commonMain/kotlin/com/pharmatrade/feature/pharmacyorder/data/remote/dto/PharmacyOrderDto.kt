@@ -137,7 +137,7 @@ data class SupplierInventoryItemDto(
             quantityAvailable = quantityAvailable.rawIntOrZero(),
             unitPrice = price,
             discountPct = discount,
-            effectivePrice = paidPriceOf(effectivePrice, pharmacistPrice, price, discount)
+            effectivePrice = paidPriceOf(pharmacistPrice, effectivePrice)
         )
     }
 }
@@ -195,9 +195,9 @@ data class SupplierCatalogItemDto(
             quantityAvailable = quantityAvailable.rawIntOrZero(),
             unitPrice = price,
             publicPrice = publicPrice.rawDoubleOrZero(),
-            pharmacistPrice = pharmacistPrice.rawDoubleOrZero(),
+            pharmacistPrice = paidPriceOf(pharmacistPrice, effectivePrice),
             discountPct = discount,
-            effectivePrice = paidPriceOf(effectivePrice, pharmacistPrice, price, discount)
+            effectivePrice = paidPriceOf(pharmacistPrice, effectivePrice)
         )
     }
 }
@@ -208,10 +208,11 @@ data class SupplierCatalogItemDto(
 private fun listPriceOf(publicPrice: JsonElement?, unitPrice: JsonElement?): Double =
     publicPrice.rawDoubleOrZero().takeIf { it > 0 } ?: unitPrice.rawDoubleOrZero()
 
-private fun paidPriceOf(effectivePrice: JsonElement?, pharmacistPrice: JsonElement?, listPrice: Double, discount: Double): Double =
-    effectivePrice?.rawDoubleOrZero()?.takeIf { it > 0 }
-        ?: pharmacistPrice.rawDoubleOrZero().takeIf { it > 0 }
-        ?: (listPrice * (1.0 - discount / 100.0))
+// The price the pharmacy pays comes straight from the backend (pharmacist_price, else
+// effective_price) — never computed client-side from list price and discount.
+private fun paidPriceOf(pharmacistPrice: JsonElement?, effectivePrice: JsonElement?): Double =
+    pharmacistPrice.rawDoubleOrZero().takeIf { it > 0 }
+        ?: effectivePrice.rawDoubleOrZero()
 
 // ── Order detail (create / allocate / get-by-id all return this shape) ───────
 

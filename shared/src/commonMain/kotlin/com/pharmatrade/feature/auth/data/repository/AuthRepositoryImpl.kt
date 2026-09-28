@@ -9,6 +9,9 @@ import com.pharmatrade.core.io.PlatformFileReader
 import com.pharmatrade.core.network.FormFile
 import com.pharmatrade.feature.auth.data.remote.AuthApi
 import com.pharmatrade.feature.auth.data.remote.dto.LoginRequest
+import com.pharmatrade.feature.auth.domain.model.RegisterField
+import com.pharmatrade.feature.auth.domain.model.RegisterFieldError
+import com.pharmatrade.feature.auth.domain.model.RegisterValidationException
 import com.pharmatrade.feature.auth.domain.repository.AuthRepository
 import io.ktor.client.network.sockets.SocketTimeoutException
 import io.ktor.client.plugins.ResponseException
@@ -161,9 +164,53 @@ class AuthRepositoryImpl(
             Result.Success(user)
         } catch (e: ResponseException) {
             val errorBody = runCatching { e.response.bodyAsText() }.getOrNull()
-            Result.Error(parseHttpError(errorBody, e.response.status.value))
+            println("AuthRepo: register failed HTTP ${e.response.status.value} | body=$errorBody")
+            val fieldErrors = parseRegisterFieldErrors(errorBody)
+            Result.Error(
+                parseHttpError(errorBody, e.response.status.value),
+                fieldErrors.takeIf { it.isNotEmpty() }?.let { RegisterValidationException(it) }
+            )
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error. Check your connection.")
+        }
+    }
+
+    // Laravel 422: { "message": "...", "errors": { "phone": ["The phone has already been taken."], ... } }
+    // Maps every field the backend rejected (not just the first) onto the form field it belongs to.
+    private fun parseRegisterFieldErrors(body: String?): Map<RegisterField, RegisterFieldError> {
+        if (body.isNullOrBlank()) return emptyMap()
+        val errors = runCatching { Json.parseToJsonElement(body).jsonObject["errors"]?.jsonObject }
+            .getOrNull() ?: return emptyMap()
+        return buildMap {
+            errors.forEach { (key, messages) ->
+                val field = when (key.substringBefore('.')) {
+                    "name" -> RegisterField.NAME
+                    "email" -> RegisterField.EMAIL
+                    "phone" -> RegisterField.PHONE
+                    "password" -> RegisterField.PASSWORD
+                    "password_confirmation" -> RegisterField.CONFIRM_PASSWORD
+                    "business_name" -> RegisterField.BUSINESS_NAME
+                    "licence_number" -> RegisterField.LICENCE_NUMBER
+                    "address" -> RegisterField.ADDRESS
+                    "zones", "zone_ids", "zone_id" -> RegisterField.ZONES
+                    "licence_image" -> RegisterField.LICENCE_FRONT
+                    "licence_image_back" -> RegisterField.LICENCE_BACK
+                    "min_order_value" -> RegisterField.MIN_ORDER_VALUE
+                    "min_order_qty" -> RegisterField.MIN_ORDER_QTY
+                    else -> null
+                } ?: return@forEach
+                val text = runCatching { messages.jsonArray.firstOrNull()?.jsonPrimitive?.contentOrNull }
+                    .getOrNull().orEmpty().lowercase()
+                val kind = when {
+                    "taken" in text || "already" in text || "exists" in text -> RegisterFieldError.ALREADY_TAKEN
+                    "required" in text -> RegisterFieldError.REQUIRED
+                    "confirmation" in text || "match" in text -> RegisterFieldError.MISMATCH
+                    "at least" in text -> RegisterFieldError.TOO_SHORT
+                    "format" in text || "valid" in text || "digits" in text -> RegisterFieldError.INVALID_FORMAT
+                    else -> RegisterFieldError.INVALID
+                }
+                put(field, kind)
+            }
         }
     }
 

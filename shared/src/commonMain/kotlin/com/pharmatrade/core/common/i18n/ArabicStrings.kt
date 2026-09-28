@@ -33,6 +33,13 @@ object ArabicStrings : Strings {
     override val errorNoFileSelected = "لم يتم اختيار ملف."
     override val errorDrugNameRequired = "اسم الدواء مطلوب."
     override val errorTradeNameRequired = "الاسم التجاري مطلوب."
+    override val errorPhoneFormat = "أدخل رقم موبايل صحيح مكوّن من 11 رقماً يبدأ بـ 010 أو 011 أو 012 أو 015."
+    override val errorPhoneTaken = "رقم الهاتف هذا مسجل بالفعل."
+    override val errorConfirmPasswordRequired = "يرجى إعادة إدخال كلمة المرور."
+    override val errorLicenceImageInvalid = "تعذّر قبول هذه الصورة. يرجى اختيار صورة JPG أو PNG بحجم مناسب."
+    override val errorFixHighlightedFields = "يرجى تصحيح الحقول المحددة باللون الأحمر بالأعلى."
+    override fun errorFieldTaken(field: String) = "$field مسجل بالفعل."
+    override fun errorFieldInvalid(field: String) = "يرجى مراجعة $field، القيمة المدخلة غير صحيحة."
 
     override val commonRetry = "إعادة المحاولة"
     override val commonCancel = "إلغاء"

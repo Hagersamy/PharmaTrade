@@ -36,6 +36,14 @@ interface Strings {
     val errorNoFileSelected: String
     val errorDrugNameRequired: String
     val errorTradeNameRequired: String
+    // Register form — shown under the exact field that is wrong
+    val errorPhoneFormat: String
+    val errorPhoneTaken: String
+    val errorConfirmPasswordRequired: String
+    val errorLicenceImageInvalid: String
+    val errorFixHighlightedFields: String
+    fun errorFieldTaken(field: String): String
+    fun errorFieldInvalid(field: String): String
 
     // ── Common ──────────────────────────────────────────────────────────────
     val commonRetry: String

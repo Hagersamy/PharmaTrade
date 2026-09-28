@@ -27,6 +27,7 @@ import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.i18n.Strings
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.ui.components.EmptyState
+import com.pharmatrade.core.ui.components.ZoomableImageDialog
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.feature.admin.domain.model.PendingUser
 
@@ -479,10 +480,23 @@ private fun AnalyticsInfoRow(icon: ImageVector, label: String, value: String) {
 @Composable
 private fun AnalyticsLicenceImage(url: String?, label: String, modifier: Modifier = Modifier) {
     val strings = LocalStrings.current
+    var showFullScreen by remember { mutableStateOf(false) }
+    if (showFullScreen && !url.isNullOrBlank()) {
+        ZoomableImageDialog(
+            model = url,
+            contentDescription = strings.adLicenceContentDescription(label),
+            onDismiss = { showFullScreen = false }
+        )
+    }
     Column(modifier = modifier) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = TextSecondary, modifier = Modifier.padding(bottom = 4.dp))
         Box(
-            modifier = Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(10.dp)).background(CardGray),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(110.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(CardGray)
+                .clickable(enabled = !url.isNullOrBlank()) { showFullScreen = true },
             contentAlignment = Alignment.Center
         ) {
             if (!url.isNullOrBlank()) {

@@ -128,28 +128,7 @@ fun DrugFormScreen(
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, unfocusedBorderColor = DividerGray)
             )
 
-            // Price preview
-            val price = uiState.priceInput.toDoubleOrNull()
-            val discount = uiState.discountInput.toDoubleOrNull() ?: 0.0
-            if (price != null && price > 0) {
-                val finalPrice = price * (1.0 - discount / 100.0)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(SecondaryGreenContainer)
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(strings.dfCustomerPays, style = MaterialTheme.typography.bodyMedium, color = SecondaryGreenDark)
-                    Text(
-                        "EGP ${formatDecimal(finalPrice, 2)}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = SecondaryGreenDark
-                    )
-                }
-            }
+            // No "customer pays" preview: the pharmacy price is calculated by the backend only.
 
             // Unit and expiry-date inputs were removed: POST/PUT supplier/inventory has no field
             // for either, so whatever the supplier entered was silently discarded.

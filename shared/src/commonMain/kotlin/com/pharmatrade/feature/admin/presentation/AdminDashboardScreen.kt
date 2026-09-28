@@ -28,6 +28,7 @@ import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.core.common.util.formatTodayLabel
 import com.pharmatrade.core.ui.components.EmptyState
+import com.pharmatrade.core.ui.components.ZoomableImageDialog
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.feature.admin.domain.model.PendingUser
 import com.pharmatrade.feature.home.ProfileScreen
@@ -893,6 +894,14 @@ private fun CardSection(title: String, content: @Composable ColumnScope.() -> Un
 @Composable
 private fun LicenceImageBox(url: String?, label: String, modifier: Modifier = Modifier) {
     val strings = LocalStrings.current
+    var showFullScreen by remember { mutableStateOf(false) }
+    if (showFullScreen && !url.isNullOrBlank()) {
+        ZoomableImageDialog(
+            model = url,
+            contentDescription = strings.adLicenceContentDescription(label),
+            onDismiss = { showFullScreen = false }
+        )
+    }
     Column(modifier = modifier) {
         Text(
             text = label,
@@ -905,7 +914,8 @@ private fun LicenceImageBox(url: String?, label: String, modifier: Modifier = Mo
                 .fillMaxWidth()
                 .height(120.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(CardGray),
+                .background(CardGray)
+                .clickable(enabled = !url.isNullOrBlank()) { showFullScreen = true },
             contentAlignment = Alignment.Center
         ) {
             if (!url.isNullOrBlank()) {
@@ -914,6 +924,7 @@ private fun LicenceImageBox(url: String?, label: String, modifier: Modifier = Mo
                     contentDescription = strings.adLicenceContentDescription(label),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
+                    onError = { println("LicenceImage: failed to load $url: ${it.result.throwable}") },
                     loading = {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = PrimaryBlue, strokeWidth = 2.dp)

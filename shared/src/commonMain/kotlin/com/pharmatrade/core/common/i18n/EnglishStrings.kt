@@ -31,6 +31,13 @@ object EnglishStrings : Strings {
     override val errorNoFileSelected = "No file selected."
     override val errorDrugNameRequired = "Drug name is required."
     override val errorTradeNameRequired = "Trade name is required."
+    override val errorPhoneFormat = "Enter a valid 11-digit mobile number starting with 010, 011, 012 or 015."
+    override val errorPhoneTaken = "This phone number is already registered."
+    override val errorConfirmPasswordRequired = "Please re-enter your password."
+    override val errorLicenceImageInvalid = "This image couldn't be accepted. Please choose a JPG or PNG photo, not too large."
+    override val errorFixHighlightedFields = "Please fix the fields marked in red above."
+    override fun errorFieldTaken(field: String) = "$field is already registered."
+    override fun errorFieldInvalid(field: String) = "Please check the $field — the value isn't valid."
 
     override val commonRetry = "Retry"
     override val commonCancel = "Cancel"

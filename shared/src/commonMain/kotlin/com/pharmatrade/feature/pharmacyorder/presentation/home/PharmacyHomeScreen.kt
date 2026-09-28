@@ -134,7 +134,7 @@ fun PharmacyHomeScreen(
                         }
                     }
                     uiState.catalogError != null && uiState.catalogItems.isEmpty() -> item {
-                        ErrorScreen(message = uiState.catalogError!!, onRetry = viewModel::retryCatalog, modifier = Modifier.height(220.dp))
+                        ErrorScreen(message = uiState.catalogError!!, onRetry = viewModel::retryCatalog, modifier = Modifier.heightIn(min = 220.dp))
                     }
                     uiState.isSearching -> item {
                         Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {

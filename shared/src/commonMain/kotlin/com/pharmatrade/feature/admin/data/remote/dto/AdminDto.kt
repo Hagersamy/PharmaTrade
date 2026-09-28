@@ -1,6 +1,7 @@
 package com.pharmatrade.feature.admin.data.remote.dto
 
 import com.pharmatrade.core.common.model.UserType
+import com.pharmatrade.core.network.ApiClient
 import com.pharmatrade.core.network.dto.rawIntOrZero
 import com.pharmatrade.core.network.dto.rawStringOrNull
 import com.pharmatrade.feature.admin.domain.model.PendingUser
@@ -37,11 +38,18 @@ data class PendingUserDto(
     // Licence images — server may return a full URL string OR just the numeric ID
     @SerialName("licence_image") val licenceFrontRaw: JsonElement? = null,
     @SerialName("licence_image_back") val licenceBackRaw: JsonElement? = null,
+    // GET admin/registration-requests (confirmed 2026-09-27) sends images as this array instead of
+    // the two fields above: each has an inline base64 data_url (sometimes null) and an authed url.
+    @SerialName("licence_images") val licenceImages: List<LicenceImageDto>? = null,
     // Supplier-only
     @SerialName("min_order_value") val minOrderValue: JsonElement? = null,
     @SerialName("min_order_qty") val minOrderQty: JsonElement? = null,
     @SerialName("zone_ids") val zoneIds: List<JsonElement>? = null
 ) {
+    // Primary image first (shown as "front"), the next one as "back".
+    private val orderedImages: List<LicenceImageDto>
+        get() = licenceImages.orEmpty().sortedByDescending { it.isPrimary == true }
+
     fun toPendingUser(defaultType: UserType = UserType.BUYER): PendingUser {
         val resolvedRole = entityType ?: role ?: userType ?: type
         val ut = when (resolvedRole?.lowercase()) {
@@ -60,8 +68,8 @@ data class PendingUserDto(
             zoneId = zoneId.rawStringOrNull(),
             userType = ut,
             status = status ?: "pending",
-            licenceFrontUrl = licenceFrontRaw.toLicenceUrl(),
-            licenceBackUrl = licenceBackRaw.toLicenceUrl(),
+            licenceFrontUrl = orderedImages.getOrNull(0)?.source() ?: licenceFrontRaw.toLicenceUrl(),
+            licenceBackUrl = orderedImages.getOrNull(1)?.source() ?: licenceBackRaw.toLicenceUrl(),
             minOrderValue = minOrderValue.rawStringOrNull(),
             minOrderQty = minOrderQty.rawStringOrNull(),
             additionalZoneIds = zoneIds?.map { it.rawStringOrNull() ?: "" } ?: emptyList()
@@ -69,36 +77,57 @@ data class PendingUserDto(
     }
 }
 
-private const val BASE = "https://pharma-trade-backend-production-e64c.up.railway.app/api/v1/"
+@Serializable
+data class LicenceImageDto(
+    @SerialName("id") val id: JsonElement? = null,
+    @SerialName("is_primary") val isPrimary: Boolean? = null,
+    @SerialName("data_url") val dataUrl: String? = null,
+    @SerialName("url") val url: String? = null
+) {
+    // Inline base64 needs no extra request or auth, so prefer it; otherwise the authed url, which
+    // Coil loads with the session token (see PharmaTradeApp.setupCoil).
+    fun source(): String? =
+        dataUrl?.takeIf { it.startsWith("data:") }
+            ?: url?.let { JsonPrimitive(it).toLicenceUrl() }
+}
 
 /**
- * Converts whatever the server sends for a licence image to a usable HTTPS URL.
- * - Integer / numeric string → build the admin view URL by ID (Bearer token auth)
- * - String URL (localhost or 127.0.0.1) → replace host with ngrok domain
- * - Already an ngrok/external URL → force HTTPS
+ * Converts whatever the server sends for a licence image to a URL the app can actually load.
+ * Always resolved against the backend this build talks to (ApiClient.baseUrl — ngrok for dev,
+ * Railway for prod), never a hardcoded host: the image request carries this session's token,
+ * which is only valid on the backend that issued it.
+ * - Integer / numeric string → admin view endpoint by ID (Bearer token auth, sent by Coil)
+ * - Absolute URL on localhost / 127.0.0.1 / 10.0.2.2 or the backend's own host → rehosted onto
+ *   the configured backend origin over HTTPS (Laravel builds these from APP_URL, which is often
+ *   http:// or localhost, and Android blocks cleartext http)
+ * - Relative path ("/storage/…", "licences/…") → prefixed with the backend origin
+ * - Any other absolute URL (e.g. S3) → left as-is, only upgraded to HTTPS
  */
 private fun JsonElement?.toLicenceUrl(): String? {
     val primitive = this as? JsonPrimitive ?: return null
     if (primitive is JsonNull) return null
-    val raw = primitive.content.trim()
+    val raw = primitive.content.trim().replace("\\/", "/")
     if (raw.isBlank() || raw == "null") return null
 
-    // If it's a numeric ID, build the view endpoint URL
-    val numericId = primitive.longOrNull ?: raw.toDoubleOrNull()?.toLong()
+    val apiBase = ApiClient.baseUrl.trimEnd('/') + "/"
+    val origin = Regex("^https?://[^/]+").find(apiBase)?.value ?: return null
+    val backendHost = origin.substringAfter("://")
+
+    val numericId = primitive.longOrNull ?: raw.toLongOrNull()
     if (numericId != null) {
-        return "${BASE}admin/licences/$numericId/view"
+        return "${apiBase}admin/licences/$numericId/view"
     }
 
-    // It's a string URL — normalise the host
-    return raw
-        .replace(
-            Regex("https?://(localhost|127\\.0\\.0\\.1)(:\\d+)?/"),
-            BASE
-        )
-        .replace(
-            "http://pharma-trade-backend-production-e64c.up.railway.app",
-            "https://pharma-trade-backend-production-e64c.up.railway.app"
-        )
+    val absolute = Regex("^https?://([^/:]+)(:\\d+)?(/.*)?$").find(raw)
+        ?: return "$origin/${raw.trimStart('/')}"
+
+    val host = absolute.groupValues[1]
+    val path = absolute.groupValues[3]
+    return if (host in setOf("localhost", "127.0.0.1", "10.0.2.2", backendHost)) {
+        "$origin$path"
+    } else {
+        raw.replaceFirst("http://", "https://")
+    }
 }
 
 @Serializable

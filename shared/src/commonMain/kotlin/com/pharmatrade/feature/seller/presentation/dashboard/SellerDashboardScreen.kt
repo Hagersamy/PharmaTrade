@@ -491,7 +491,7 @@ private fun SellerInventoryListItemCard(item: InventoryItem, onEdit: () -> Unit)
                 InfoItem(label = strings.sdPublicPrice, value = "EGP ${formatDecimal(item.unitPrice, 2)}", modifier = Modifier.weight(1f))
                 InfoItem(
                     label = strings.sdPharmacistPrice,
-                    value = "EGP ${formatDecimal(item.effectivePrice, 2)}",
+                    value = "EGP ${formatDecimal(item.pharmacistPrice, 2)}",
                     modifier = Modifier.weight(1f),
                     valueColor = if (item.discountPct > 0) SecondaryGreenDark else TextPrimary
                 )
