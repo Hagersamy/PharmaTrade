@@ -19,5 +19,14 @@ data class PendingUser(
     // Supplier-only
     val minOrderValue: String? = null,
     val minOrderQty: String? = null,
-    val additionalZoneIds: List<String> = emptyList()
+    val additionalZoneIds: List<String> = emptyList(),
+    // Zone-update requests (entity_type=zone_update) — an existing user asking to change the
+    // zones they serve, not a new registration. Approved/declined through the same endpoints.
+    val isZoneUpdate: Boolean = false,
+    val zoneUpdateReason: String? = null,
+    val requestedZoneIds: List<String> = emptyList(),
+    val currentZoneIds: List<String> = emptyList(),
+    // Zone id -> name, when the server sends zone objects rather than bare ids.
+    val serverZoneNames: Map<String, String> = emptyMap(),
+    val submittedAt: String? = null
 )

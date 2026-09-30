@@ -179,6 +179,7 @@ data class SupplierCatalogItemDto(
     @SerialName("pharmacist_price") val pharmacistPrice: JsonElement? = null,
     @SerialName("discount_pct") val discountPct: JsonElement? = null,
     @SerialName("effective_price") val effectivePrice: JsonElement? = null,
+    @SerialName("last_updated") val lastUpdated: String? = null,
     // See DrugRefDto note on SupplierInventoryItemDto — same fallback for a nested "drug" object.
     @SerialName("drug") val drug: DrugRefDto? = null
 ) {
@@ -198,7 +199,9 @@ data class SupplierCatalogItemDto(
             publicPrice = publicPrice.rawDoubleOrZero(),
             pharmacistPrice = paidPriceOf(pharmacistPrice, effectivePrice),
             discountPct = discount,
-            effectivePrice = paidPriceOf(pharmacistPrice, effectivePrice)
+            effectivePrice = paidPriceOf(pharmacistPrice, effectivePrice),
+            inventoryId = inventoryId.rawIntOrZero().toString(),
+            lastUpdated = lastUpdated.orEmpty()
         )
     }
 }

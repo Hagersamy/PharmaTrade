@@ -108,6 +108,8 @@ class PharmacyHomeViewModel(
     // on top of the newer results. Declared above init, which starts the first load.
     private var catalogJob: Job? = null
     private var searchDebounceJob: Job? = null
+    // Reports duplicate catalog keys to Crashlytics with their cause (see the class).
+    private val catalogDiagnostics = CatalogDuplicateDiagnostics()
 
     init {
         // Deliberately does NOT call loadActiveOrdersCount() here — AppNavigation's
@@ -274,6 +276,7 @@ class PharmacyHomeViewModel(
     // Drops the current list and loads page 1 for [query] (blank = full catalog).
     private fun startCatalog(query: String): Job {
         catalogJob?.cancel()
+        catalogDiagnostics.reset(query)
         update {
             copy(
                 catalogQuery = query,
@@ -299,6 +302,8 @@ class PharmacyHomeViewModel(
             debugLog(SEARCH_LOG_TAG, "discarded \"$query\" page $page — query is now \"${_uiState.value.catalogQuery}\"")
             return
         }
+        // Raw page, before any filtering or de-duplication — that's what the diagnosis needs.
+        if (result is Result.Success) catalogDiagnostics.onPage(query, page, result.data)
         when (result) {
             is Result.Success -> update {
                 val pageItems = result.data.items.filter { it.effectivePrice > 0 }

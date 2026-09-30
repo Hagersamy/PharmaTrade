@@ -8,9 +8,12 @@ import com.pharmatrade.feature.admin.domain.model.PendingUser
 import com.pharmatrade.feature.admin.domain.model.RegistrationStats
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 
 @Serializable
@@ -44,14 +47,48 @@ data class PendingUserDto(
     // Supplier-only
     @SerialName("min_order_value") val minOrderValue: JsonElement? = null,
     @SerialName("min_order_qty") val minOrderQty: JsonElement? = null,
-    @SerialName("zone_ids") val zoneIds: List<JsonElement>? = null
+    @SerialName("zone_ids") val zoneIds: List<JsonElement>? = null,
+    // ── entity_type=zone_update ──
+    // NOTE: field names below are not from a confirmed sample yet — several likely spellings are
+    // accepted, flat or nested under payload/metadata/details, with zones as bare ids or {id, name}
+    // objects. The raw response is in logcat (Ktor Client, LogLevel.BODY) to confirm against.
+    @SerialName("requester_type") val requesterType: String? = null,
+    @SerialName("reason") val reason: String? = null,
+    @SerialName("requested_zone_ids") val requestedZoneIds: List<JsonElement>? = null,
+    @SerialName("requested_zones") val requestedZones: List<JsonElement>? = null,
+    @SerialName("current_zone_ids") val currentZoneIds: List<JsonElement>? = null,
+    @SerialName("current_zones") val currentZones: List<JsonElement>? = null,
+    @SerialName("submitted_at") val submittedAt: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("payload") val payload: JsonObject? = null,
+    @SerialName("metadata") val metadata: JsonObject? = null,
+    @SerialName("details") val details: JsonObject? = null
 ) {
     // Primary image first (shown as "front"), the next one as "back".
     private val orderedImages: List<LicenceImageDto>
         get() = licenceImages.orEmpty().sortedByDescending { it.isPrimary == true }
 
+    private val isZoneUpdate: Boolean get() = entityType?.lowercase() == "zone_update"
+
+    private val nested: List<JsonObject> get() = listOfNotNull(payload, metadata, details)
+
+    private fun nestedArray(vararg keys: String): List<JsonElement>? =
+        nested.firstNotNullOfOrNull { obj -> keys.firstNotNullOfOrNull { (obj[it] as? JsonArray)?.toList() } }
+
+    private fun nestedString(vararg keys: String): String? =
+        nested.firstNotNullOfOrNull { obj -> keys.firstNotNullOfOrNull { (obj[it] as? JsonPrimitive)?.contentOrNull } }
+
     fun toPendingUser(defaultType: UserType = UserType.BUYER): PendingUser {
-        val resolvedRole = entityType ?: role ?: userType ?: type
+        // For a zone update, entity_type describes the request, not who sent it.
+        val resolvedRole = if (isZoneUpdate) requesterType ?: role ?: userType ?: type
+            else entityType ?: role ?: userType ?: type
+        val requested = if (isZoneUpdate) {
+            requestedZoneIds ?: requestedZones ?: zoneIds
+                ?: nestedArray("requested_zone_ids", "requested_zones", "zone_ids", "zones")
+        } else null
+        val current = if (isZoneUpdate) {
+            currentZoneIds ?: currentZones ?: nestedArray("current_zone_ids", "current_zones", "old_zone_ids")
+        } else null
         val ut = when (resolvedRole?.lowercase()) {
             "supplier", "seller", "agent", "drug_seller_agent" -> UserType.SELLER
             "pharmacy", "buyer", "pharmacist" -> UserType.BUYER
@@ -72,9 +109,28 @@ data class PendingUserDto(
             licenceBackUrl = orderedImages.getOrNull(1)?.source() ?: licenceBackRaw.toLicenceUrl(),
             minOrderValue = minOrderValue.rawStringOrNull(),
             minOrderQty = minOrderQty.rawStringOrNull(),
-            additionalZoneIds = zoneIds?.map { it.rawStringOrNull() ?: "" } ?: emptyList()
+            additionalZoneIds = if (isZoneUpdate) emptyList() else zoneIds?.map { it.rawStringOrNull() ?: "" } ?: emptyList(),
+            isZoneUpdate = isZoneUpdate,
+            zoneUpdateReason = if (isZoneUpdate) reason ?: nestedString("reason", "notes") else null,
+            requestedZoneIds = requested.orEmpty().mapNotNull { it.zoneId() },
+            currentZoneIds = current.orEmpty().mapNotNull { it.zoneId() },
+            serverZoneNames = (requested.orEmpty() + current.orEmpty()).mapNotNull { it.zoneIdToName() }.toMap(),
+            submittedAt = submittedAt ?: createdAt
         )
     }
+}
+
+// A zone may arrive as a bare id (3 / "3") or an object ({"id": 3, "name": "Nasr City"}).
+private fun JsonElement.zoneId(): String? = when (this) {
+    is JsonObject -> this["id"]?.rawStringOrNull()
+    else -> rawStringOrNull()
+}?.takeIf { it.isNotBlank() }
+
+private fun JsonElement.zoneIdToName(): Pair<String, String>? {
+    val obj = this as? JsonObject ?: return null
+    val id = zoneId() ?: return null
+    val name = (obj["name"] as? JsonPrimitive)?.contentOrNull ?: return null
+    return id to name
 }
 
 @Serializable

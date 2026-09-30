@@ -13,5 +13,9 @@ data class SupplierCatalogItem(
     val publicPrice: Double,
     val pharmacistPrice: Double,
     val discountPct: Double,
-    val effectivePrice: Double
+    val effectivePrice: Double,
+    // The backend row behind this item. [id] is supplierId_drugId (the UI/cart key), so two
+    // inventory rows for the same supplier+drug share an id — these tell them apart in diagnostics.
+    val inventoryId: String = "",
+    val lastUpdated: String = ""
 )

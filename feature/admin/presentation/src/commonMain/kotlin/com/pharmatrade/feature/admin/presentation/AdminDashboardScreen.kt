@@ -28,6 +28,8 @@ import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.core.common.util.formatTodayLabel
 import com.pharmatrade.core.ui.components.EmptyState
+import com.pharmatrade.core.ui.components.ErrorScreen
+import com.pharmatrade.core.ui.components.rememberToast
 import com.pharmatrade.core.ui.components.ZoomableImageDialog
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.feature.admin.domain.model.PendingUser
@@ -35,7 +37,7 @@ import com.pharmatrade.feature.admin.domain.model.PendingUser
 // ── Destinations ─────────────────────────────────────────────────────────────
 
 private enum class AdminDest { HOME, REQUESTS, ANALYTICS, PROFILE }
-private enum class RequestsTab { PHARMACIES, SUPPLIERS }
+private enum class RequestsTab { PHARMACIES, SUPPLIERS, ZONE_UPDATES }
 
 // ── Root screen ───────────────────────────────────────────────────────────────
 
@@ -49,6 +51,7 @@ fun AdminDashboardScreen(
     profileContent: @Composable () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val analyticsState by analyticsViewModel.uiState.collectAsStateWithLifecycle()
     val strings = LocalStrings.current
     val snackbarHostState = remember { SnackbarHostState() }
     var dest by remember { mutableStateOf(AdminDest.HOME) }
@@ -60,8 +63,26 @@ fun AdminDashboardScreen(
             viewModel.clearSnackbar()
         }
     }
+    // Approve/reject/load failures on the Pharmacies/Suppliers tabs. Without this the error was
+    // stored but never displayed — a failed reject just closed the dialog and left the card.
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it, withDismissAction = true, duration = SnackbarDuration.Long)
+            viewModel.clearError()
+        }
+    }
 
-    val totalPending = uiState.pendingPharmacies.size + uiState.pendingSuppliers.size
+    // Collected here at the root (not in a tab) so the approve toast still shows if the admin
+    // switched tabs before the server answered.
+    val showToast = rememberToast()
+    LaunchedEffect(analyticsState.toastMessage) {
+        analyticsState.toastMessage?.let {
+            showToast(it)
+            analyticsViewModel.clearToast()
+        }
+    }
+
+    val totalPending = uiState.pendingPharmacies.size + uiState.pendingSuppliers.size + analyticsState.zoneUpdates.size
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -88,7 +109,10 @@ fun AdminDashboardScreen(
                 )
                 NavigationBarItem(
                     selected = dest == AdminDest.REQUESTS,
-                    onClick = { dest = AdminDest.REQUESTS },
+                    onClick = {
+                        dest = AdminDest.REQUESTS
+                        analyticsViewModel.refreshZoneUpdates()
+                    },
                     icon = {
                         if (totalPending > 0) {
                             BadgedBox(badge = { Badge { Text("$totalPending") } }) {
@@ -143,12 +167,16 @@ fun AdminDashboardScreen(
                 AdminDest.REQUESTS -> RequestsContent(
                     pendingPharmacies = uiState.pendingPharmacies,
                     pendingSuppliers = uiState.pendingSuppliers,
+                    zoneUpdateCount = analyticsState.zoneUpdates.size,
                     isLoading = uiState.isLoading,
                     selectedTab = requestsTab,
                     onTabSelected = { requestsTab = it },
                     onApprove = { viewModel.approveUser(it) },
                     onReject = { user, reason -> viewModel.rejectUser(user, reason) },
-                    onRefresh = viewModel::refresh
+                    onRefresh = viewModel::refresh,
+                    zoneUpdatesContent = {
+                        ZoneUpdatesContent(viewModel = analyticsViewModel, snackbarHostState = snackbarHostState)
+                    }
                 )
                 AdminDest.ANALYTICS -> AnalyticsContent(
                     viewModel = analyticsViewModel,
@@ -211,17 +239,19 @@ private fun AdminTopBar(
 private fun RequestsContent(
     pendingPharmacies: List<PendingUser>,
     pendingSuppliers: List<PendingUser>,
+    zoneUpdateCount: Int,
     isLoading: Boolean,
     selectedTab: RequestsTab,
     onTabSelected: (RequestsTab) -> Unit,
     onApprove: (PendingUser) -> Unit,
     onReject: (PendingUser, String) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    zoneUpdatesContent: @Composable () -> Unit
 ) {
     val strings = LocalStrings.current
     Column(modifier = Modifier.fillMaxSize()) {
         PrimaryTabRow(
-            selectedTabIndex = if (selectedTab == RequestsTab.PHARMACIES) 0 else 1,
+            selectedTabIndex = selectedTab.ordinal,
             containerColor = SurfaceWhite,
             contentColor = PrimaryBlue
         ) {
@@ -271,6 +301,29 @@ private fun RequestsContent(
                     }
                 }
             )
+            Tab(
+                selected = selectedTab == RequestsTab.ZONE_UPDATES,
+                onClick = { onTabSelected(RequestsTab.ZONE_UPDATES) },
+                text = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(strings.adZoneUpdatesTab, maxLines = 1)
+                        if (zoneUpdateCount > 0) {
+                            Surface(shape = CircleShape, color = SecondaryGreen) {
+                                Text(
+                                    text = "$zoneUpdateCount",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            )
         }
         when (selectedTab) {
             RequestsTab.PHARMACIES -> PendingListContent(
@@ -289,6 +342,71 @@ private fun RequestsContent(
                 onReject = onReject,
                 onRefresh = onRefresh
             )
+            RequestsTab.ZONE_UPDATES -> zoneUpdatesContent()
+        }
+    }
+}
+
+// ── Zone update requests (entity_type=zone_update) ────────────────────────────
+// Served by the unified registration-requests API, so approve/decline go through
+// AnalyticsViewModel (POST admin/registration-requests/{id}/approve | decline), not the
+// per-type pharmacies/suppliers endpoints the other two tabs use.
+
+@Composable
+private fun ZoneUpdatesContent(
+    viewModel: AnalyticsViewModel,
+    snackbarHostState: SnackbarHostState
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val strings = LocalStrings.current
+
+    LaunchedEffect(uiState.snackbarMessage) {
+        uiState.snackbarMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearSnackbar()
+        }
+    }
+    // Approve/decline failures land in the shared error field.
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
+
+    when {
+        uiState.isLoadingZoneUpdates && uiState.zoneUpdates.isEmpty() ->
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = PrimaryBlue)
+            }
+        uiState.zoneUpdatesError != null && uiState.zoneUpdates.isEmpty() ->
+            ErrorScreen(message = uiState.zoneUpdatesError!!, onRetry = viewModel::refreshZoneUpdates)
+        uiState.zoneUpdates.isEmpty() ->
+            EmptyState(
+                title = strings.adAllClearTitle,
+                message = strings.aaNoPendingRequestsMessage,
+                icon = Icons.Filled.CheckCircle,
+                action = {
+                    OutlinedButton(onClick = viewModel::refreshZoneUpdates) {
+                        Icon(Icons.Filled.Refresh, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(strings.adRefresh)
+                    }
+                }
+            )
+        else -> LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(uiState.zoneUpdates, key = { it.id }) { request ->
+                AnalyticsPendingCard(
+                    user = request,
+                    zoneNames = uiState.zoneNames,
+                    onApprove = { notes -> viewModel.approveRequest(request.id, notes) },
+                    onDecline = { reason -> viewModel.declineRequest(request.id, reason) }
+                )
+            }
+            item { Spacer(Modifier.height(8.dp)) }
         }
     }
 }
@@ -690,6 +808,8 @@ private fun PendingUserCard(
     val strings = LocalStrings.current
     var showRejectDialog by remember { mutableStateOf(false) }
     var rejectReason by remember { mutableStateOf("") }
+    val reasonLength = rejectReason.trim().length
+    val isReasonValid = reasonLength >= MIN_DECLINE_REASON_LENGTH
 
     if (showRejectDialog) {
         AlertDialog(
@@ -711,27 +831,32 @@ private fun PendingUserCard(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
                         minLines = 3,
-                        isError = rejectReason.isEmpty(),
+                        isError = !isReasonValid,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = ErrorRed,
                             focusedLabelColor = ErrorRed
                         )
                     )
-                    if (rejectReason.isEmpty()) {
-                        Text(strings.adReasonRequiredError, style = MaterialTheme.typography.labelSmall, color = ErrorRed)
+                    if (!isReasonValid) {
+                        Text(
+                            if (reasonLength == 0) strings.adReasonRequiredError
+                            else strings.adReasonMinLengthError(MIN_DECLINE_REASON_LENGTH, reasonLength),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = ErrorRed
+                        )
                     }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        if (rejectReason.isNotBlank()) {
+                        if (isReasonValid) {
                             showRejectDialog = false
-                            onReject(rejectReason)
+                            onReject(rejectReason.trim())
                             rejectReason = ""
                         }
                     },
-                    enabled = rejectReason.isNotBlank(),
+                    enabled = isReasonValid,
                     colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
                 ) { Text(strings.adReject) }
             },

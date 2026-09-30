@@ -8,7 +8,10 @@ import android.util.Log
 import coil3.map.Mapper
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.Options
+import com.google.firebase.crashlytics.CustomKeysAndValues
 import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.pharmatrade.core.common.log.CrashReportSink
+import com.pharmatrade.core.common.log.CrashReporter
 import com.google.firebase.messaging.FirebaseMessaging
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.reminder.UploadReminderStore
@@ -85,6 +88,16 @@ class PharmaTradeApp : Application() {
     // reports are anonymous and much harder to correlate with a specific user's support ticket.
     private fun setupCrashlyticsUserTracking() {
         val crashlytics = FirebaseCrashlytics.getInstance()
+        // Shared-code diagnostics (e.g. catalog pagination duplicates) report through this.
+        CrashReporter.sink = object : CrashReportSink {
+            override fun log(message: String) = crashlytics.log(message)
+            override fun setKey(key: String, value: String) = crashlytics.setCustomKey(key, value)
+            override fun recordNonFatal(error: Throwable, keys: Map<String, String>) {
+                crashlytics.recordException(error, CustomKeysAndValues.Builder().apply {
+                    keys.forEach { (k, v) -> putString(k, v) }
+                }.build())
+            }
+        }
         SessionManager.currentUser
             .onEach { user ->
                 crashlytics.setUserId(user?.id.orEmpty())

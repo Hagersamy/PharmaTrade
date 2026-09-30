@@ -2,6 +2,7 @@ package com.pharmatrade.feature.admin.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -138,7 +139,10 @@ fun AnalyticsContent(
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 EntityFilter.entries.forEach { filter ->
                     FilterChip(
                         selected = uiState.filter == filter,
@@ -195,6 +199,7 @@ fun AnalyticsContent(
             items(uiState.requests, key = { it.id }) { request ->
                 AnalyticsPendingCard(
                     user = request,
+                    zoneNames = uiState.zoneNames,
                     onApprove = { notes -> viewModel.approveRequest(request.id, notes) },
                     onDecline = { reason -> viewModel.declineRequest(request.id, reason) }
                 )
@@ -238,13 +243,18 @@ private fun AnalyticsStatCard(
 
 // ── Analytics pending card ────────────────────────────────────────────────────
 
+// Also used by the Requests screen's "Zone updates" tab (AdminDashboardScreen).
 @Composable
-private fun AnalyticsPendingCard(
+internal fun AnalyticsPendingCard(
     user: PendingUser,
+    zoneNames: Map<String, String>,
     onApprove: (notes: String) -> Unit,
     onDecline: (reason: String) -> Unit
 ) {
     val strings = LocalStrings.current
+    fun zoneList(ids: List<String>) = ids.joinToString(", ") { id ->
+        user.serverZoneNames[id] ?: zoneNames[id] ?: "#$id"
+    }
     var showApproveDialog by remember { mutableStateOf(false) }
     var showDeclineDialog by remember { mutableStateOf(false) }
 
@@ -267,7 +277,8 @@ private fun AnalyticsPendingCard(
     val isPharmacy = user.userType == UserType.BUYER
     val accentColor = if (isPharmacy) PrimaryBlue else WarningAmber
     val accentBg    = if (isPharmacy) PrimaryBlueContainer else WarningAmberContainer
-    val typeLabel   = if (isPharmacy) strings.commonPharmacy else strings.commonSupplier
+    val roleLabel   = if (isPharmacy) strings.commonPharmacy else strings.commonSupplier
+    val typeLabel   = if (user.isZoneUpdate) "${strings.aaZoneUpdateBadge} · $roleLabel" else roleLabel
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -310,7 +321,28 @@ private fun AnalyticsPendingCard(
             Divider(color = DividerGray)
             Spacer(Modifier.height(10.dp))
 
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (user.isZoneUpdate) {
+                // Existing account asking to change its zones — the useful detail is the change
+                // itself, not the registration info (licence, images, min order).
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (user.phone.isNotBlank()) AnalyticsInfoRow(Icons.Filled.Phone, strings.profilePhone, user.phone)
+                    if (user.email.isNotBlank()) AnalyticsInfoRow(Icons.Filled.Email, strings.profileEmail, user.email)
+                    if (user.currentZoneIds.isNotEmpty()) {
+                        AnalyticsInfoRow(Icons.Filled.LocationCity, strings.aaCurrentZonesLabel, zoneList(user.currentZoneIds))
+                    }
+                    AnalyticsInfoRow(
+                        Icons.Filled.Map,
+                        strings.aaRequestedZonesLabel,
+                        zoneList(user.requestedZoneIds).ifBlank { "—" }
+                    )
+                    user.zoneUpdateReason?.takeIf { it.isNotBlank() }?.let {
+                        AnalyticsInfoRow(Icons.Filled.Notes, strings.aaZoneReasonLabel, it)
+                    }
+                    user.submittedAt?.takeIf { it.isNotBlank() }?.let {
+                        AnalyticsInfoRow(Icons.Filled.Schedule, strings.aaSubmittedLabel, it.take(16).replace('T', ' '))
+                    }
+                }
+            } else Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 AnalyticsInfoRow(Icons.Filled.Phone, strings.profilePhone, user.phone)
                 if (user.email.isNotBlank()) AnalyticsInfoRow(Icons.Filled.Email, strings.profileEmail, user.email)
                 user.licenceNumber?.takeIf { it.isNotBlank() }?.let { AnalyticsInfoRow(Icons.Filled.Badge, strings.aaLicenceLabel, it) }
@@ -323,7 +355,7 @@ private fun AnalyticsPendingCard(
             }
 
             // Licence images
-            if (!user.licenceFrontUrl.isNullOrBlank() || !user.licenceBackUrl.isNullOrBlank()) {
+            if (!user.isZoneUpdate && (!user.licenceFrontUrl.isNullOrBlank() || !user.licenceBackUrl.isNullOrBlank())) {
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     AnalyticsLicenceImage(url = user.licenceFrontUrl, label = strings.adFrontLabel, modifier = Modifier.weight(1f))
@@ -347,7 +379,9 @@ private fun AnalyticsPendingCard(
                     Text(strings.aaDecline, fontWeight = FontWeight.SemiBold)
                 }
                 Button(
-                    onClick = { showApproveDialog = true },
+                    // Zone updates approve straight away — the optional-notes dialog is only for
+                    // new registrations.
+                    onClick = { if (user.isZoneUpdate) onApprove("") else showApproveDialog = true },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = SecondaryGreen)
@@ -420,7 +454,8 @@ private fun DeclineDialog(
 ) {
     val strings = LocalStrings.current
     var reason by remember { mutableStateOf("") }
-    val isValid = reason.isNotBlank()
+    val reasonLength = reason.trim().length
+    val isValid = reasonLength >= MIN_DECLINE_REASON_LENGTH
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -441,20 +476,25 @@ private fun DeclineDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
                     minLines = 3,
-                    isError = reason.isEmpty(),
+                    isError = !isValid,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = ErrorRed,
                         focusedLabelColor = ErrorRed
                     )
                 )
                 if (!isValid) {
-                    Text(strings.adReasonRequiredError, style = MaterialTheme.typography.labelSmall, color = ErrorRed)
+                    Text(
+                        if (reasonLength == 0) strings.adReasonRequiredError
+                        else strings.adReasonMinLengthError(MIN_DECLINE_REASON_LENGTH, reasonLength),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ErrorRed
+                    )
                 }
             }
         },
         confirmButton = {
             Button(
-                onClick = { if (isValid) onConfirm(reason) },
+                onClick = { if (isValid) onConfirm(reason.trim()) },
                 enabled = isValid,
                 colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
             ) { Text(strings.aaDecline) }
@@ -517,4 +557,5 @@ private fun EntityFilter.localizedLabel(strings: Strings): String = when (this) 
     EntityFilter.ALL      -> strings.tabAll
     EntityFilter.PHARMACY -> strings.adPharmaciesTab
     EntityFilter.SUPPLIER -> strings.adSuppliersTab
+    EntityFilter.ZONE_UPDATE -> strings.adZoneUpdatesTab
 }

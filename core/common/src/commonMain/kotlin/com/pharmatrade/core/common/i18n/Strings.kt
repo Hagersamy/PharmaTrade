@@ -501,6 +501,7 @@ interface Strings {
     val adReasonRequiredLabel: String
     val adReasonPlaceholder: String
     val adReasonRequiredError: String
+    fun adReasonMinLengthError(min: Int, current: Int): String
     val adReject: String
     val adApprove: String
     val adFrontLabel: String
@@ -530,6 +531,13 @@ interface Strings {
     val aaZoneLabel: String
     val aaMinOrderLabel: String
     val aaExtraZonesLabel: String
+    val adZoneUpdatesTab: String
+    val aaZoneUpdateBadge: String
+    val aaCurrentZonesLabel: String
+    val aaRequestedZonesLabel: String
+    val aaZoneReasonLabel: String
+    val aaSubmittedLabel: String
+    val aaRequestApprovedToast: String
     val aaDecline: String
     fun aaApproveDialogTitle(name: String): String
     val aaApproveDialogDesc: String

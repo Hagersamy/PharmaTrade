@@ -285,7 +285,8 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                                 getStatsUseCase = container.getRegistrationStatsUseCase,
                                 getRequestsUseCase = container.getRegistrationRequestsUseCase,
                                 approveRequestUseCase = container.approveRequestUseCase,
-                                declineRequestUseCase = container.declineRequestUseCase
+                                declineRequestUseCase = container.declineRequestUseCase,
+                                getZones = container.zoneRepository::getZones
                             )
                         }
                     }
