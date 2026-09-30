@@ -69,6 +69,19 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
 firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
+# Compose Multiplatform artifacts (same coordinates the `compose.*` accessors resolve to), referenced
+# from the :build-logic convention plugins where those accessors aren't available.
+compose-mp-runtime = { group = "org.jetbrains.compose.runtime", name = "runtime", version.ref = "composeMultiplatform" }
+compose-mp-foundation = { group = "org.jetbrains.compose.foundation", name = "foundation", version.ref = "composeMultiplatform" }
+compose-mp-material3 = { group = "org.jetbrains.compose.material3", name = "material3", version.ref = "composeMultiplatform" }
+compose-mp-material-icons-extended = { group = "org.jetbrains.compose.material", name = "material-icons-extended", version.ref = "composeMultiplatform" }
+compose-mp-ui = { group = "org.jetbrains.compose.ui", name = "ui", version.ref = "composeMultiplatform" }
+
+# Gradle plugins, compileOnly on the :build-logic classpath
+android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
+kotlin-gradlePlugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
+compose-gradlePlugin = { group = "org.jetbrains.compose", name = "compose-gradle-plugin", version.ref = "composeMultiplatform" }
+compose-compiler-gradlePlugin = { group = "org.jetbrains.kotlin", name = "compose-compiler-gradle-plugin", version.ref = "kotlin" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -81,3 +94,10 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 google-firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
+
+# Convention plugins from :build-logic
+pharmatrade-kmp-library = { id = "pharmatrade.kmp.library" }
+pharmatrade-kmp-compose = { id = "pharmatrade.kmp.compose" }
+pharmatrade-feature-domain = { id = "pharmatrade.feature.domain" }
+pharmatrade-feature-data = { id = "pharmatrade.feature.data" }
+pharmatrade-feature-presentation = { id = "pharmatrade.feature.presentation" }

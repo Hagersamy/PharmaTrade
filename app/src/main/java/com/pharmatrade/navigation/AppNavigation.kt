@@ -16,9 +16,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -49,7 +46,8 @@ import com.pharmatrade.feature.catalog.presentation.drugs.SellerDrugsScreen
 import com.pharmatrade.feature.catalog.presentation.drugs.SellerDrugsViewModel
 import com.pharmatrade.feature.home.HomeScreen
 import com.pharmatrade.feature.home.HomeTab
-import com.pharmatrade.feature.home.ProfileViewModel
+import com.pharmatrade.feature.profile.presentation.ProfileScreen
+import com.pharmatrade.feature.profile.presentation.ProfileViewModel
 import com.pharmatrade.feature.notification.presentation.NotificationViewModel
 import com.pharmatrade.feature.notification.presentation.NotificationsScreen
 import com.pharmatrade.push.NotificationDeepLink
@@ -308,27 +306,26 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         }
                     }
                 )
-                val adminLifecycleOwner = LocalLifecycleOwner.current
-                DisposableEffect(adminLifecycleOwner) {
-                    val observer = LifecycleEventObserver { _, event ->
-                        if (event == Lifecycle.Event.ON_RESUME) notificationViewModel.refreshUnreadCount()
-                    }
-                    adminLifecycleOwner.lifecycle.addObserver(observer)
-                    onDispose { adminLifecycleOwner.lifecycle.removeObserver(observer) }
-                }
+                RefreshOnResume { notificationViewModel.refreshUnreadCount() }
                 AdminDashboardScreen(
                     viewModel = vm,
                     analyticsViewModel = analyticsVm,
-                    profileViewModel = adminProfileVm,
                     unreadNotificationCount = notificationState.unreadCount,
                     onNavigateToNotifications = { navigator.navigate(NavKeys.Notifications) },
-                    onLogout = {
-                        coroutineScope.launch { container.logoutUseCase() }
-                        // Reset the Home tab-visit history so the next login always lands back on
-                        // the Home tab, instead of resuming whatever tab (e.g. Profile) was open
-                        // when this session logged out.
-                        selectHomeTab(HomeTab.HOME)
-                        navigator.navigate(NavKeys.Login, popUpTo = Navigator.PopUpTo(target = null))
+                    profileContent = {
+                        val adminUser by SessionManager.currentUser.collectAsState()
+                        ProfileScreen(
+                            viewModel = adminProfileVm,
+                            user = adminUser,
+                            onLogout = {
+                                coroutineScope.launch { container.logoutUseCase() }
+                                // Reset the Home tab-visit history so the next login always lands back on
+                                // the Home tab, instead of resuming whatever tab (e.g. Profile) was open
+                                // when this session logged out.
+                                selectHomeTab(HomeTab.HOME)
+                                navigator.navigate(NavKeys.Login, popUpTo = Navigator.PopUpTo(target = null))
+                            }
+                        )
                     }
                 )
             }
@@ -360,7 +357,6 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                             PharmacyHomeViewModel(
                                 getPharmacyOrdersUseCase = container.getPharmacyOrdersUseCase,
                                 getAllSuppliersDrugsUseCase = container.getAllSuppliersDrugsUseCase,
-                                getDrugsUseCase = container.getDrugsUseCase,
                                 getOrderDetailUseCase = container.getOrderDetailUseCase,
                                 createOrderUseCase = container.createOrderUseCase,
                                 addOrderItemUseCase = container.addOrderItemUseCase,
@@ -401,19 +397,12 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                 // and the buyer's order list showing stale data — e.g. an order just reviewed and
                 // allocated wouldn't show up in the Orders tab until Home was fully recreated,
                 // looking to the buyer like the order had been deleted.
-                val lifecycleOwner = LocalLifecycleOwner.current
-                DisposableEffect(lifecycleOwner) {
-                    val observer = LifecycleEventObserver { _, event ->
-                        if (event == Lifecycle.Event.ON_RESUME) {
-                            sellerVm?.loadData()
-                            orderListVm?.loadOrders()
-                            pharmacyHomeVm?.loadActiveOrdersCount()
-                            notificationViewModel.refreshUnreadCount()
-                            notificationViewModel.refreshList()
-                        }
-                    }
-                    lifecycleOwner.lifecycle.addObserver(observer)
-                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                RefreshOnResume {
+                    sellerVm?.loadData()
+                    orderListVm?.loadOrders()
+                    pharmacyHomeVm?.loadActiveOrdersCount()
+                    notificationViewModel.refreshUnreadCount()
+                    notificationViewModel.refreshList()
                 }
                 HomeScreen(
                     sellerDashboardViewModel = sellerVm,

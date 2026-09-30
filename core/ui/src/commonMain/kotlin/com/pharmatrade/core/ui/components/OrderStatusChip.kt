@@ -1,0 +1,54 @@
+package com.pharmatrade.core.ui.components
+
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.pharmatrade.core.common.i18n.LocalStrings
+import com.pharmatrade.core.ui.theme.ErrorRed
+import com.pharmatrade.core.ui.theme.ErrorRedContainer
+import com.pharmatrade.core.ui.theme.InTransitTeal
+import com.pharmatrade.core.ui.theme.InTransitTealContainer
+import com.pharmatrade.core.ui.theme.PrimaryBlue
+import com.pharmatrade.core.ui.theme.PrimaryBlueContainer
+import com.pharmatrade.core.ui.theme.SecondaryGreen
+import com.pharmatrade.core.ui.theme.SecondaryGreenContainer
+import com.pharmatrade.core.ui.theme.SecondaryGreenDark
+import com.pharmatrade.core.ui.theme.WarningAmber
+import com.pharmatrade.core.ui.theme.WarningAmberContainer
+
+// Maps a raw backend order status string to a (label, textColor, backgroundColor) triple.
+@Composable
+fun orderStatusLook(status: String): Triple<String, Color, Color> {
+    val strings = LocalStrings.current
+    return when (status.lowercase()) {
+        "draft" -> Triple(strings.statusDraft, WarningAmber, WarningAmberContainer)
+        "pending_supplier_confirmation" -> Triple(strings.statusPending, PrimaryBlue, PrimaryBlueContainer)
+        "confirmed" -> Triple(strings.statusConfirmed, SecondaryGreenDark, SecondaryGreenContainer)
+        "shipped" -> Triple(strings.statusShipped, InTransitTeal, InTransitTealContainer)
+        "delivered" -> Triple(strings.statusDelivered, SecondaryGreen, SecondaryGreenContainer)
+        "partially_available" -> Triple(strings.statusShortage, ErrorRed, ErrorRedContainer)
+        "cancelled" -> Triple(strings.statusCancelled, ErrorRed, ErrorRedContainer)
+        else -> Triple(status.replaceFirstChar { it.uppercase() }, WarningAmber, WarningAmberContainer)
+    }
+}
+
+@Composable
+fun OrderStatusChip(status: String, modifier: Modifier = Modifier) {
+    val (label, color, bg) = orderStatusLook(status)
+    Surface(shape = RoundedCornerShape(20.dp), color = bg, modifier = modifier) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}

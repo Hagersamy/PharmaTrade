@@ -21,20 +21,35 @@ Built with **Kotlin Multiplatform** and **Jetpack Compose / Compose Multiplatfor
 
 ```
 PharamaTrade/
-├── app/          Android application (entry point, DI, navigation, Firebase setup)
-├── shared/       Kotlin Multiplatform module: shared logic and UI
-│   └── src/
-│       ├── commonMain/   core (network, session, i18n, UI theme) + features
-│       ├── androidMain/  Android-specific implementations
-│       ├── desktopMain/  Desktop (JVM) implementations
-│       └── iosMain/      iOS implementations
-├── desktopApp/   Desktop (JVM) launcher
-└── iosApp/       iOS app shell (see iosApp/README.md)
+├── app/              Android application (entry point, DI, navigation, Firebase setup)
+├── desktopApp/       Desktop (JVM) launcher
+├── iosApp/           iOS app shell (see iosApp/README.md)
+├── build-logic/      Gradle convention plugins (pharmatrade.kmp.*, pharmatrade.feature.*)
+├── shared/           Umbrella module: re-exports all modules to the apps / iOS framework,
+│                     and hosts the Home shell that combines screens from several features
+├── core/
+│   ├── common/       Result, shared models, i18n, session, utils, push, reminders, file IO
+│   ├── network/      Ktor HttpClient (per-platform engine), ApiResponse, shared DTOs
+│   └── ui/           Theme + reusable composables
+└── feature/<name>/
+    ├── domain/       Models, repository contracts, use cases
+    ├── data/         DTOs, APIs, repository implementations
+    └── presentation/ Compose screens + ViewModels
 ```
 
-Each feature in `shared/src/commonMain/kotlin/com/pharmatrade/feature/` follows a clean architecture layout of **data → domain → presentation**.
+Every module is Kotlin Multiplatform (Android, desktop, iOS) with its own `androidMain` /
+`desktopMain` / `iosMain` source sets where needed.
 
-Features: `auth`, `admin`, `home`, `pharmacyorder`, `supplierorder`, `seller`, `drugs`, `catalog`, `cart`, `search`, `profile` and `notification`.
+Features: `auth`, `admin`, `pharmacyorder`, `supplierorder`, `seller`, `drugs` (domain + data only),
+`catalog`, `cart`, `search` (presentation only), `profile` and `notification`.
+
+Dependency rules:
+- `domain` → `:core:common`
+- `data` → its own `domain`, `:core:common`, `:core:network`
+- `presentation` → its own `domain`, `:core:common`, `:core:ui`
+- A feature may depend on **another feature's `domain`** (e.g. `seller:presentation` → `drugs:domain`),
+  never on another feature's `data` or `presentation`. Screens that combine several features are
+  composed in `:shared` (Home) or `:app` (e.g. the admin Profile tab is passed in as a slot).
 
 ## Tech stack
 

@@ -21,6 +21,8 @@ import com.pharmatrade.feature.pharmacyorder.presentation.home.PharmacyHomeScree
 import com.pharmatrade.feature.pharmacyorder.presentation.home.PharmacyHomeViewModel
 import com.pharmatrade.feature.pharmacyorder.presentation.orderlist.OrderListScreen
 import com.pharmatrade.feature.pharmacyorder.presentation.orderlist.OrderListViewModel
+import com.pharmatrade.feature.profile.presentation.ProfileScreen
+import com.pharmatrade.feature.profile.presentation.ProfileViewModel
 import com.pharmatrade.feature.seller.presentation.dashboard.SellerDashboardScreen
 import com.pharmatrade.feature.seller.presentation.dashboard.SellerDashboardViewModel
 import com.pharmatrade.feature.supplierorder.presentation.orderlist.SellerOrdersScreen

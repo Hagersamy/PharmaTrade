@@ -1,4 +1,6 @@
-﻿plugins {
+﻿import java.util.Properties
+
+plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
@@ -39,8 +41,23 @@ android {
         }
     }
 
+    // Release signing credentials live in the git-ignored keystore.properties at the project root.
+    val keystorePropsFile = rootProject.file("keystore.properties")
+    signingConfigs {
+        if (keystorePropsFile.exists()) {
+            val keystoreProps = Properties().apply { keystorePropsFile.inputStream().use { load(it) } }
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

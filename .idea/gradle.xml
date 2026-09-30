@@ -4,13 +4,73 @@
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
+        <compositeConfiguration>
+          <compositeBuild compositeDefinitionSource="SCRIPT">
+            <builds>
+              <build path="$PROJECT_DIR$/build-logic" name="build-logic">
+                <projects>
+                  <project path="$PROJECT_DIR$/build-logic" />
+                  <project path="$PROJECT_DIR$/build-logic/convention" />
+                </projects>
+              </build>
+            </builds>
+          </compositeBuild>
+        </compositeConfiguration>
         <option name="testRunner" value="CHOOSE_PER_TEST" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/build-logic" />
+            <option value="$PROJECT_DIR$/build-logic/convention" />
+            <option value="$PROJECT_DIR$/core" />
+            <option value="$PROJECT_DIR$/core/common" />
+            <option value="$PROJECT_DIR$/core/network" />
+            <option value="$PROJECT_DIR$/core/ui" />
             <option value="$PROJECT_DIR$/desktopApp" />
+            <option value="$PROJECT_DIR$/feature" />
+            <option value="$PROJECT_DIR$/feature/admin" />
+            <option value="$PROJECT_DIR$/feature/admin/data" />
+            <option value="$PROJECT_DIR$/feature/admin/domain" />
+            <option value="$PROJECT_DIR$/feature/admin/presentation" />
+            <option value="$PROJECT_DIR$/feature/auth" />
+            <option value="$PROJECT_DIR$/feature/auth/data" />
+            <option value="$PROJECT_DIR$/feature/auth/domain" />
+            <option value="$PROJECT_DIR$/feature/auth/presentation" />
+            <option value="$PROJECT_DIR$/feature/cart" />
+            <option value="$PROJECT_DIR$/feature/cart/data" />
+            <option value="$PROJECT_DIR$/feature/cart/domain" />
+            <option value="$PROJECT_DIR$/feature/cart/presentation" />
+            <option value="$PROJECT_DIR$/feature/catalog" />
+            <option value="$PROJECT_DIR$/feature/catalog/data" />
+            <option value="$PROJECT_DIR$/feature/catalog/domain" />
+            <option value="$PROJECT_DIR$/feature/catalog/presentation" />
+            <option value="$PROJECT_DIR$/feature/drugs" />
+            <option value="$PROJECT_DIR$/feature/drugs/data" />
+            <option value="$PROJECT_DIR$/feature/drugs/domain" />
+            <option value="$PROJECT_DIR$/feature/notification" />
+            <option value="$PROJECT_DIR$/feature/notification/data" />
+            <option value="$PROJECT_DIR$/feature/notification/domain" />
+            <option value="$PROJECT_DIR$/feature/notification/presentation" />
+            <option value="$PROJECT_DIR$/feature/pharmacyorder" />
+            <option value="$PROJECT_DIR$/feature/pharmacyorder/data" />
+            <option value="$PROJECT_DIR$/feature/pharmacyorder/domain" />
+            <option value="$PROJECT_DIR$/feature/pharmacyorder/presentation" />
+            <option value="$PROJECT_DIR$/feature/profile" />
+            <option value="$PROJECT_DIR$/feature/profile/data" />
+            <option value="$PROJECT_DIR$/feature/profile/domain" />
+            <option value="$PROJECT_DIR$/feature/profile/presentation" />
+            <option value="$PROJECT_DIR$/feature/search" />
+            <option value="$PROJECT_DIR$/feature/search/presentation" />
+            <option value="$PROJECT_DIR$/feature/seller" />
+            <option value="$PROJECT_DIR$/feature/seller/data" />
+            <option value="$PROJECT_DIR$/feature/seller/domain" />
+            <option value="$PROJECT_DIR$/feature/seller/presentation" />
+            <option value="$PROJECT_DIR$/feature/supplierorder" />
+            <option value="$PROJECT_DIR$/feature/supplierorder/data" />
+            <option value="$PROJECT_DIR$/feature/supplierorder/domain" />
+            <option value="$PROJECT_DIR$/feature/supplierorder/presentation" />
             <option value="$PROJECT_DIR$/shared" />
           </set>
         </option>
