@@ -50,7 +50,17 @@ data class SupplierOrderItem(
     val discountPct: Double,
     val lineTotal: Double,
     val status: String
-)
+) {
+    // What the confirm dialog starts from. Once the supplier has reported a shortage (and the
+    // pharmacy accepted it), quantity_confirmed holds the reduced amount the supplier can actually
+    // provide — confirming must use that, not the original request. A fresh, still-pending line has
+    // no meaningful quantity_confirmed yet (null or 0), so it falls back to quantity_requested.
+    val defaultConfirmQuantity: Int
+        get() = quantityConfirmed
+            ?.takeIf { !status.equals("pending", ignoreCase = true) }
+            ?.coerceIn(0, quantityRequested)
+            ?: quantityRequested
+}
 
 data class ConfirmItemInput(val orderItemId: String, val quantityConfirmed: Int)
 

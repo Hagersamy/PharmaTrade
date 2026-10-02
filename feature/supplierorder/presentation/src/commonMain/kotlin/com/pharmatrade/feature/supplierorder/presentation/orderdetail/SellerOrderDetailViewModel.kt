@@ -56,7 +56,7 @@ class SellerOrderDetailViewModel(
                     copy(
                         isLoading = false,
                         order = result.data,
-                        confirmQuantities = result.data.items.associate { it.id to it.quantityRequested.toString() },
+                        confirmQuantities = result.data.items.associate { it.id to it.defaultConfirmQuantity.toString() },
                         shortageQuantities = result.data.items.associate { it.id to it.quantityRequested.toString() }
                     )
                 }
@@ -79,7 +79,7 @@ class SellerOrderDetailViewModel(
     fun submitConfirm() {
         val order = _uiState.value.order ?: return
         val items = order.items.map { item ->
-            val qty = _uiState.value.confirmQuantities[item.id]?.toIntOrNull() ?: item.quantityRequested
+            val qty = _uiState.value.confirmQuantities[item.id]?.toIntOrNull() ?: item.defaultConfirmQuantity
             ConfirmItemInput(orderItemId = item.id, quantityConfirmed = qty)
         }
         viewModelScope.launch {

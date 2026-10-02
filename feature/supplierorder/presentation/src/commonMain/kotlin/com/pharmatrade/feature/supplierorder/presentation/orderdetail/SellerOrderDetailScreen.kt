@@ -281,7 +281,7 @@ private fun ConfirmOrderDialog(
                         Text(item.drugName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(4.dp))
                         OutlinedTextField(
-                            value = quantities[item.id] ?: item.quantityRequested.toString(),
+                            value = quantities[item.id] ?: item.defaultConfirmQuantity.toString(),
                             onValueChange = { onQuantityChange(item.id, it) },
                             label = { Text(strings.sellerOrderConfirmedQtyLabel(item.quantityRequested)) },
                             singleLine = true,
