@@ -203,7 +203,6 @@ object EnglishStrings : Strings {
     override fun orderShortageItemCount(count: Int) = "$count items"
     override val orderShortageSomeItems = "some items"
     override fun orderShortageReportedMessage(itemsText: String) = "Shortage reported — $itemsText could not be fulfilled."
-    override val orderCancelMissingItems = "Cancel missing items"
     override val orderAcceptShortage = "Accept shortage"
     override fun orderQuantityShort(quantity: Int) = "Short by $quantity"
     override val orderLineShort = "Short"
@@ -298,6 +297,8 @@ object EnglishStrings : Strings {
     override val oiQuantityLabel = "Quantity"
 
     override val regCreateAccount = "Create Account"
+    override val regTermsAgreementPrefix = "By creating an account, you agree to the "
+    override val regTermsOfUse = "Terms of Use"
     override val regIAmA = "I am a..."
     override val regAccountDetails = "Account Details"
     override val regFullName = "Full Name"

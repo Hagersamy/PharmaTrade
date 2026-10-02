@@ -2,6 +2,10 @@ package com.pharmatrade.feature.pharmacyorder.data.remote
 
 import com.pharmatrade.core.network.ApiClient
 import com.pharmatrade.core.network.FormFile
+import com.pharmatrade.core.network.logNetwork
+import io.ktor.client.plugins.ResponseException
+import io.ktor.client.statement.bodyAsText
+import kotlinx.serialization.encodeToString
 import com.pharmatrade.core.network.dto.ApiResponse
 import com.pharmatrade.feature.pharmacyorder.data.remote.dto.AddItemRequest
 import com.pharmatrade.feature.pharmacyorder.data.remote.dto.AllocateRequest
@@ -101,10 +105,18 @@ class PharmacyOrderApi(private val client: HttpClient = ApiClient.httpClient) {
         client.get("pharmacy/orders/$orderId").body()
 
     suspend fun resolveShortage(orderId: String, request: ResolveShortageRequest) {
-        client.post("pharmacy/orders/$orderId/resolve-shortage") {
-            contentType(ContentType.Application.Json)
-            setBody(request)
+        val path = "pharmacy/orders/$orderId/resolve-shortage"
+        logNetwork("[Shortage] >>> POST $path body=${ApiClient.json.encodeToString(request)}")
+        val response = try {
+            client.post(path) {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        } catch (e: ResponseException) {
+            logNetwork("[Shortage] <<< ${e.response.status} ${e.response.bodyAsText()}")
+            throw e
         }
+        logNetwork("[Shortage] <<< ${response.status} ${response.bodyAsText()}")
     }
 
     suspend fun cancelOrder(orderId: String) {
@@ -114,9 +126,17 @@ class PharmacyOrderApi(private val client: HttpClient = ApiClient.httpClient) {
     // For a plain "mark as delivered" (no shortage involved) the caller sends action="confirm"
     // with an empty shortage_report_ids.
     suspend fun confirmDelivery(orderId: String, request: ConfirmDeliveryRequest) {
-        client.post("pharmacy/orders/$orderId/confirm-delivery") {
-            contentType(ContentType.Application.Json)
-            setBody(request)
+        val path = "pharmacy/orders/$orderId/confirm-delivery"
+        logNetwork("[Shortage] >>> POST $path body=${ApiClient.json.encodeToString(request)}")
+        val response = try {
+            client.post(path) {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+        } catch (e: ResponseException) {
+            logNetwork("[Shortage] <<< ${e.response.status} ${e.response.bodyAsText()}")
+            throw e
         }
+        logNetwork("[Shortage] <<< ${response.status} ${response.bodyAsText()}")
     }
 }

@@ -136,4 +136,5 @@ private fun SupplierOrderTab.localizedLabel(strings: Strings): String = when (th
     SupplierOrderTab.CONFIRMED -> strings.statusConfirmed
     SupplierOrderTab.SHIPPED -> strings.statusShipped
     SupplierOrderTab.DELIVERED -> strings.statusDelivered
+    SupplierOrderTab.CANCELLED -> strings.statusCancelled
 }

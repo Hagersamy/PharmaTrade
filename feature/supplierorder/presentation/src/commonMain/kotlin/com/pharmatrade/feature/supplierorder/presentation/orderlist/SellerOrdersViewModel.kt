@@ -25,7 +25,8 @@ enum class SupplierOrderTab(val label: String, val apiStatus: String?) {
     SHORTAGE("Shortage", "partially_available"),
     CONFIRMED("Confirmed", "confirmed"),
     SHIPPED("Shipped", "shipped"),
-    DELIVERED("Delivered", "delivered")
+    DELIVERED("Delivered", "delivered"),
+    CANCELLED("Cancelled", "cancelled")
 }
 
 data class SellerOrdersUiState(

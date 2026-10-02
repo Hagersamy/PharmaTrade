@@ -393,7 +393,9 @@ fun PharmaTopBar(
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .height(56.dp)
-                .padding(horizontal = 16.dp),
+                // The back button's 48dp touch target already carries 12dp of space around the
+                // arrow, so only a 4dp edge inset is needed when it's present (Material spec).
+                .padding(start = if (onNavigateBack != null) 4.dp else 16.dp, end = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (onNavigateBack != null) {
@@ -404,7 +406,6 @@ fun PharmaTopBar(
                         tint = TopBarContent
                     )
                 }
-                Spacer(Modifier.width(4.dp))
             }
             Text(
                 text = title,

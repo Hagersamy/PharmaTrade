@@ -285,7 +285,7 @@ private fun ShortageBanner(
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onCancelMissingItems, enabled = !isSubmitting, modifier = Modifier.weight(1f)) {
-                Text(strings.orderCancelMissingItems, style = MaterialTheme.typography.labelMedium)
+                Text(strings.orderCancelOrder, style = MaterialTheme.typography.labelMedium)
             }
             Button(onClick = onAcceptShortage, enabled = !isSubmitting, modifier = Modifier.weight(1f)) {
                 Text(strings.orderAcceptShortage, style = MaterialTheme.typography.labelMedium)

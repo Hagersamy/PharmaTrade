@@ -216,7 +216,6 @@ interface Strings {
     fun orderShortageItemCount(count: Int): String
     val orderShortageSomeItems: String
     fun orderShortageReportedMessage(itemsText: String): String
-    val orderCancelMissingItems: String
     val orderAcceptShortage: String
     fun orderQuantityShort(quantity: Int): String
     val orderLineShort: String
@@ -315,6 +314,8 @@ interface Strings {
 
     // ── Register ────────────────────────────────────────────────────────────
     val regCreateAccount: String
+    val regTermsAgreementPrefix: String
+    val regTermsOfUse: String
     val regIAmA: String
     val regAccountDetails: String
     val regFullName: String

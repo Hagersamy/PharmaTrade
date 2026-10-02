@@ -44,7 +44,12 @@ fun SellerOrderDetailScreen(
         }
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+    // PharmaTopBar already applies statusBarsPadding(), so the Scaffold must only inset for the
+    // navigation bar — its default insets include the status bar too, doubling the top gap.
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets.navigationBars
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

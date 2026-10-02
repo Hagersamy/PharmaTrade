@@ -23,6 +23,10 @@ import kotlinx.serialization.json.Json
 // android.util.Log directly), so network activity can actually be inspected during debugging.
 internal expect val httpLogger: Logger
 
+// Writes through the same platform logger as the HTTP client (logcat tag "Ktor Client" on Android),
+// for call sites that want a focused summary line on top of the plugin's full dump.
+fun logNetwork(message: String) = httpLogger.log(message)
+
 object ApiClient {
 
     // Overridden at app startup from the platform's own build config (e.g. Android's

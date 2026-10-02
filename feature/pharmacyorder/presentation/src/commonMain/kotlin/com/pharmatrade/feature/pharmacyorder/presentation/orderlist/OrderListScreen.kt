@@ -127,7 +127,9 @@ private fun OrderRow(order: PharmacyOrderSummary, hasUnreadNotification: Boolean
 private fun OrderListTab.localizedLabel(strings: Strings): String = when (this) {
     OrderListTab.ALL -> strings.tabAll
     OrderListTab.PENDING -> strings.statusPending
+    OrderListTab.SHORTAGE -> strings.statusShortage
     OrderListTab.CONFIRMED -> strings.statusConfirmed
     OrderListTab.SHIPPED -> strings.statusShipped
     OrderListTab.DELIVERED -> strings.statusDelivered
+    OrderListTab.CANCELLED -> strings.statusCancelled
 }

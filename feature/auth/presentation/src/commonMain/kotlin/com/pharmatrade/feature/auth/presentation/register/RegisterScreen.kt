@@ -18,7 +18,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -338,9 +345,49 @@ fun RegisterScreen(
 
             PharmaButton(text = strings.regCreateAccount, onClick = viewModel::register, modifier = Modifier.fillMaxWidth(), isLoading = uiState.isLoading)
 
+            TermsOfUseNotice(modifier = Modifier.fillMaxWidth())
+
             Spacer(Modifier.height(8.dp))
         }
     }
+}
+
+// ── Terms of use ──────────────────────────────────────────────────────────────
+
+private const val TERMS_OF_USE_URL = "https://sites.google.com/view/agleb/home"
+
+// "Terms of Use" is a link that opens the terms page in the browser (LinkAnnotation.Url hands it to
+// the platform's UriHandler on tap).
+@Composable
+private fun TermsOfUseNotice(modifier: Modifier = Modifier) {
+    val strings = LocalStrings.current
+    val linkColor = PrimaryBlue
+    val text = remember(strings, linkColor) {
+        buildAnnotatedString {
+            append(strings.regTermsAgreementPrefix)
+            withLink(
+                LinkAnnotation.Url(
+                    url = TERMS_OF_USE_URL,
+                    styles = TextLinkStyles(
+                        style = SpanStyle(
+                            color = linkColor,
+                            fontWeight = FontWeight.SemiBold,
+                            textDecoration = TextDecoration.Underline
+                        )
+                    )
+                )
+            ) {
+                append(strings.regTermsOfUse)
+            }
+        }
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = TextSecondary,
+        textAlign = TextAlign.Center,
+        modifier = modifier
+    )
 }
 
 // ── Field error text ──────────────────────────────────────────────────────────

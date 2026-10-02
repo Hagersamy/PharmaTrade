@@ -207,7 +207,6 @@ object ArabicStrings : Strings {
     override fun orderShortageItemCount(count: Int) = "$count عناصر"
     override val orderShortageSomeItems = "بعض العناصر"
     override fun orderShortageReportedMessage(itemsText: String) = "تم الإبلاغ عن نقص — تعذر توفير $itemsText."
-    override val orderCancelMissingItems = "إلغاء العناصر الناقصة"
     override val orderAcceptShortage = "قبول النقص"
     override fun orderQuantityShort(quantity: Int) = "ناقص $quantity"
     override val orderLineShort = "ناقص"
@@ -301,6 +300,8 @@ object ArabicStrings : Strings {
     override val oiQuantityLabel = "الكمية"
 
     override val regCreateAccount = "إنشاء حساب"
+    override val regTermsAgreementPrefix = "بإنشاء حساب، فإنك توافق على "
+    override val regTermsOfUse = "شروط الاستخدام"
     override val regIAmA = "أنا..."
     override val regAccountDetails = "تفاصيل الحساب"
     override val regFullName = "الاسم الكامل"
