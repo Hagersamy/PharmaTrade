@@ -21,6 +21,8 @@ enum class SupplierOrderTab(val label: String, val apiStatus: String?) {
     // tab's status in parallel and merges the results client-side instead of a single API call.
     ALL("All", null),
     PENDING("Pending", "pending"),
+    // Orders the supplier reported a shortage on — they wait here for the pharmacy to resolve.
+    SHORTAGE("Shortage", "partially_available"),
     CONFIRMED("Confirmed", "confirmed"),
     SHIPPED("Shipped", "shipped"),
     DELIVERED("Delivered", "delivered")

@@ -217,7 +217,9 @@ interface Strings {
     val orderShortageSomeItems: String
     fun orderShortageReportedMessage(itemsText: String): String
     val orderCancelMissingItems: String
-    val orderWaitForAlternatives: String
+    val orderAcceptShortage: String
+    fun orderQuantityShort(quantity: Int): String
+    val orderLineShort: String
     val commonCollapse: String
     val commonExpand: String
     fun orderRequestedConfirmed(requested: Int, confirmed: String): String
@@ -238,6 +240,7 @@ interface Strings {
     fun sellerOrderConfirmedQtyLabel(requested: Int): String
     val commonConfirm: String
     val sellerOrderShortageDialogInstructions: String
+    val sellerOrderShortageNoItemsShort: String
     fun sellerOrderAvailableQtyLabel(requested: Int): String
     val sellerOrderNotesLabel: String
 

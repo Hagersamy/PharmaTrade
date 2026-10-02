@@ -56,7 +56,6 @@ data class ConfirmItemInput(val orderItemId: String, val quantityConfirmed: Int)
 
 data class ShortageItemInput(
     val orderItemId: String,
-    val quantityConfirmed: Int,
     val quantityShort: Int,
     val notes: String?
 )

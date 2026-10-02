@@ -2,7 +2,7 @@ package com.pharmatrade.feature.pharmacyorder.presentation.checkout
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.error.userMessage
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.pharmacyorder.domain.PharmacyCartBus
@@ -25,6 +25,9 @@ data class CheckoutOrderState(
 
 data class CheckoutUiState(val orders: List<CheckoutOrderState> = emptyList()) {
     val grandTotal: Double get() = orders.mapNotNull { it.order?.totalValue }.sum()
+    // True while any order is still being allocated or removed — "Done" stays disabled until
+    // every request has come back, so the buyer can't leave mid-submit.
+    val isBusy: Boolean get() = orders.any { it.isLoading || it.isCancelling }
 }
 
 // Checks out every supplier order the buyer had in their cart at once: allocates (submits) each
@@ -57,7 +60,7 @@ class CheckoutViewModel(
                     PharmacyCartBus.notifyResolved(supplierId)
                 }
                 is Result.Error -> updateOrder(orderId) {
-                    copy(isLoading = false, error = LanguageManager.strings.friendlyError(result.message))
+                    copy(isLoading = false, error = LanguageManager.strings.userMessage(result))
                 }
                 is Result.Loading -> Unit
             }
@@ -74,7 +77,7 @@ class CheckoutViewModel(
                     _uiState.value = _uiState.value.copy(orders = _uiState.value.orders.filterNot { it.orderId == orderId })
                 }
                 is Result.Error -> updateOrder(orderId) {
-                    copy(isCancelling = false, error = LanguageManager.strings.friendlyError(result.message))
+                    copy(isCancelling = false, error = LanguageManager.strings.userMessage(result))
                 }
                 is Result.Loading -> Unit
             }

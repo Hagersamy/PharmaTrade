@@ -208,7 +208,9 @@ object ArabicStrings : Strings {
     override val orderShortageSomeItems = "بعض العناصر"
     override fun orderShortageReportedMessage(itemsText: String) = "تم الإبلاغ عن نقص — تعذر توفير $itemsText."
     override val orderCancelMissingItems = "إلغاء العناصر الناقصة"
-    override val orderWaitForAlternatives = "الانتظار لبدائل"
+    override val orderAcceptShortage = "قبول النقص"
+    override fun orderQuantityShort(quantity: Int) = "ناقص $quantity"
+    override val orderLineShort = "ناقص"
     override val commonCollapse = "طي"
     override val commonExpand = "توسيع"
     override fun orderRequestedConfirmed(requested: Int, confirmed: String) = "المطلوب $requested · المؤكد $confirmed"
@@ -229,6 +231,7 @@ object ArabicStrings : Strings {
     override fun sellerOrderConfirmedQtyLabel(requested: Int) = "الكمية المؤكدة (المطلوب $requested)"
     override val commonConfirm = "تأكيد"
     override val sellerOrderShortageDialogInstructions = "أدخل عدد الوحدات المتوفرة فعلياً. سيتم الإبلاغ عن الباقي كنقص."
+    override val sellerOrderShortageNoItemsShort = "قلّل الكمية المتوفرة لصنف واحد على الأقل للإبلاغ عن نقص."
     override fun sellerOrderAvailableQtyLabel(requested: Int) = "الكمية المتوفرة (المطلوب $requested)"
     override val sellerOrderNotesLabel = "ملاحظات (مثال: نفد المخزون في المستودع)"
 

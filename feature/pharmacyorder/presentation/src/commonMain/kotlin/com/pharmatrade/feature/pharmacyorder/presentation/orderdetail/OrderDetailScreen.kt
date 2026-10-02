@@ -29,9 +29,11 @@ import com.pharmatrade.core.ui.components.ErrorScreen
 import com.pharmatrade.core.ui.components.PharmaCard
 import com.pharmatrade.core.ui.components.PharmaOutlinedButton
 import com.pharmatrade.core.ui.components.PharmaTopBar
+import com.pharmatrade.core.ui.components.rememberToast
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrderDetail
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrderDrugLine
+import com.pharmatrade.feature.pharmacyorder.domain.model.OrderShortage
 import com.pharmatrade.feature.pharmacyorder.domain.model.SupplierOrder
 import com.pharmatrade.core.ui.components.OrderStatusChip
 
@@ -46,6 +48,16 @@ fun OrderDetailScreen(
 
     LaunchedEffect(uiState.cancelled) {
         if (uiState.cancelled) onCancelled()
+    }
+
+    // Action failures (resolve shortage, cancel, deliver) show as a one-shot toast instead of
+    // inline red text that stays stuck on screen.
+    val showToast = rememberToast()
+    LaunchedEffect(uiState.actionError) {
+        uiState.actionError?.let {
+            showToast(it)
+            viewModel.onActionErrorShown()
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
@@ -76,13 +88,11 @@ fun OrderDetailScreen(
 
                         if (order.hasUnresolvedShortage) {
                             ShortageBanner(
-                                itemCount = order.shortageItemCount,
+                                shortages = order.shortages,
                                 isSubmitting = uiState.isResolvingShortage,
-                                // "cancel_short_items" is confirmed from the real API; "wait_for_alternatives"
-                                // is not yet confirmed against a live shortage response — adjust if the
-                                // backend expects a different value.
+                                // The backend accepts exactly these two actions on resolve-shortage.
                                 onCancelMissingItems = { viewModel.resolveShortage("cancel_short_items") },
-                                onWaitForAlternatives = { viewModel.resolveShortage("wait_for_alternatives") }
+                                onAcceptShortage = { viewModel.resolveShortage("accept_alternatives") }
                             )
                         }
 
@@ -100,16 +110,12 @@ fun OrderDetailScreen(
                     // Kept outside the scrolling column (not just appended after the last card) so
                     // "Confirm delivery"/"Cancel order" stay reachable without scrolling past every
                     // supplier's line items on a multi-supplier order.
-                    if (canDeliver || order.canCancel || uiState.actionError != null) {
+                    if (canDeliver || order.canCancel) {
                         Surface(shadowElevation = 8.dp, color = SurfaceWhite) {
                             Column(
                                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                if (uiState.actionError != null) {
-                                    Text(uiState.actionError!!, color = ErrorRed, style = MaterialTheme.typography.bodySmall)
-                                }
-
                                 // The backend only accepts confirm-delivery once the supplier has
                                 // already marked the order "delivered" — it rejects any other status
                                 // with "Order not found or not in delivered status."
@@ -246,12 +252,13 @@ private fun OrderProgressStepper(currentIndex: Int, flowStatuses: List<Pair<Stri
 
 @Composable
 private fun ShortageBanner(
-    itemCount: Int,
+    shortages: List<OrderShortage>,
     isSubmitting: Boolean,
     onCancelMissingItems: () -> Unit,
-    onWaitForAlternatives: () -> Unit
+    onAcceptShortage: () -> Unit
 ) {
     val strings = LocalStrings.current
+    val itemCount = shortages.size
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -271,14 +278,49 @@ private fun ShortageBanner(
                 color = WarningAmberOnContainer
             )
         }
+        if (shortages.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            shortages.forEach { shortage -> ShortageItemRow(shortage) }
+        }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onCancelMissingItems, enabled = !isSubmitting, modifier = Modifier.weight(1f)) {
                 Text(strings.orderCancelMissingItems, style = MaterialTheme.typography.labelMedium)
             }
-            Button(onClick = onWaitForAlternatives, enabled = !isSubmitting, modifier = Modifier.weight(1f)) {
-                Text(strings.orderWaitForAlternatives, style = MaterialTheme.typography.labelMedium)
+            Button(onClick = onAcceptShortage, enabled = !isSubmitting, modifier = Modifier.weight(1f)) {
+                Text(strings.orderAcceptShortage, style = MaterialTheme.typography.labelMedium)
             }
+        }
+    }
+}
+
+@Composable
+private fun ShortageItemRow(shortage: OrderShortage) {
+    val strings = LocalStrings.current
+    Column(modifier = Modifier.fillMaxWidth().padding(start = 28.dp, top = 4.dp, bottom = 4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                shortage.drugName,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = WarningAmberOnContainer,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                strings.orderQuantityShort(shortage.quantityShort),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = WarningAmber
+            )
+        }
+        val meta = listOf(shortage.supplierName, shortage.notes).filter { it.isNotBlank() }.joinToString(" · ")
+        if (meta.isNotEmpty()) {
+            Text(meta, style = MaterialTheme.typography.labelSmall, color = WarningAmberOnContainer)
         }
     }
 }
@@ -330,6 +372,18 @@ private fun DrugLineDetailRow(line: OrderDrugLine) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(line.drugName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
             DiscountBadge(discountPercentage = line.discountPct)
+            if (line.isShort) {
+                Text(
+                    strings.orderLineShort,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = WarningAmberOnContainer,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(WarningAmberContainer)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -338,7 +392,7 @@ private fun DrugLineDetailRow(line: OrderDrugLine) {
             Text(
                 strings.orderRequestedConfirmed(line.qtyRequested, line.qtyConfirmed?.toString() ?: "—"),
                 style = MaterialTheme.typography.labelSmall,
-                color = TextSecondary
+                color = if (line.isShort) WarningAmber else TextSecondary
             )
             Text(
                 strings.orderPriceToTotal(formatDecimal(line.unitPrice, 2), formatDecimal(line.lineTotal, 2)),

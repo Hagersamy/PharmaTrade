@@ -77,5 +77,6 @@ class CancelOrderUseCase(private val repository: PharmacyOrderRepository) {
 }
 
 class DeliverOrderUseCase(private val repository: PharmacyOrderRepository) {
-    suspend operator fun invoke(orderId: String): Result<Unit> = repository.deliverOrder(orderId)
+    suspend operator fun invoke(orderId: String, shortageReportIds: List<String>): Result<Unit> =
+        repository.deliverOrder(orderId, shortageReportIds)
 }

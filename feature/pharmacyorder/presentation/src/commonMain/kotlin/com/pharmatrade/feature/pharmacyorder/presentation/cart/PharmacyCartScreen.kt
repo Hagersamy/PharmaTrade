@@ -77,7 +77,6 @@ fun PharmacyCartScreen(
                     SupplierCartCard(
                         cart = cart,
                         items = itemsBySupplier[cart.supplierId].orEmpty(),
-                        processingItemIds = uiState.processingItemIds,
                         onIncrease = { item -> viewModel.incrementCartItem(item) },
                         onDecrease = { item -> viewModel.decrementCartItem(item) },
                         onRemoveOrder = { viewModel.removeSupplierOrder(cart.supplierId) }
@@ -104,7 +103,9 @@ fun PharmacyCartScreen(
                     }
                     PharmaButton(
                         text = strings.pharmacyCartCheckoutAll(carts.size),
-                        onClick = { onCheckoutAll(carts.map { it.orderId to it.supplierId }) },
+                        // Flushes any +/- taps still waiting to be sent before allocating.
+                        onClick = { viewModel.checkoutAll(onCheckoutAll) },
+                        isLoading = uiState.isSyncingCart,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -117,7 +118,6 @@ fun PharmacyCartScreen(
 private fun SupplierCartCard(
     cart: SupplierCartOrder,
     items: List<Triple<SupplierCatalogItem, Int, String>>,
-    processingItemIds: Set<String>,
     onIncrease: (SupplierCatalogItem) -> Unit,
     onDecrease: (SupplierCatalogItem) -> Unit,
     onRemoveOrder: () -> Unit
@@ -165,7 +165,6 @@ private fun SupplierCartCard(
                     Spacer(Modifier.width(8.dp))
                     CartQuantityStepper(
                         quantity = quantity,
-                        isProcessing = item.id in processingItemIds,
                         canIncrease = quantity < item.quantityAvailable,
                         onIncrease = { onIncrease(item) },
                         onDecrease = { onDecrease(item) }

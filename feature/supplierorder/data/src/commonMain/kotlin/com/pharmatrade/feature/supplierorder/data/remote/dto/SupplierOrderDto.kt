@@ -143,7 +143,6 @@ data class ReportShortageRequest(
 @Serializable
 data class ShortageItemRequest(
     @SerialName("order_item_id") val orderItemId: Int,
-    @SerialName("quantity_confirmed") val quantityConfirmed: Int,
     @SerialName("quantity_short") val quantityShort: Int,
     @SerialName("notes") val notes: String?
 )

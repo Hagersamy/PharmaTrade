@@ -204,7 +204,9 @@ object EnglishStrings : Strings {
     override val orderShortageSomeItems = "some items"
     override fun orderShortageReportedMessage(itemsText: String) = "Shortage reported — $itemsText could not be fulfilled."
     override val orderCancelMissingItems = "Cancel missing items"
-    override val orderWaitForAlternatives = "Wait for alternatives"
+    override val orderAcceptShortage = "Accept shortage"
+    override fun orderQuantityShort(quantity: Int) = "Short by $quantity"
+    override val orderLineShort = "Short"
     override val commonCollapse = "Collapse"
     override val commonExpand = "Expand"
     override fun orderRequestedConfirmed(requested: Int, confirmed: String) = "Requested $requested · Confirmed $confirmed"
@@ -225,6 +227,7 @@ object EnglishStrings : Strings {
     override fun sellerOrderConfirmedQtyLabel(requested: Int) = "Confirmed qty (requested $requested)"
     override val commonConfirm = "Confirm"
     override val sellerOrderShortageDialogInstructions = "Enter how many units are actually available. The rest will be reported as short."
+    override val sellerOrderShortageNoItemsShort = "Lower the available quantity of at least one item to report a shortage."
     override fun sellerOrderAvailableQtyLabel(requested: Int) = "Available qty (requested $requested)"
     override val sellerOrderNotesLabel = "Notes (e.g. stock ran out at warehouse)"
 

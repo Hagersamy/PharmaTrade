@@ -7,6 +7,7 @@ import com.pharmatrade.feature.pharmacyorder.domain.model.Branch
 import com.pharmatrade.feature.pharmacyorder.domain.model.DraftOrderItem
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrderDetail
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrderDrugLine
+import com.pharmatrade.feature.pharmacyorder.domain.model.OrderShortage
 import com.pharmatrade.feature.pharmacyorder.domain.model.PharmacyOrderSummary
 import com.pharmatrade.feature.pharmacyorder.domain.model.PharmacySupplier
 import com.pharmatrade.feature.pharmacyorder.domain.model.SupplierCatalogItem
@@ -232,14 +233,13 @@ data class OrderDetailDto(
     @SerialName("items") val items: List<OrderItemDto>? = null,
     @SerialName("supplier_orders") val supplierOrders: List<SupplierOrderDto>? = null,
     @SerialName("has_shortage") val hasShortage: Boolean? = null,
-    @SerialName("shortage_items_count") val shortageItemsCount: JsonElement? = null,
-    // NOTE: field name assumed — no confirmed sample of a partially_available order's GET
-    // response was seen yet. Adjust once a real shortage payload is observed.
-    @SerialName("shortage_reports") val shortageReports: List<ShortageReportDto>? = null
+    // Confirmed from GET /pharmacy/orders/{id} (2026-10-01): a partially_available order carries
+    // has_shortage=true plus one entry per short drug here; a fully confirmed order sends [].
+    @SerialName("unresolved_shortages") val unresolvedShortages: List<UnresolvedShortageDto>? = null
 ) {
     fun toDomain(): OrderDetail {
         val lines = supplierOrders?.map { it.toDomain() } ?: emptyList()
-        val reportIds = shortageReports?.mapNotNull { it.id?.let { raw -> raw.rawIntOrZero().toString() } } ?: emptyList()
+        val shortages = unresolvedShortages?.map { it.toDomain() } ?: emptyList()
         return OrderDetail(
             id = id.rawIntOrZero().toString(),
             orderNumber = orderNumber ?: id.rawIntOrZero().toString(),
@@ -249,17 +249,30 @@ data class OrderDetailDto(
             savings = (savings ?: discountSaved).rawDoubleOrZero(),
             items = items?.map { it.toDomain() } ?: emptyList(),
             supplierOrders = lines,
-            hasUnresolvedShortage = hasShortage == true || status == "partially_available",
-            shortageItemCount = shortageItemsCount?.let { it.rawIntOrZero() } ?: reportIds.size,
-            shortageReportIds = reportIds
+            // has_shortage is authoritative when present — once the pharmacy resolves the shortage it
+            // flips to false even if the status hasn't moved on from partially_available yet.
+            hasUnresolvedShortage = hasShortage ?: (shortages.isNotEmpty() || status == "partially_available"),
+            shortages = shortages
         )
     }
 }
 
 @Serializable
-data class ShortageReportDto(
-    @SerialName("id") val id: JsonElement? = null
-)
+data class UnresolvedShortageDto(
+    @SerialName("id") val id: JsonElement? = null,
+    @SerialName("drug_name") val drugName: String? = null,
+    @SerialName("quantity_short") val quantityShort: JsonElement? = null,
+    @SerialName("supplier_name") val supplierName: String? = null,
+    @SerialName("notes") val notes: String? = null
+) {
+    fun toDomain() = OrderShortage(
+        id = id.rawIntOrZero().toString(),
+        drugName = drugName ?: "",
+        quantityShort = quantityShort.rawIntOrZero(),
+        supplierName = supplierName ?: "",
+        notes = notes ?: ""
+    )
+}
 
 @Serializable
 data class OrderItemDto(
@@ -306,7 +319,8 @@ data class DrugLineDto(
     @SerialName("quantity_confirmed") val quantityConfirmed: JsonElement? = null,
     @SerialName("unit_price") val unitPrice: JsonElement? = null,
     @SerialName("discount_pct") val discountPct: JsonElement? = null,
-    @SerialName("line_total") val lineTotal: JsonElement? = null
+    @SerialName("line_total") val lineTotal: JsonElement? = null,
+    @SerialName("status") val status: String? = null
 ) {
     fun toDomain() = OrderDrugLine(
         drugName = drugName ?: "",
@@ -314,7 +328,8 @@ data class DrugLineDto(
         qtyConfirmed = quantityConfirmed?.let { it.rawIntOrZero() },
         unitPrice = unitPrice.rawDoubleOrZero(),
         lineTotal = lineTotal.rawDoubleOrZero(),
-        discountPct = discountPct.rawDoubleOrZero()
+        discountPct = discountPct.rawDoubleOrZero(),
+        status = status ?: ""
     )
 }
 
@@ -352,8 +367,16 @@ data class AllocateRequest(
     @SerialName("supplier_id") val supplierId: String? = null
 )
 
+// resolve-shortage: action is "cancel_short_items" or "accept_alternatives"; shortage_report_ids
+// are the ids from the order's unresolved_shortages, across every supplier on the order.
 @Serializable
 data class ResolveShortageRequest(
+    @SerialName("action") val action: String,
+    @SerialName("shortage_report_ids") val shortageReportIds: List<Int>
+)
+
+@Serializable
+data class ConfirmDeliveryRequest(
     @SerialName("action") val action: String,
     @SerialName("shortage_report_ids") val shortageReportIds: List<Int>
 )

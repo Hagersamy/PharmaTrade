@@ -2,7 +2,7 @@ package com.pharmatrade.feature.pharmacyorder.presentation.orderdetail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.error.userMessage
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrderDetail
@@ -47,7 +47,7 @@ class OrderDetailViewModel(
             when (val result = getOrderDetailUseCase(orderId)) {
                 is Result.Success -> update { copy(isLoading = false, order = result.data) }
                 is Result.Error -> update {
-                    copy(isLoading = false, error = LanguageManager.strings.friendlyError(result.message))
+                    copy(isLoading = false, error = LanguageManager.strings.userMessage(result))
                 }
                 is Result.Loading -> Unit
             }
@@ -55,16 +55,15 @@ class OrderDetailViewModel(
     }
 
     fun resolveShortage(action: String) {
-        val shortageReportIds = _uiState.value.order?.shortageReportIds ?: emptyList()
         viewModelScope.launch {
             update { copy(isResolvingShortage = true, actionError = null) }
-            when (val result = resolveShortageUseCase(orderId, action, shortageReportIds)) {
+            when (val result = resolveShortageUseCase(orderId, action, shortageReportIds())) {
                 is Result.Success -> {
                     update { copy(isResolvingShortage = false) }
                     loadOrder()
                 }
                 is Result.Error -> update {
-                    copy(isResolvingShortage = false, actionError = LanguageManager.strings.friendlyError(result.message))
+                    copy(isResolvingShortage = false, actionError = LanguageManager.strings.userMessage(result))
                 }
                 is Result.Loading -> Unit
             }
@@ -77,7 +76,7 @@ class OrderDetailViewModel(
             when (val result = cancelOrderUseCase(orderId)) {
                 is Result.Success -> update { copy(isCancelling = false, cancelled = true) }
                 is Result.Error -> update {
-                    copy(isCancelling = false, actionError = LanguageManager.strings.friendlyError(result.message))
+                    copy(isCancelling = false, actionError = LanguageManager.strings.userMessage(result))
                 }
                 is Result.Loading -> Unit
             }
@@ -87,18 +86,24 @@ class OrderDetailViewModel(
     fun deliver() {
         viewModelScope.launch {
             update { copy(isDelivering = true, actionError = null) }
-            when (val result = deliverOrderUseCase(orderId)) {
+            when (val result = deliverOrderUseCase(orderId, shortageReportIds())) {
                 is Result.Success -> {
                     update { copy(isDelivering = false) }
                     loadOrder()
                 }
                 is Result.Error -> update {
-                    copy(isDelivering = false, actionError = LanguageManager.strings.friendlyError(result.message))
+                    copy(isDelivering = false, actionError = LanguageManager.strings.userMessage(result))
                 }
                 is Result.Loading -> Unit
             }
         }
     }
+
+    fun onActionErrorShown() = update { copy(actionError = null) }
+
+    // Ids of every unresolved shortage on the order, across all of its suppliers.
+    private fun shortageReportIds(): List<String> =
+        _uiState.value.order?.shortages?.map { it.id }.orEmpty()
 
     private fun update(block: OrderDetailUiState.() -> OrderDetailUiState) {
         _uiState.value = _uiState.value.block()

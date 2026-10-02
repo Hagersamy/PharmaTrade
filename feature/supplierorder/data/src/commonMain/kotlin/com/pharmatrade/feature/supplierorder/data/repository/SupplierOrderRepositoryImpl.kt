@@ -70,7 +70,6 @@ class SupplierOrderRepositoryImpl(
                 items.map {
                     ShortageItemRequest(
                         orderItemId = it.orderItemId.toIntOrNull() ?: 0,
-                        quantityConfirmed = it.quantityConfirmed,
                         quantityShort = it.quantityShort,
                         notes = it.notes?.takeIf { n -> n.isNotBlank() }
                     )

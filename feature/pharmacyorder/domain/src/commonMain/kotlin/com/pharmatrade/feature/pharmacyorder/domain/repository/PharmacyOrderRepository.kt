@@ -25,5 +25,5 @@ interface PharmacyOrderRepository {
     suspend fun getOrderDetail(orderId: String): Result<OrderDetail>
     suspend fun resolveShortage(orderId: String, action: String, shortageReportIds: List<String>): Result<Unit>
     suspend fun cancelOrder(orderId: String): Result<Unit>
-    suspend fun deliverOrder(orderId: String): Result<Unit>
+    suspend fun deliverOrder(orderId: String, shortageReportIds: List<String>): Result<Unit>
 }

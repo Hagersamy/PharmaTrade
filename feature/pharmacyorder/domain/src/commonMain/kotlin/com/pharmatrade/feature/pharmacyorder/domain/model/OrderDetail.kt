@@ -11,9 +11,16 @@ data class OrderDetail(
     val items: List<DraftOrderItem> = emptyList(),
     val supplierOrders: List<SupplierOrder> = emptyList(),
     val hasUnresolvedShortage: Boolean = false,
-    val shortageItemCount: Int = 0,
-    val shortageReportIds: List<String> = emptyList()
+    val shortages: List<OrderShortage> = emptyList()
 ) {
     val canCancel: Boolean
         get() = status in setOf("draft", "pending_supplier_confirmation")
 }
+
+data class OrderShortage(
+    val id: String,
+    val drugName: String,
+    val quantityShort: Int,
+    val supplierName: String,
+    val notes: String
+)

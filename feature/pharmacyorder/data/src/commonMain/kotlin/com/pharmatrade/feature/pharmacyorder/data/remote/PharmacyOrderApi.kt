@@ -10,6 +10,7 @@ import com.pharmatrade.feature.pharmacyorder.data.remote.dto.CreateOrderRequest
 import com.pharmatrade.feature.pharmacyorder.data.remote.dto.OrderDetailDto
 import com.pharmatrade.feature.pharmacyorder.data.remote.dto.OrderItemDto
 import com.pharmatrade.feature.pharmacyorder.data.remote.dto.OrderPageDto
+import com.pharmatrade.feature.pharmacyorder.data.remote.dto.ConfirmDeliveryRequest
 import com.pharmatrade.feature.pharmacyorder.data.remote.dto.ResolveShortageRequest
 import com.pharmatrade.feature.pharmacyorder.data.remote.dto.SupplierCatalogPageDto
 import com.pharmatrade.feature.pharmacyorder.data.remote.dto.SupplierDto
@@ -110,9 +111,9 @@ class PharmacyOrderApi(private val client: HttpClient = ApiClient.httpClient) {
         client.patch("pharmacy/orders/$orderId/cancel")
     }
 
-    // Same body shape as resolve-shortage — for a plain "mark as delivered" (no shortage
-    // involved) the caller sends action="confirm" with an empty shortage_report_ids.
-    suspend fun confirmDelivery(orderId: String, request: ResolveShortageRequest) {
+    // For a plain "mark as delivered" (no shortage involved) the caller sends action="confirm"
+    // with an empty shortage_report_ids.
+    suspend fun confirmDelivery(orderId: String, request: ConfirmDeliveryRequest) {
         client.post("pharmacy/orders/$orderId/confirm-delivery") {
             contentType(ContentType.Application.Json)
             setBody(request)

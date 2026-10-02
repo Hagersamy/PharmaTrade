@@ -109,16 +109,23 @@ class SellerOrderDetailViewModel(
 
     fun submitShortage() {
         val order = _uiState.value.order ?: return
-        val items = order.items.map { item ->
+        // report-shortage takes only the lines that are actually short ({order_item_id,
+        // quantity_short, notes}) — fully available lines must not be sent (quantity_short: 0
+        // is rejected). The backend then moves the order to partially_available.
+        val items = order.items.mapNotNull { item ->
             val available = (_uiState.value.shortageQuantities[item.id]?.toIntOrNull() ?: item.quantityRequested)
                 .coerceIn(0, item.quantityRequested)
             val short = item.quantityRequested - available
+            if (short <= 0) return@mapNotNull null
             ShortageItemInput(
                 orderItemId = item.id,
-                quantityConfirmed = available,
                 quantityShort = short,
                 notes = _uiState.value.shortageNotes.takeIf { it.isNotBlank() }
             )
+        }
+        if (items.isEmpty()) {
+            update { copy(actionError = LanguageManager.strings.sellerOrderShortageNoItemsShort) }
+            return
         }
         viewModelScope.launch {
             update { copy(isSubmitting = true, actionError = null) }

@@ -1,5 +1,6 @@
 package com.pharmatrade.feature.pharmacyorder.data.repository
 
+import com.pharmatrade.core.common.error.UserFacingException
 import com.pharmatrade.core.common.log.debugLog
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.core.io.PlatformFileReader
@@ -8,6 +9,7 @@ import com.pharmatrade.feature.pharmacyorder.data.remote.PharmacyOrderApi
 import com.pharmatrade.feature.pharmacyorder.data.remote.dto.AddItemRequest
 import com.pharmatrade.feature.pharmacyorder.data.remote.dto.AllocateRequest
 import com.pharmatrade.feature.pharmacyorder.data.remote.dto.CreateOrderRequest
+import com.pharmatrade.feature.pharmacyorder.data.remote.dto.ConfirmDeliveryRequest
 import com.pharmatrade.feature.pharmacyorder.data.remote.dto.ResolveShortageRequest
 import com.pharmatrade.feature.pharmacyorder.domain.model.Branch
 import com.pharmatrade.feature.pharmacyorder.domain.model.DraftOrderItem
@@ -134,7 +136,7 @@ class PharmacyOrderRepositoryImpl(
         val order = response.data?.toDomain() ?: return Result.Error("Server did not return the created order")
         Result.Success(order)
     } catch (e: ResponseException) {
-        Result.Error(parseHttpError(e), e)
+        httpError(e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to create order", e)
     }
@@ -144,7 +146,7 @@ class PharmacyOrderRepositoryImpl(
         val item = response.data?.toDomain() ?: return Result.Error("Server did not return the added item")
         Result.Success(item)
     } catch (e: ResponseException) {
-        Result.Error(parseHttpError(e), e)
+        httpError(e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to add item", e)
     }
@@ -153,7 +155,7 @@ class PharmacyOrderRepositoryImpl(
         api.removeItem(orderId, itemId)
         Result.Success(Unit)
     } catch (e: ResponseException) {
-        Result.Error(parseHttpError(e), e)
+        httpError(e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to remove item", e)
     }
@@ -174,7 +176,7 @@ class PharmacyOrderRepositoryImpl(
         val result = response.data?.toDomain() ?: UploadItemsResult(addedCount = 0)
         Result.Success(result)
     } catch (e: ResponseException) {
-        Result.Error(parseHttpError(e), e)
+        httpError(e)
     } catch (_: SocketTimeoutException) {
         Result.Error("Connection timed out. Make sure the server is running.")
     } catch (e: Exception) {
@@ -186,7 +188,7 @@ class PharmacyOrderRepositoryImpl(
         val order = response.data?.toDomain() ?: return Result.Error("Server did not return the allocation result")
         Result.Success(order)
     } catch (e: ResponseException) {
-        Result.Error(parseHttpError(e), e)
+        httpError(e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to allocate order", e)
     }
@@ -201,14 +203,21 @@ class PharmacyOrderRepositoryImpl(
         Result.Error(e.message ?: "Failed to load order", e)
     }
 
-    override suspend fun resolveShortage(orderId: String, action: String, shortageReportIds: List<String>): Result<Unit> = try {
+    override suspend fun resolveShortage(
+        orderId: String,
+        action: String,
+        shortageReportIds: List<String>
+    ): Result<Unit> = try {
         api.resolveShortage(
             orderId,
-            ResolveShortageRequest(action = action, shortageReportIds = shortageReportIds.mapNotNull { it.toIntOrNull() })
+            ResolveShortageRequest(
+                action = action,
+                shortageReportIds = shortageReportIds.mapNotNull { it.toIntOrNull() }
+            )
         )
         Result.Success(Unit)
     } catch (e: ResponseException) {
-        Result.Error(parseHttpError(e), e)
+        httpError(e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to resolve shortage", e)
     }
@@ -217,34 +226,48 @@ class PharmacyOrderRepositoryImpl(
         api.cancelOrder(orderId)
         Result.Success(Unit)
     } catch (e: ResponseException) {
-        Result.Error(parseHttpError(e), e)
+        httpError(e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to cancel order", e)
     }
 
-    override suspend fun deliverOrder(orderId: String): Result<Unit> = try {
-        api.confirmDelivery(orderId, ResolveShortageRequest(action = "confirm", shortageReportIds = emptyList()))
+    override suspend fun deliverOrder(orderId: String, shortageReportIds: List<String>): Result<Unit> = try {
+        api.confirmDelivery(
+            orderId,
+            ConfirmDeliveryRequest(
+                action = "confirm",
+                shortageReportIds = shortageReportIds.mapNotNull { it.toIntOrNull() }
+            )
+        )
         Result.Success(Unit)
     } catch (e: ResponseException) {
-        Result.Error(parseHttpError(e), e)
+        httpError(e)
     } catch (e: Exception) {
         Result.Error(e.message ?: "Failed to mark order as delivered", e)
     }
 
-    private suspend fun parseHttpError(e: ResponseException): String {
+    // A 4xx carrying the backend's own message (e.g. allocate rejected because the supplier's
+    // minimum order isn't met) is a business rule the buyer needs to read verbatim, so it's
+    // marked user-facing; 401s and 5xx/unparseable bodies keep going through friendlyError.
+    private suspend fun httpError(e: ResponseException): Result.Error {
         val code = e.response.status.value
+        val backendMessage = parseBackendMessage(e) ?: return Result.Error("Server error ($code)", e)
+        return if (code in 400..499 && code != 401) {
+            Result.Error(backendMessage, UserFacingException(backendMessage, e))
+        } else {
+            Result.Error(backendMessage, e)
+        }
+    }
+
+    private suspend fun parseBackendMessage(e: ResponseException): String? {
         val body = runCatching { e.response.bodyAsText() }.getOrNull()
-        if (body.isNullOrBlank()) return "Server error ($code)"
+        if (body.isNullOrBlank()) return null
         return runCatching {
             val json = Json.parseToJsonElement(body).jsonObject
             val message = json["message"]?.jsonPrimitive?.contentOrNull
             val errors = json["errors"] as? JsonObject
-            if (errors != null && errors.isNotEmpty()) {
-                val fieldMsg = errors.values.firstOrNull()?.jsonArray?.firstOrNull()?.jsonPrimitive?.contentOrNull
-                fieldMsg ?: message ?: "Server error ($code)"
-            } else {
-                message ?: "Server error ($code)"
-            }
-        }.getOrDefault("Server error ($code)")
+            val fieldMsg = errors?.values?.firstOrNull()?.jsonArray?.firstOrNull()?.jsonPrimitive?.contentOrNull
+            (fieldMsg ?: message)?.takeIf { it.isNotBlank() }
+        }.getOrNull()
     }
 }

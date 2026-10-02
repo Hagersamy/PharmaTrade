@@ -132,6 +132,7 @@ private fun SupplierOrderRow(order: SupplierOrderSummary, hasUnreadNotification:
 private fun SupplierOrderTab.localizedLabel(strings: Strings): String = when (this) {
     SupplierOrderTab.ALL -> strings.tabAll
     SupplierOrderTab.PENDING -> strings.statusPending
+    SupplierOrderTab.SHORTAGE -> strings.statusShortage
     SupplierOrderTab.CONFIRMED -> strings.statusConfirmed
     SupplierOrderTab.SHIPPED -> strings.statusShipped
     SupplierOrderTab.DELIVERED -> strings.statusDelivered

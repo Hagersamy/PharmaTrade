@@ -75,6 +75,7 @@ fun CheckoutScreen(
                     PharmaButton(
                         text = strings.commonDone,
                         onClick = onDone,
+                        enabled = !uiState.isBusy,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

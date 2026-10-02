@@ -3,6 +3,7 @@ package com.pharmatrade.feature.pharmacyorder.presentation.orderitems
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.error.userMessage
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.Drug
 import com.pharmatrade.core.common.result.Result
@@ -118,7 +119,7 @@ class OrderItemsViewModel(
                     )
                 }
                 is Result.Error -> update {
-                    copy(isLoadingSupplierInventory = false, supplierInventoryError = LanguageManager.strings.friendlyError(result.message))
+                    copy(isLoadingSupplierInventory = false, supplierInventoryError = LanguageManager.strings.userMessage(result))
                 }
                 is Result.Loading -> Unit
             }
@@ -136,7 +137,7 @@ class OrderItemsViewModel(
                     copy(isLoadingItems = false, items = result.data.items.ifEmpty { items })
                 }
                 is Result.Error -> update {
-                    copy(isLoadingItems = false, itemsError = LanguageManager.strings.friendlyError(result.message))
+                    copy(isLoadingItems = false, itemsError = LanguageManager.strings.userMessage(result))
                 }
                 is Result.Loading -> Unit
             }
@@ -235,7 +236,7 @@ class OrderItemsViewModel(
                     }
                 }
                 is Result.Error -> update {
-                    copy(isAddingItem = false, addItemError = LanguageManager.strings.friendlyError(result.message))
+                    copy(isAddingItem = false, addItemError = LanguageManager.strings.userMessage(result))
                 }
                 is Result.Loading -> Unit
             }
@@ -248,7 +249,7 @@ class OrderItemsViewModel(
         viewModelScope.launch {
             when (val result = removeOrderItemUseCase(orderId, itemId)) {
                 is Result.Error -> update {
-                    copy(items = previous, itemsError = LanguageManager.strings.friendlyError(result.message))
+                    copy(items = previous, itemsError = LanguageManager.strings.userMessage(result))
                 }
                 else -> Unit
             }
@@ -264,7 +265,7 @@ class OrderItemsViewModel(
                     loadItems()
                 }
                 is Result.Error -> update {
-                    copy(isUploading = false, uploadError = LanguageManager.strings.friendlyError(result.message))
+                    copy(isUploading = false, uploadError = LanguageManager.strings.userMessage(result))
                 }
                 is Result.Loading -> Unit
             }

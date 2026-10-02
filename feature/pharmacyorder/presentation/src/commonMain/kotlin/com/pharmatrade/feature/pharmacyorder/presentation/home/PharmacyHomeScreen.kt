@@ -157,7 +157,6 @@ fun PharmacyHomeScreen(
                             CatalogDrugCard(
                                 item = catalogItem,
                                 addedQuantity = uiState.cartQuantities[catalogItem.id] ?: 0,
-                                isProcessing = catalogItem.id in uiState.processingItemIds,
                                 onQuickAdd = { viewModel.quickAddCatalogItem(catalogItem) },
                                 onIncrease = { viewModel.incrementCartItem(catalogItem) },
                                 onDecrease = { viewModel.decrementCartItem(catalogItem) },
@@ -184,7 +183,6 @@ fun PharmacyHomeScreen(
 private fun CatalogDrugCard(
     item: SupplierCatalogItem,
     addedQuantity: Int,
-    isProcessing: Boolean,
     onQuickAdd: () -> Unit,
     onIncrease: () -> Unit,
     onDecrease: () -> Unit,
@@ -253,7 +251,6 @@ private fun CatalogDrugCard(
             if (addedQuantity > 0) {
                 CartQuantityStepper(
                     quantity = addedQuantity,
-                    isProcessing = isProcessing,
                     canIncrease = addedQuantity < item.quantityAvailable,
                     onIncrease = onIncrease,
                     onDecrease = onDecrease
@@ -264,14 +261,10 @@ private fun CatalogDrugCard(
                         .size(36.dp)
                         .clip(CircleShape)
                         .background(if (!outOfStock) PrimaryBlue else DividerGray)
-                        .clickable(enabled = !outOfStock && !isProcessing, onClick = onQuickAdd),
+                        .clickable(enabled = !outOfStock, onClick = onQuickAdd),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (isProcessing) {
-                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
-                    } else {
-                        Icon(Icons.Filled.Add, contentDescription = strings.commonAddToCart, tint = Color.White, modifier = Modifier.size(20.dp))
-                    }
+                    Icon(Icons.Filled.Add, contentDescription = strings.commonAddToCart, tint = Color.White, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -285,7 +278,6 @@ private fun CatalogDrugCard(
 @Composable
 fun CartQuantityStepper(
     quantity: Int,
-    isProcessing: Boolean,
     canIncrease: Boolean,
     onIncrease: () -> Unit,
     onDecrease: () -> Unit
@@ -299,21 +291,16 @@ fun CartQuantityStepper(
     ) {
         IconButton(
             onClick = onDecrease,
-            enabled = !isProcessing,
             modifier = Modifier.size(28.dp)
         ) {
             Icon(Icons.Filled.Remove, contentDescription = strings.commonDecreaseQuantity, tint = SecondaryGreenDark, modifier = Modifier.size(16.dp))
         }
         Box(modifier = Modifier.widthIn(min = 18.dp), contentAlignment = Alignment.Center) {
-            if (isProcessing) {
-                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = SecondaryGreenDark)
-            } else {
-                Text("$quantity", style = MaterialTheme.typography.labelMedium, color = SecondaryGreenDark, fontWeight = FontWeight.Bold)
-            }
+            Text("$quantity", style = MaterialTheme.typography.labelMedium, color = SecondaryGreenDark, fontWeight = FontWeight.Bold)
         }
         IconButton(
             onClick = onIncrease,
-            enabled = !isProcessing && canIncrease,
+            enabled = canIncrease,
             modifier = Modifier.size(28.dp)
         ) {
             Icon(Icons.Filled.Add, contentDescription = strings.commonIncreaseQuantity, tint = if (canIncrease) SecondaryGreenDark else TextHint, modifier = Modifier.size(16.dp))

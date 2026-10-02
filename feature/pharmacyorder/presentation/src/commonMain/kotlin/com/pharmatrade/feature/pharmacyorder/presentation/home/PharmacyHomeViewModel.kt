@@ -2,7 +2,7 @@ package com.pharmatrade.feature.pharmacyorder.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pharmatrade.core.common.error.friendlyError
+import com.pharmatrade.core.common.error.userMessage
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.log.debugLog
 import com.pharmatrade.core.common.result.Result
@@ -17,6 +17,7 @@ import com.pharmatrade.feature.pharmacyorder.domain.usecase.GetOrderDetailUseCas
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.GetPharmacyOrdersUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.RemoveOrderItemUseCase
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 // One draft order-in-progress per supplier the pharmacy has added items from —
 // lazily created on the first add, then reused (add-item-one-by-one) for the rest,
@@ -58,7 +60,8 @@ data class PharmacyHomeUiState(
     // rather than in catalogItems, since a search replaces catalogItems and would otherwise make
     // in-cart items from the previous list vanish from the Cart tab.
     val knownCatalogItems: Map<String, SupplierCatalogItem> = emptyMap(),
-    val processingItemIds: Set<String> = emptySet(),
+    // True while "Checkout all" is flushing pending quantity changes to the backend.
+    val isSyncingCart: Boolean = false,
     val catalogActionError: String? = null,
     val pendingCatalogItem: SupplierCatalogItem? = null,
     val cartQuantities: Map<String, Int> = emptyMap(),
@@ -76,6 +79,8 @@ data class PharmacyHomeUiState(
 
 private const val CATALOG_PAGE_SIZE = 20
 private const val SEARCH_DEBOUNCE_MS = 500L
+// How long the buyer must stop tapping +/- on an item before its quantity is sent to the backend.
+private const val CART_SYNC_DEBOUNCE_MS = 700L
 // logcat: adb logcat -s PharmaSearch
 private const val SEARCH_LOG_TAG = "PharmaSearch"
 
@@ -102,6 +107,14 @@ class PharmacyHomeViewModel(
     // and each POST a new draft order (one becomes the tracked cart, the other is orphaned as a
     // stray draft that never gets allocated or cleaned up).
     private val orderCreationMutex = Mutex()
+
+    // catalogItem.id -> pending debounced backend sync for that item's quantity.
+    private val cartSyncJobs = mutableMapOf<String, Job>()
+    // catalogItem.id -> one sync at a time per item, so remove+add pairs never interleave.
+    private val cartSyncLocks = mutableMapOf<String, Mutex>()
+    // catalogItem.id -> quantity the backend draft order actually holds right now (cartQuantities
+    // runs ahead of it while a sync is pending).
+    private val syncedQuantities = mutableMapOf<String, Int>()
 
     // The single in-flight catalog request (first page of a new query, or the next page of the
     // current one). A new query cancels it, so a slow response for an old query can never land
@@ -199,6 +212,7 @@ class PharmacyHomeViewModel(
             }
         }
         if (newQuantities.isEmpty()) return
+        syncedQuantities.putAll(newQuantities)
         update {
             val mergedQuantities = cartQuantities + newQuantities
             copy(
@@ -211,8 +225,14 @@ class PharmacyHomeViewModel(
 
     private fun clearSupplierCart(supplierId: String) {
         orderIdsBySupplier.remove(supplierId)
+        val itemsById = _uiState.value.knownCatalogItems
+        val supplierItemIds = (_uiState.value.cartQuantities.keys + syncedQuantities.keys + cartSyncJobs.keys)
+            .filter { itemsById[it]?.supplierId == supplierId }
+        supplierItemIds.forEach { id ->
+            cartSyncJobs.remove(id)?.cancel()
+            syncedQuantities.remove(id)
+        }
         update {
-            val itemsById = knownCatalogItems
             val newQuantities = cartQuantities.filterKeys { itemsById[it]?.supplierId != supplierId }
             val newItemIds = cartItemIds.filterKeys { itemsById[it]?.supplierId != supplierId }
             copy(
@@ -229,7 +249,7 @@ class PharmacyHomeViewModel(
             when (val result = getPharmacyOrdersUseCase(status = "pending_supplier_confirmation", perPage = 1)) {
                 is Result.Success -> update { copy(isLoadingOrders = false, activeOrdersTotal = result.data.total) }
                 is Result.Error -> update {
-                    copy(isLoadingOrders = false, ordersError = LanguageManager.strings.friendlyError(result.message))
+                    copy(isLoadingOrders = false, ordersError = LanguageManager.strings.userMessage(result))
                 }
                 is Result.Loading -> Unit
             }
@@ -336,7 +356,7 @@ class PharmacyHomeViewModel(
                 copy(
                     isLoadingCatalogFirstPage = false,
                     isLoadingCatalogMore = false,
-                    catalogError = LanguageManager.strings.friendlyError(result.message)
+                    catalogError = LanguageManager.strings.userMessage(result)
                 )
             }
             is Result.Loading -> Unit
@@ -381,10 +401,9 @@ class PharmacyHomeViewModel(
     }
 
     // Sets this item's cart quantity to an absolute value (not a delta), enforcing the drug's
-    // available stock as a hard ceiling. Since the backend only exposes an additive "add item"
-    // call and a "remove whole line" call — no update-quantity endpoint — every change here
-    // removes the previously tracked line (if any) and re-adds the new amount as a fresh line,
-    // so there's always exactly one order-item line per catalog item.
+    // available stock as a hard ceiling. Only the local quantity changes here — the backend sync
+    // is debounced per item (scheduleCartSync), so tapping "+" five times quickly sends a single
+    // request with the final quantity instead of five.
     private fun setCartQuantity(item: SupplierCatalogItem, requestedQuantity: Int) {
         if (requestedQuantity > item.quantityAvailable) {
             update {
@@ -395,68 +414,128 @@ class PharmacyHomeViewModel(
         val targetQuantity = requestedQuantity.coerceAtLeast(0)
         if (targetQuantity == (_uiState.value.cartQuantities[item.id] ?: 0)) return
 
-        viewModelScope.launch {
-            update { copy(processingItemIds = processingItemIds + item.id, catalogActionError = null) }
+        update {
+            val newQuantities = if (targetQuantity == 0) cartQuantities - item.id else cartQuantities + (item.id to targetQuantity)
+            copy(
+                cartQuantities = newQuantities,
+                supplierCarts = recomputeSupplierCarts(newQuantities),
+                catalogActionError = null
+            )
+        }
+        scheduleCartSync(item)
+    }
 
-            val orderId = orderIdsBySupplier[item.supplierId] ?: orderCreationMutex.withLock {
-                // Re-check after acquiring the lock: another coroutine may have created and
-                // stored the draft order for this supplier while this one was waiting.
-                orderIdsBySupplier[item.supplierId] ?: when (val created = createOrderUseCase(OrderMode.SPECIFIC_SUPPLIER)) {
-                    is Result.Success -> created.data.id.also { orderIdsBySupplier[item.supplierId] = it }
-                    is Result.Error -> {
-                        update {
-                            copy(
-                                processingItemIds = processingItemIds - item.id,
-                                catalogActionError = LanguageManager.strings.friendlyError(created.message)
-                            )
-                        }
-                        return@launch
-                    }
-                    is Result.Loading -> {
-                        update { copy(processingItemIds = processingItemIds - item.id) }
-                        return@launch
-                    }
-                }
+    // (Re)starts this item's debounce timer; each new tap cancels the previous wait, so the sync
+    // only runs once the buyer has stopped changing the quantity for CART_SYNC_DEBOUNCE_MS.
+    private fun scheduleCartSync(item: SupplierCatalogItem) {
+        cartSyncJobs[item.id]?.cancel()
+        cartSyncJobs[item.id] = viewModelScope.launch {
+            val self = coroutineContext[Job]
+            try {
+                delay(CART_SYNC_DEBOUNCE_MS)
+                syncCartItem(item)
+            } finally {
+                // Only drop our own entry — a newer tap may already have replaced it.
+                if (cartSyncJobs[item.id] === self) cartSyncJobs.remove(item.id)
+            }
+        }
+    }
+
+    // Pushes this item's current local quantity to the backend draft order. The backend only
+    // exposes an additive "add item" call and a "remove whole line" call — no update-quantity
+    // endpoint — so a change removes the previously tracked line (if any) and re-adds the new
+    // amount as a fresh line, keeping exactly one order-item line per catalog item. Runs
+    // NonCancellable under a per-item lock: a tap arriving mid-request must never abort it between
+    // the remove and the add; it just schedules another sync that runs after this one.
+    // Returns false if the backend rejected the change (the local quantity is rolled back).
+    private suspend fun syncCartItem(item: SupplierCatalogItem): Boolean = withContext(NonCancellable) {
+        cartSyncLocks.getOrPut(item.id) { Mutex() }.withLock {
+            val target = _uiState.value.cartQuantities[item.id] ?: 0
+            val synced = syncedQuantities[item.id] ?: 0
+            if (target == synced) return@withLock true
+
+            val orderId = draftOrderIdFor(item.supplierId) ?: run {
+                rollbackCartItem(item.id, synced, message = null)
+                return@withLock false
             }
 
             _uiState.value.cartItemIds[item.id]?.let { existingItemId ->
-                removeOrderItemUseCase(orderId, existingItemId)
+                val removed = removeOrderItemUseCase(orderId, existingItemId)
+                if (removed is Result.Error) {
+                    rollbackCartItem(item.id, synced, LanguageManager.strings.userMessage(removed))
+                    return@withLock false
+                }
+                syncedQuantities.remove(item.id)
+                update { copy(cartItemIds = cartItemIds - item.id) }
             }
+            if (target == 0) return@withLock true
 
-            if (targetQuantity == 0) {
-                update {
-                    val newQuantities = cartQuantities - item.id
-                    copy(
-                        processingItemIds = processingItemIds - item.id,
-                        cartQuantities = newQuantities,
-                        cartItemIds = cartItemIds - item.id,
-                        supplierCarts = recomputeSupplierCarts(newQuantities)
-                    )
+            when (val added = addOrderItemUseCase(orderId, item.drugId, target)) {
+                is Result.Success -> {
+                    syncedQuantities[item.id] = target
+                    update { copy(cartItemIds = cartItemIds + (item.id to added.data.id)) }
+                    true
                 }
-                return@launch
+                is Result.Error -> {
+                    // The old line is already gone at this point, so the backend now holds none.
+                    rollbackCartItem(item.id, 0, LanguageManager.strings.userMessage(added))
+                    false
+                }
+                is Result.Loading -> true
             }
+        }
+    }
 
-            when (val added = addOrderItemUseCase(orderId, item.drugId, targetQuantity)) {
-                is Result.Success -> update {
-                    val newQuantities = cartQuantities + (item.id to targetQuantity)
-                    copy(
-                        processingItemIds = processingItemIds - item.id,
-                        cartQuantities = newQuantities,
-                        cartItemIds = cartItemIds + (item.id to added.data.id),
-                        supplierCarts = recomputeSupplierCarts(newQuantities)
-                    )
+    // Get-or-create the draft order for this supplier. Null (with the error shown) on failure.
+    private suspend fun draftOrderIdFor(supplierId: String): String? =
+        orderIdsBySupplier[supplierId] ?: orderCreationMutex.withLock {
+            // Re-check after acquiring the lock: another coroutine may have created and
+            // stored the draft order for this supplier while this one was waiting.
+            orderIdsBySupplier[supplierId] ?: when (val created = createOrderUseCase(OrderMode.SPECIFIC_SUPPLIER)) {
+                is Result.Success -> created.data.id.also { orderIdsBySupplier[supplierId] = it }
+                is Result.Error -> {
+                    update { copy(catalogActionError = LanguageManager.strings.userMessage(created)) }
+                    null
                 }
-                is Result.Error -> update {
-                    copy(
-                        processingItemIds = processingItemIds - item.id,
-                        cartQuantities = cartQuantities - item.id,
-                        cartItemIds = cartItemIds - item.id,
-                        catalogActionError = LanguageManager.strings.friendlyError(added.message),
-                        supplierCarts = recomputeSupplierCarts(cartQuantities - item.id)
-                    )
-                }
-                is Result.Loading -> update { copy(processingItemIds = processingItemIds - item.id) }
+                is Result.Loading -> null
             }
+        }
+
+    // Puts the local quantity back to what the backend actually holds after a failed sync.
+    private fun rollbackCartItem(catalogItemId: String, backendQuantity: Int, message: String?) {
+        update {
+            val newQuantities = if (backendQuantity == 0) cartQuantities - catalogItemId else cartQuantities + (catalogItemId to backendQuantity)
+            copy(
+                cartQuantities = newQuantities,
+                supplierCarts = recomputeSupplierCarts(newQuantities),
+                catalogActionError = message ?: catalogActionError
+            )
+        }
+    }
+
+    // "Checkout all" on the Cart tab: sends any quantity changes still waiting out their debounce
+    // right away, then hands back the up-to-date (orderId, supplierId) pairs — so allocation never
+    // submits a draft order that's missing the buyer's last taps. Stays on the cart if any sync
+    // was rejected, so the buyer sees the error and the corrected quantity first.
+    fun checkoutAll(onReady: (orders: List<Pair<String, String>>) -> Unit) {
+        if (_uiState.value.isSyncingCart) return
+        viewModelScope.launch {
+            update { copy(isSyncingCart = true) }
+            val pendingIds = cartSyncJobs.keys.toList()
+            pendingIds.forEach { cartSyncJobs.remove(it)?.cancel() }
+            val itemsById = _uiState.value.knownCatalogItems
+            var allSynced = true
+            for (id in pendingIds) {
+                val item = itemsById[id] ?: continue
+                if (!syncCartItem(item)) allSynced = false
+            }
+            update { copy(isSyncingCart = false) }
+            if (!allSynced) return@launch
+
+            val orders = _uiState.value.supplierCarts.values
+                .map { cart -> (orderIdsBySupplier[cart.supplierId] ?: cart.orderId) to cart.supplierId }
+                .filter { (orderId, _) -> orderId.isNotBlank() }
+            if (orders.isNotEmpty()) onReady(orders)
         }
     }
 
