@@ -1014,6 +1014,27 @@ private fun CardSection(title: String, content: @Composable ColumnScope.() -> Un
 // ── Licence image box ─────────────────────────────────────────────────────────
 
 @Composable
+private fun LicenceNotUploaded() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            Icons.Filled.Image, null,
+            tint = TextHint,
+            modifier = Modifier.size(28.dp)
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            LocalStrings.current.adNotUploaded,
+            style = MaterialTheme.typography.labelSmall,
+            color = TextHint
+        )
+    }
+}
+
+@Composable
 private fun LicenceImageBox(url: String?, label: String, modifier: Modifier = Modifier) {
     val strings = LocalStrings.current
     var showFullScreen by remember { mutableStateOf(false) }
@@ -1052,35 +1073,26 @@ private fun LicenceImageBox(url: String?, label: String, modifier: Modifier = Mo
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = PrimaryBlue, strokeWidth = 2.dp)
                         }
                     },
-                    error = {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Filled.BrokenImage, null, tint = ErrorRed, modifier = Modifier.size(24.dp))
-                            Spacer(Modifier.height(4.dp))
-                            Text(strings.adFailedToLoad, style = MaterialTheme.typography.labelSmall, color = ErrorRed)
+                    error = { state ->
+                        // A 404 means the request simply has no image for this side (most only
+                        // upload a front), which isn't a failure.
+                        if (state.result.throwable.message?.contains("HTTP 404") == true) {
+                            LicenceNotUploaded()
+                        } else {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(Icons.Filled.BrokenImage, null, tint = ErrorRed, modifier = Modifier.size(24.dp))
+                                Spacer(Modifier.height(4.dp))
+                                Text(strings.adFailedToLoad, style = MaterialTheme.typography.labelSmall, color = ErrorRed)
+                            }
                         }
                     }
                 )
             } else {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        Icons.Filled.Image, null,
-                        tint = TextHint,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        strings.adNotUploaded,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextHint
-                    )
-                }
+                LicenceNotUploaded()
             }
         }
     }

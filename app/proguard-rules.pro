@@ -42,3 +42,7 @@
 -keepclasseswithmembers class com.pharmatrade.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
+
+# Ktor's logging pulls in slf4j-api, which probes for an optional binding class that doesn't exist on
+# Android — slf4j falls back to a no-op logger at runtime, so the missing reference is harmless.
+-dontwarn org.slf4j.impl.StaticLoggerBinder

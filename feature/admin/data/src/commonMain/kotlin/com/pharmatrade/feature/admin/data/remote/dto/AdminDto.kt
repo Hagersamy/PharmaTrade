@@ -44,6 +44,10 @@ data class PendingUserDto(
     // GET admin/registration-requests (confirmed 2026-09-27) sends images as this array instead of
     // the two fields above: each has an inline base64 data_url (sometimes null) and an authed url.
     @SerialName("licence_images") val licenceImages: List<LicenceImageDto>? = null,
+    // As of 2026-10-02 the registration-requests list no longer embeds any image — it only flags
+    // that one exists. The image comes from admin/registration-requests/{id}/licence-image-url, which
+    // answers JSON with an inline data_url (the sibling /licence-image route 404s for these requests).
+    @SerialName("has_licence_image") val hasLicenceImage: Boolean? = null,
     // Supplier-only
     @SerialName("min_order_value") val minOrderValue: JsonElement? = null,
     @SerialName("min_order_qty") val minOrderQty: JsonElement? = null,
@@ -75,6 +79,24 @@ data class PendingUserDto(
     private fun nestedArray(vararg keys: String): List<JsonElement>? =
         nested.firstNotNullOfOrNull { obj -> keys.firstNotNullOfOrNull { (obj[it] as? JsonArray)?.toList() } }
 
+    // Loaded by Coil with the session's Bearer token; PharmaTradeApp's interceptor unwraps the JSON
+    // response's data_url into image bytes Coil can decode.
+    private fun registrationLicenceImageUrl(): String? {
+        if (hasLicenceImage != true) return null
+        val requestId = id.rawStringOrNull()?.takeIf { it.isNotBlank() } ?: return null
+        return "${ApiClient.baseUrl.trimEnd('/')}/admin/registration-requests/$requestId/licence-image-url"
+    }
+
+    // licence-image-url only ever serves the primary (front) image, and the list doesn't carry the
+    // back image's id. The request's detail endpoint lists every image, so point at that; the
+    // licence_side marker (ignored by the backend) tells PharmaTradeApp's interceptor to pick the
+    // non-primary entry out of its licence_images array.
+    private fun registrationLicenceBackUrl(): String? {
+        if (hasLicenceImage != true) return null
+        val requestId = id.rawStringOrNull()?.takeIf { it.isNotBlank() } ?: return null
+        return "${ApiClient.baseUrl.trimEnd('/')}/admin/registration-requests/$requestId?licence_side=back"
+    }
+
     private fun nestedString(vararg keys: String): String? =
         nested.firstNotNullOfOrNull { obj -> keys.firstNotNullOfOrNull { (obj[it] as? JsonPrimitive)?.contentOrNull } }
 
@@ -105,8 +127,12 @@ data class PendingUserDto(
             zoneId = zoneId.rawStringOrNull(),
             userType = ut,
             status = status ?: "pending",
-            licenceFrontUrl = orderedImages.getOrNull(0)?.source() ?: licenceFrontRaw.toLicenceUrl(),
-            licenceBackUrl = orderedImages.getOrNull(1)?.source() ?: licenceBackRaw.toLicenceUrl(),
+            licenceFrontUrl = orderedImages.getOrNull(0)?.source()
+                ?: licenceFrontRaw.toLicenceUrl()
+                ?: registrationLicenceImageUrl(),
+            licenceBackUrl = orderedImages.getOrNull(1)?.source()
+                ?: licenceBackRaw.toLicenceUrl()
+                ?: registrationLicenceBackUrl(),
             minOrderValue = minOrderValue.rawStringOrNull(),
             minOrderQty = minOrderQty.rawStringOrNull(),
             additionalZoneIds = if (isZoneUpdate) emptyList() else zoneIds?.map { it.rawStringOrNull() ?: "" } ?: emptyList(),

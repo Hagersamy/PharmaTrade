@@ -150,9 +150,19 @@ class PharmaTradeApp : Application() {
         val contentType = response.body?.contentType()
         if (!response.isSuccessful || contentType?.subtype?.contains("json") != true) return response
         val text = response.body?.string().orEmpty()
-        val target = runCatching { findImageRef(JSONTokener(text).nextValue()) }.getOrNull()
+        val side = response.request.url.queryParameter("licence_side")
+        val target = runCatching {
+            val root = JSONTokener(text).nextValue()
+            if (side != null) findLicenceBySide(root, side) else findImageRef(root)
+        }.getOrNull()
         Log.i("LicenceImage", "JSON from ${response.request.url} -> ${target?.take(80)}")
 
+        // The request has no image on the asked-for side (most only upload a front) — answer 404 so
+        // the UI shows "Not uploaded" rather than a decode failure on the JSON body.
+        if (target == null && side != null) {
+            return response.newBuilder().code(404).message("No $side licence image")
+                .body(text.toResponseBody(contentType)).build()
+        }
         if (target == null) {
             return response.newBuilder().body(text.toResponseBody(contentType)).build()
         }
@@ -174,6 +184,26 @@ class PharmaTradeApp : Application() {
             .apply { if (sameBackend) SessionManager.authToken?.let { header("Authorization", "Bearer $it") } }
             .build()
         return chain.proceed(followReq)
+    }
+
+    // A registration request's detail response lists every licence image under licence_images, the
+    // primary one being the front. Pick the requested side and return its data_url (or its url).
+    private fun findLicenceBySide(node: Any?, side: String): String? {
+        val images = findArray(node, "licence_images") ?: return null
+        val wantPrimary = side == "front"
+        return (0 until images.length())
+            .mapNotNull { images.optJSONObject(it) }
+            .firstOrNull { it.optBoolean("is_primary") == wantPrimary }
+            ?.let { image ->
+                image.optString("data_url").takeIf { it.startsWith("data:") }
+                    ?: image.optString("url").takeIf { it.startsWith("http") }
+            }
+    }
+
+    private fun findArray(node: Any?, key: String): JSONArray? = when (node) {
+        is JSONObject -> node.optJSONArray(key)
+            ?: node.keys().asSequence().firstNotNullOfOrNull { findArray(node.opt(it), key) }
+        else -> null
     }
 
     private fun findImageRef(node: Any?): String? = when (node) {
