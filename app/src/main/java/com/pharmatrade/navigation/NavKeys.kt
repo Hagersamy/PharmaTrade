@@ -6,6 +6,11 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class OrderSupplierPair(val orderId: String, val supplierId: String)
 
+// A draft order line handed from the Cart tab to the supplier page (drafts' lines can't be
+// re-read from the backend, so they travel with the key).
+@Serializable
+data class DraftOrderLine(val id: String, val drugId: String, val drugName: String, val quantity: Int)
+
 @Serializable
 sealed class NavKeys : NavKey {
     // Auth
@@ -36,7 +41,11 @@ sealed class NavKeys : NavKey {
 
     // Pharmacy order flow
     @Serializable data object OrderMode : NavKeys()
-    @Serializable data class OrderItems(val orderId: String, val supplierId: String? = null) : NavKeys()
+    @Serializable data class OrderItems(
+        val orderId: String,
+        val supplierId: String? = null,
+        val initialLines: List<DraftOrderLine> = emptyList()
+    ) : NavKeys()
     @Serializable data class Allocation(val orderId: String, val supplierId: String? = null) : NavKeys()
     @Serializable data class OrderDetail(val orderId: String) : NavKeys()
 

@@ -232,7 +232,8 @@ private fun ColumnScope.SpecificSupplierContent(
         subtotal = orderSubtotal,
         minOrderValue = uiState.supplier?.minOrderValue ?: 0.0,
         onReviewAndAllocate = onReviewAndAllocate,
-        canReview = uiState.items.isNotEmpty()
+        // Wait for in-flight +/- taps, so the order handed to the cart has every line.
+        canReview = uiState.items.isNotEmpty() && uiState.quickAddingItemIds.isEmpty()
     )
 }
 

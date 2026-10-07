@@ -51,6 +51,7 @@ import com.pharmatrade.feature.profile.presentation.ProfileViewModel
 import com.pharmatrade.feature.notification.presentation.NotificationViewModel
 import com.pharmatrade.feature.notification.presentation.NotificationsScreen
 import com.pharmatrade.push.NotificationDeepLink
+import com.pharmatrade.feature.pharmacyorder.domain.model.DraftOrderItem
 import com.pharmatrade.feature.pharmacyorder.presentation.allocation.AllocationScreen
 import com.pharmatrade.feature.pharmacyorder.presentation.allocation.AllocationViewModel
 import com.pharmatrade.feature.pharmacyorder.presentation.checkout.CheckoutScreen
@@ -361,7 +362,8 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                                 getOrderDetailUseCase = container.getOrderDetailUseCase,
                                 createOrderUseCase = container.createOrderUseCase,
                                 addOrderItemUseCase = container.addOrderItemUseCase,
-                                removeOrderItemUseCase = container.removeOrderItemUseCase
+                                removeOrderItemUseCase = container.removeOrderItemUseCase,
+                                cancelOrderUseCase = container.cancelOrderUseCase
                             )
                         }
                     }
@@ -440,6 +442,15 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     onCheckoutAll = { orders ->
                         navigator.navigate(
                             NavKeys.Checkout(orders.map { (orderId, supplierId) -> OrderSupplierPair(orderId, supplierId) })
+                        )
+                    },
+                    onOpenSupplierOrder = { orderId, supplierId, lines ->
+                        navigator.navigate(
+                            NavKeys.OrderItems(
+                                orderId = orderId,
+                                supplierId = supplierId,
+                                initialLines = lines.map { DraftOrderLine(it.id, it.drugId, it.drugName, it.quantity) }
+                            )
                         )
                     },
                     onLogout = {
@@ -660,7 +671,8 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                                 addOrderItemUseCase = container.addOrderItemUseCase,
                                 removeOrderItemUseCase = container.removeOrderItemUseCase,
                                 uploadOrderItemsUseCase = container.uploadOrderItemsUseCase,
-                                getOrderDetailUseCase = container.getOrderDetailUseCase
+                                getOrderDetailUseCase = container.getOrderDetailUseCase,
+                                initialItems = key.initialLines.map { DraftOrderItem(it.id, it.drugId, it.drugName, it.quantity) }
                             )
                         }
                     }
@@ -669,7 +681,15 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     viewModel = vm,
                     onNavigateBack = { navigator.goBack() },
                     onReviewAndAllocate = {
-                        navigator.navigate(NavKeys.Allocation(key.orderId, key.supplierId))
+                        if (key.supplierId.isNullOrBlank()) {
+                            navigator.navigate(NavKeys.Allocation(key.orderId, key.supplierId))
+                        } else {
+                            // A supplier's order goes to the Cart tab (where it can be checked out
+                            // with the rest), not straight to allocation.
+                            vm.publishToCart()
+                            selectHomeTab(HomeTab.CART)
+                            navigator.popBackTo(NavKeys.Home)
+                        }
                     }
                 )
             }

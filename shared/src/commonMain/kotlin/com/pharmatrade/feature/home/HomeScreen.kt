@@ -16,6 +16,7 @@ import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.core.ui.theme.*
+import com.pharmatrade.feature.pharmacyorder.domain.model.DraftOrderItem
 import com.pharmatrade.feature.pharmacyorder.presentation.cart.PharmacyCartScreen
 import com.pharmatrade.feature.pharmacyorder.presentation.home.PharmacyHomeScreen
 import com.pharmatrade.feature.pharmacyorder.presentation.home.PharmacyHomeViewModel
@@ -57,6 +58,7 @@ fun HomeScreen(
     onNavigateToOrderDetail: (String) -> Unit,
     onNavigateToSupplierOrderDetail: (String) -> Unit,
     onCheckoutAll: (orders: List<Pair<String, String>>) -> Unit,
+    onOpenSupplierOrder: (orderId: String, supplierId: String, lines: List<DraftOrderItem>) -> Unit,
     onLogout: () -> Unit
 ) {
     val currentUser by SessionManager.currentUser.collectAsStateWithLifecycle()
@@ -105,7 +107,11 @@ fun HomeScreen(
                     }
                 }
                 HomeTab.CART -> pharmacyHomeViewModel?.let {
-                    PharmacyCartScreen(viewModel = it, onCheckoutAll = onCheckoutAll)
+                    PharmacyCartScreen(
+                        viewModel = it,
+                        onCheckoutAll = onCheckoutAll,
+                        onOpenSupplierOrder = onOpenSupplierOrder
+                    )
                 }
                 HomeTab.ORDERS -> if (sellerOrdersViewModel != null) {
                     SellerOrdersScreen(

@@ -26,6 +26,11 @@ class Navigator(private val backStack: NavBackStack<NavKey>) {
         backStack.removeLastOrNull()
     }
 
+    // Pops back to an entry already on the stack (kept, with its ViewModels) without pushing anything.
+    fun popBackTo(target: NavKey) {
+        applyPopUpTo(PopUpTo(target))
+    }
+
     private fun applyPopUpTo(popUpTo: PopUpTo) {
         if (popUpTo.target == null) {
             backStack.clear()

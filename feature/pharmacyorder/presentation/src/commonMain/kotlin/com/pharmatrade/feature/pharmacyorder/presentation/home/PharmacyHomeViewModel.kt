@@ -7,10 +7,13 @@ import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.log.debugLog
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.pharmacyorder.domain.PharmacyCartBus
+import com.pharmatrade.feature.pharmacyorder.domain.SupplierPageOrder
+import com.pharmatrade.feature.pharmacyorder.domain.model.DraftOrderItem
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrderDetail
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrderMode
 import com.pharmatrade.feature.pharmacyorder.domain.model.SupplierCatalogItem
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.AddOrderItemUseCase
+import com.pharmatrade.feature.pharmacyorder.domain.usecase.CancelOrderUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.CreateOrderUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.GetAllSuppliersDrugsUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.GetOrderDetailUseCase
@@ -90,7 +93,8 @@ class PharmacyHomeViewModel(
     private val getOrderDetailUseCase: GetOrderDetailUseCase,
     private val createOrderUseCase: CreateOrderUseCase,
     private val addOrderItemUseCase: AddOrderItemUseCase,
-    private val removeOrderItemUseCase: RemoveOrderItemUseCase
+    private val removeOrderItemUseCase: RemoveOrderItemUseCase,
+    private val cancelOrderUseCase: CancelOrderUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PharmacyHomeUiState())
@@ -147,6 +151,78 @@ class PharmacyHomeViewModel(
                 loadActiveOrdersCount()
             }
             .launchIn(viewModelScope)
+        // The supplier page (New order → supplier, or a supplier opened from the Cart tab) hands
+        // its order back here when the buyer leaves it.
+        PharmacyCartBus.supplierPageOrder
+            .onEach { applySupplierPageOrder(it) }
+            .launchIn(viewModelScope)
+    }
+
+    // Folds an order built on the supplier page into the cart. Opened from this cart, it's the
+    // same draft order, so the page's lines replace this supplier's cart outright. A brand-new
+    // order becomes this supplier's cart — unless the cart already holds a different draft for
+    // that supplier, in which case the new lines are added onto it and the extra draft cancelled,
+    // keeping one draft order per supplier.
+    private suspend fun applySupplierPageOrder(order: SupplierPageOrder) {
+        val supplierId = order.supplierId
+        fun known(drugId: String) = _uiState.value.knownCatalogItems.values
+            .firstOrNull { it.supplierId == supplierId && it.drugId == drugId }
+
+        // Prefer the catalog item Home already has (the cart is keyed by its id), then the one the
+        // supplier page built from the inventory, and only then look the drug up by name.
+        val fromPage = order.lines.mapNotNull { it.catalogItem }.filter { known(it.drugId) == null }
+        if (fromPage.isNotEmpty()) update { copy(knownCatalogItems = knownCatalogItems + fromPage.associateBy { it.id }) }
+        val missingNames = order.lines.filter { known(it.item.drugId) == null }
+            .map { it.item.drugName.trim() }.filter { it.isNotBlank() }.distinct()
+        for (drugName in missingNames) {
+            val result = getAllSuppliersDrugsUseCase(page = 1, search = drugName, perPage = CATALOG_PAGE_SIZE)
+            if (result is Result.Success) {
+                val found = result.data.items.filter { it.supplierId == supplierId }
+                update { copy(knownCatalogItems = knownCatalogItems + found.associateBy { it.id }) }
+            }
+        }
+
+        // catalog item -> its quantity and backing line id in this order
+        val incoming = order.lines
+            .mapNotNull { line -> known(line.item.drugId)?.let { it to line.item } }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, lines) -> lines.sumOf { it.quantity } to lines.first().id }
+
+        val tracked = orderIdsBySupplier[supplierId]
+        if (tracked != null && tracked != order.orderId) {
+            if (incoming.isEmpty()) return
+            incoming.forEach { (item, line) ->
+                val current = _uiState.value.cartQuantities[item.id] ?: 0
+                setCartQuantity(item, (current + line.first).coerceAtMost(item.quantityAvailable))
+            }
+            cancelOrderUseCase(order.orderId)
+            return
+        }
+        if (tracked == null && incoming.isEmpty()) return
+
+        orderIdsBySupplier[supplierId] = order.orderId
+        val itemsById = _uiState.value.knownCatalogItems
+        // Already this cart's order → the page speaks for every one of the supplier's items.
+        // Otherwise only for the ones it sent; any not-yet-synced taps on other items simply sync
+        // into this order next.
+        val ownedBefore = if (tracked == order.orderId) {
+            (_uiState.value.cartQuantities.keys + syncedQuantities.keys + cartSyncJobs.keys)
+                .filter { itemsById[it]?.supplierId == supplierId }
+        } else emptyList()
+        val replacedIds = (ownedBefore + incoming.keys.map { it.id }).toSet()
+        replacedIds.forEach { id ->
+            cartSyncJobs.remove(id)?.cancel()
+            syncedQuantities.remove(id)
+        }
+        incoming.forEach { (item, line) -> syncedQuantities[item.id] = line.first }
+        update {
+            val newQuantities = cartQuantities - replacedIds + incoming.map { (item, line) -> item.id to line.first }
+            copy(
+                cartQuantities = newQuantities,
+                cartItemIds = cartItemIds - replacedIds + incoming.map { (item, line) -> item.id to line.second },
+                supplierCarts = recomputeSupplierCarts(newQuantities)
+            )
+        }
     }
 
     // The cart here is really just whatever draft orders exist on the backend — this ViewModel's
@@ -520,23 +596,48 @@ class PharmacyHomeViewModel(
     fun checkoutAll(onReady: (orders: List<Pair<String, String>>) -> Unit) {
         if (_uiState.value.isSyncingCart) return
         viewModelScope.launch {
-            update { copy(isSyncingCart = true) }
-            val pendingIds = cartSyncJobs.keys.toList()
-            pendingIds.forEach { cartSyncJobs.remove(it)?.cancel() }
-            val itemsById = _uiState.value.knownCatalogItems
-            var allSynced = true
-            for (id in pendingIds) {
-                val item = itemsById[id] ?: continue
-                if (!syncCartItem(item)) allSynced = false
-            }
-            update { copy(isSyncingCart = false) }
-            if (!allSynced) return@launch
+            if (!flushPendingSyncs { true }) return@launch
 
             val orders = _uiState.value.supplierCarts.values
                 .map { cart -> (orderIdsBySupplier[cart.supplierId] ?: cart.orderId) to cart.supplierId }
                 .filter { (orderId, _) -> orderId.isNotBlank() }
             if (orders.isNotEmpty()) onReady(orders)
         }
+    }
+
+    // Supplier name tapped on the Cart tab: sends that supplier's pending +/- taps first, then
+    // hands back its draft order id and current lines, so the supplier page opens on exactly
+    // what the backend holds (it can't re-read a draft's lines itself).
+    fun openSupplierOrder(supplierId: String, onReady: (orderId: String, lines: List<DraftOrderItem>) -> Unit) {
+        if (_uiState.value.isSyncingCart) return
+        viewModelScope.launch {
+            if (!flushPendingSyncs { it.supplierId == supplierId }) return@launch
+            val orderId = orderIdsBySupplier[supplierId] ?: return@launch
+            val state = _uiState.value
+            val lines = state.cartQuantities.mapNotNull { (catalogItemId, quantity) ->
+                val item = state.knownCatalogItems[catalogItemId]?.takeIf { it.supplierId == supplierId }
+                val lineId = state.cartItemIds[catalogItemId]
+                if (item == null || lineId == null) null
+                else DraftOrderItem(id = lineId, drugId = item.drugId, drugName = item.drugName, quantity = quantity)
+            }
+            onReady(orderId, lines)
+        }
+    }
+
+    // Sends right away every matching quantity change still waiting out its debounce. False if
+    // any was rejected (the corrected quantity and error are already showing).
+    private suspend fun flushPendingSyncs(matches: (SupplierCatalogItem) -> Boolean): Boolean {
+        update { copy(isSyncingCart = true) }
+        val itemsById = _uiState.value.knownCatalogItems
+        val pendingIds = cartSyncJobs.keys.filter { id -> itemsById[id]?.let(matches) == true }
+        pendingIds.forEach { cartSyncJobs.remove(it)?.cancel() }
+        var allSynced = true
+        for (id in pendingIds) {
+            val item = itemsById[id] ?: continue
+            if (!syncCartItem(item)) allSynced = false
+        }
+        update { copy(isSyncingCart = false) }
+        return allSynced
     }
 
     private fun recomputeSupplierCarts(cartQuantities: Map<String, Int>): Map<String, SupplierCartOrder> {

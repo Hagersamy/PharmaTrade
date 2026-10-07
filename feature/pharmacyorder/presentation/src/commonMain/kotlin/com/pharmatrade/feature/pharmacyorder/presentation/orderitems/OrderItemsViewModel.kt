@@ -8,8 +8,12 @@ import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.Drug
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.drugs.domain.usecase.GetDrugsUseCase
+import com.pharmatrade.feature.pharmacyorder.domain.PharmacyCartBus
+import com.pharmatrade.feature.pharmacyorder.domain.SupplierOrderLine
+import com.pharmatrade.feature.pharmacyorder.domain.SupplierPageOrder
 import com.pharmatrade.feature.pharmacyorder.domain.model.DraftOrderItem
 import com.pharmatrade.feature.pharmacyorder.domain.model.PharmacySupplier
+import com.pharmatrade.feature.pharmacyorder.domain.model.SupplierCatalogItem
 import com.pharmatrade.feature.pharmacyorder.domain.model.SupplierInventoryItem
 import com.pharmatrade.feature.pharmacyorder.domain.model.UploadItemsResult
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.AddOrderItemUseCase
@@ -67,12 +71,19 @@ class OrderItemsViewModel(
     private val addOrderItemUseCase: AddOrderItemUseCase,
     private val removeOrderItemUseCase: RemoveOrderItemUseCase,
     private val uploadOrderItemsUseCase: UploadOrderItemsUseCase,
-    private val getOrderDetailUseCase: GetOrderDetailUseCase
+    private val getOrderDetailUseCase: GetOrderDetailUseCase,
+    // Lines the order already holds when opened from the Home cart — drafts' lines can't be
+    // re-read from the backend, so the cart hands over what it tracked.
+    initialItems: List<DraftOrderItem> = emptyList()
 ) : ViewModel() {
 
     val isSpecificSupplier: Boolean = !supplierId.isNullOrBlank()
 
-    private val _uiState = MutableStateFlow(OrderItemsUiState())
+    private val _uiState = MutableStateFlow(OrderItemsUiState(items = initialItems))
+
+    // The order is handed to the Home cart once, on whichever comes first: "Review" or leaving
+    // the page (back) — so the cart always reflects what was done here.
+    private var publishedToCart = false
     val uiState: StateFlow<OrderItemsUiState> = _uiState.asStateFlow()
 
     private val searchQueryFlow = MutableStateFlow("")
@@ -270,6 +281,42 @@ class OrderItemsViewModel(
                 is Result.Loading -> Unit
             }
         }
+    }
+
+    // Hands this supplier's order (as built here) to the Home cart. Only for a specific supplier —
+    // the cart groups orders by supplier, so a best-discount order has no place there.
+    fun publishToCart() {
+        val sId = supplierId?.takeIf { it.isNotBlank() } ?: return
+        if (publishedToCart) return
+        publishedToCart = true
+        val state = _uiState.value
+        val inventoryByDrugId = state.supplierInventory.associateBy { it.drugId }
+        val lines = state.items.map { line ->
+            val catalogItem = inventoryByDrugId[line.drugId]?.let { inv ->
+                SupplierCatalogItem(
+                    id = inv.id,
+                    supplierId = sId,
+                    supplierName = state.supplier?.name.orEmpty(),
+                    drugId = inv.drugId,
+                    drugName = inv.drugName,
+                    dosageForm = inv.dosageForm,
+                    strength = inv.strength,
+                    quantityAvailable = inv.quantityAvailable,
+                    unitPrice = inv.unitPrice,
+                    publicPrice = inv.unitPrice,
+                    pharmacistPrice = inv.unitPrice,
+                    discountPct = inv.discountPct,
+                    effectivePrice = inv.effectivePrice,
+                    inventoryId = inv.id
+                )
+            }
+            SupplierOrderLine(item = line, catalogItem = catalogItem)
+        }
+        PharmacyCartBus.publishSupplierPageOrder(SupplierPageOrder(orderId, sId, lines))
+    }
+
+    override fun onCleared() {
+        publishToCart()
     }
 
     fun dismissUploadResult() = update { copy(uploadResult = null) }

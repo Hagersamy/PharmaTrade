@@ -1,12 +1,14 @@
 package com.pharmatrade.feature.pharmacyorder.presentation.cart
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Storefront
@@ -27,6 +29,7 @@ import com.pharmatrade.core.ui.components.PharmaButton
 import com.pharmatrade.core.ui.components.PharmaCard
 import com.pharmatrade.core.ui.components.SectionHeader
 import com.pharmatrade.core.ui.theme.*
+import com.pharmatrade.feature.pharmacyorder.domain.model.DraftOrderItem
 import com.pharmatrade.feature.pharmacyorder.domain.model.SupplierCatalogItem
 import com.pharmatrade.feature.pharmacyorder.presentation.home.CartQuantityStepper
 import com.pharmatrade.feature.pharmacyorder.presentation.home.PharmacyHomeViewModel
@@ -40,7 +43,9 @@ import com.pharmatrade.feature.pharmacyorder.presentation.home.SupplierCartOrder
 @Composable
 fun PharmacyCartScreen(
     viewModel: PharmacyHomeViewModel,
-    onCheckoutAll: (orders: List<Pair<String, String>>) -> Unit
+    onCheckoutAll: (orders: List<Pair<String, String>>) -> Unit,
+    // Supplier name tapped: open that supplier's page on its draft order to keep editing it.
+    onOpenSupplierOrder: (orderId: String, supplierId: String, lines: List<DraftOrderItem>) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val strings = LocalStrings.current
@@ -79,7 +84,12 @@ fun PharmacyCartScreen(
                         items = itemsBySupplier[cart.supplierId].orEmpty(),
                         onIncrease = { item -> viewModel.incrementCartItem(item) },
                         onDecrease = { item -> viewModel.decrementCartItem(item) },
-                        onRemoveOrder = { viewModel.removeSupplierOrder(cart.supplierId) }
+                        onRemoveOrder = { viewModel.removeSupplierOrder(cart.supplierId) },
+                        onSupplierClick = {
+                            viewModel.openSupplierOrder(cart.supplierId) { orderId, lines ->
+                                onOpenSupplierOrder(orderId, cart.supplierId, lines)
+                            }
+                        }
                     )
                 }
             }
@@ -120,7 +130,8 @@ private fun SupplierCartCard(
     items: List<Triple<SupplierCatalogItem, Int, String>>,
     onIncrease: (SupplierCatalogItem) -> Unit,
     onDecrease: (SupplierCatalogItem) -> Unit,
-    onRemoveOrder: () -> Unit
+    onRemoveOrder: () -> Unit,
+    onSupplierClick: () -> Unit
 ) {
     val strings = LocalStrings.current
     PharmaCard(modifier = Modifier.fillMaxWidth()) {
@@ -130,14 +141,30 @@ private fun SupplierCartCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onSupplierClick)
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Box(
                         modifier = Modifier.size(28.dp).clip(CircleShape).background(PrimaryBlueContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Filled.Storefront, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(14.dp))
                     }
-                    Text(cart.supplierName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    Text(
+                        cart.supplierName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryBlue,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
                 }
                 TextButton(onClick = onRemoveOrder) {
                     Text(strings.pharmacyCartRemoveOrder, color = ErrorRed)
