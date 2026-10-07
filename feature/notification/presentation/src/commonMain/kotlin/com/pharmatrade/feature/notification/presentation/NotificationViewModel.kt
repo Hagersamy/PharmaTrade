@@ -12,6 +12,7 @@ import com.pharmatrade.feature.notification.domain.usecase.GetNotificationsUseCa
 import com.pharmatrade.feature.notification.domain.usecase.GetUnreadNotificationCountUseCase
 import com.pharmatrade.feature.notification.domain.usecase.MarkAllNotificationsAsReadUseCase
 import com.pharmatrade.feature.notification.domain.usecase.MarkNotificationAsReadUseCase
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -76,10 +77,15 @@ class NotificationViewModel(
     // own. Calling these here too used to double every request (two independent trigger paths
     // firing back to back) without adding a case neither of them already covers.
 
+    // In-flight guards: a second ask while one is already running is dropped (same answer).
+    private var refreshListJob: Job? = null
+    private var unreadCountJob: Job? = null
+
     // Called on Home resume to keep the bell badge current — deliberately does not touch the
     // notification list or mark anything read.
     fun refreshUnreadCount() {
-        viewModelScope.launch {
+        if (unreadCountJob?.isActive == true) return
+        unreadCountJob = viewModelScope.launch {
             when (val result = getUnreadCountUseCase()) {
                 is Result.Success -> update { copy(unreadCount = result.data) }
                 else -> Unit
@@ -92,7 +98,9 @@ class NotificationViewModel(
     // ever opens the Notifications screen. Unlike openScreen(), this never marks anything read and
     // never touches isLoading/error, so it can't interfere with the actual notifications screen.
     fun refreshList() {
-        viewModelScope.launch {
+        // Already on its way (e.g. Home resume and the Orders tab both asked) — one is enough.
+        if (refreshListJob?.isActive == true) return
+        refreshListJob = viewModelScope.launch {
             when (val result = getNotificationsUseCase(page = FIRST_PAGE, perPage = PAGE_SIZE)) {
                 is Result.Success -> update {
                     copy(notifications = result.data.notifications, total = result.data.total, currentPage = FIRST_PAGE)

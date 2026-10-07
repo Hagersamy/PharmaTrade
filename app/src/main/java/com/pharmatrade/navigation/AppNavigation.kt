@@ -359,7 +359,6 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                             PharmacyHomeViewModel(
                                 getPharmacyOrdersUseCase = container.getPharmacyOrdersUseCase,
                                 getAllSuppliersDrugsUseCase = container.getAllSuppliersDrugsUseCase,
-                                getOrderDetailUseCase = container.getOrderDetailUseCase,
                                 createOrderUseCase = container.createOrderUseCase,
                                 addOrderItemUseCase = container.addOrderItemUseCase,
                                 removeOrderItemUseCase = container.removeOrderItemUseCase,
@@ -402,10 +401,23 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                 // looking to the buyer like the order had been deleted.
                 RefreshOnResume {
                     sellerVm?.loadData()
-                    orderListVm?.loadOrders()
                     pharmacyHomeVm?.loadActiveOrdersCount()
                     notificationViewModel.refreshUnreadCount()
-                    notificationViewModel.refreshList()
+                    if (homeSelectedTab == HomeTab.ORDERS) {
+                        orderListVm?.loadOrders()
+                        notificationViewModel.refreshList()
+                    }
+                }
+                // The order list ("All" alone is 6 parallel requests) and the notification list
+                // (only used for the order rows' "new" badges) belong to the Orders tab, so they
+                // load when that tab is shown, not on every Home resume. OkHttp runs at most 5
+                // requests per host at once, so loading them up front queued everything else —
+                // e.g. the supplier list on New order — behind them.
+                LaunchedEffect(homeSelectedTab) {
+                    if (homeSelectedTab == HomeTab.ORDERS) {
+                        orderListVm?.loadOrders()
+                        notificationViewModel.refreshList()
+                    }
                 }
                 HomeScreen(
                     sellerDashboardViewModel = sellerVm,
@@ -480,7 +492,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     viewModel = vm,
                     onNavigateBack = { navigator.goBack() },
                     onDone = {
-                        navigator.navigate(NavKeys.Home, popUpTo = Navigator.PopUpTo(NavKeys.Home, inclusive = true))
+                        navigator.popBackTo(NavKeys.Home)
                     }
                 )
             }
@@ -631,7 +643,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                 OrderSuccessScreen(
                     orderId = key.orderId,
                     onNavigateHome = {
-                        navigator.navigate(NavKeys.Home, popUpTo = Navigator.PopUpTo(NavKeys.Home, inclusive = true))
+                        navigator.popBackTo(NavKeys.Home)
                     }
                 )
             }
@@ -714,7 +726,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         navigator.navigate(NavKeys.OrderDetail(confirmedOrderId), popUpTo = Navigator.PopUpTo(NavKeys.Home))
                     },
                     onCancelled = {
-                        navigator.navigate(NavKeys.Home, popUpTo = Navigator.PopUpTo(NavKeys.Home, inclusive = true))
+                        navigator.popBackTo(NavKeys.Home)
                     }
                 )
             }

@@ -44,6 +44,8 @@ fun ProfileScreen(viewModel: ProfileViewModel, user: User?, onLogout: () -> Unit
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val strings = LocalStrings.current
 
+    LaunchedEffect(Unit) { viewModel.onScreenShown() }
+
     LaunchedEffect(uiState.successMessage) {
         if (uiState.successMessage != null) {
             delay(2500)

@@ -101,12 +101,22 @@ class ProfileViewModel(
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     init {
+        if (SessionManager.user?.userType == UserType.SELLER) {
+            observeReminders()
+        }
+    }
+
+    // This ViewModel is created with Home (and the admin dashboard), but its data is only shown on
+    // the Profile tab — so GET profile / pharmacy/branch run the first time that tab is opened,
+    // once per ViewModel, instead of on every Home creation whether the tab is ever opened or not.
+    private var hasLoaded = false
+
+    fun onScreenShown() {
+        if (hasLoaded) return
+        hasLoaded = true
         loadProfile()
         if (SessionManager.user?.userType == UserType.BUYER) {
             loadBranch()
-        }
-        if (SessionManager.user?.userType == UserType.SELLER) {
-            observeReminders()
         }
     }
 

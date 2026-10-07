@@ -15,6 +15,7 @@ import com.pharmatrade.feature.admin.domain.usecase.GetRegistrationStatsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 // Backend validation on POST admin/registration-requests/{id}/decline:
@@ -60,17 +61,31 @@ class AnalyticsViewModel(
     private val _uiState = MutableStateFlow(AnalyticsUiState())
     val uiState: StateFlow<AnalyticsUiState> = _uiState.asStateFlow()
 
+    // Only the zone updates load up front — their count feeds the Requests tab badge. Stats and the
+    // request list belong to the Analytics tab and load when it's opened (refresh()); the stats
+    // used to load here too, on top of AdminDashboardViewModel's own stats call on the same screen.
     init {
-        loadAll()
-        loadZoneNames()
+        loadZoneUpdates()
     }
 
-    fun refresh() = loadAll()
+    // Analytics tab opened.
+    fun refresh() {
+        loadStats()
+        loadRequests(_uiState.value.filter.value)
+    }
 
     fun setFilter(filter: EntityFilter) {
         _uiState.value = _uiState.value.copy(filter = filter)
         loadRequests(filter.value)
     }
+
+    // In-flight guards: a second ask for the same data while it's still loading is dropped; a
+    // request list for a different filter replaces the one in flight.
+    private var statsJob: Job? = null
+    private var zoneUpdatesJob: Job? = null
+    private var requestsJob: Job? = null
+    private var requestsFilter: String? = null
+    private var zoneNamesLoaded = false
 
     // Removes the card right away rather than after the round trip; the toast confirms once the
     // server accepts it. On failure the card goes back where it was, with the error shown.
@@ -116,16 +131,15 @@ class AnalyticsViewModel(
     fun clearToast() = update { copy(toastMessage = null) }
     fun clearError() = update { copy(error = null) }
 
-    fun refreshZoneUpdates() = loadZoneUpdates()
-
-    private fun loadAll() {
-        loadStats()
-        loadRequests(_uiState.value.filter.value)
+    // Requests tab opened: fresh zone updates, plus the zone names their cards show (once).
+    fun refreshZoneUpdates() {
         loadZoneUpdates()
+        loadZoneNames()
     }
 
     private fun loadZoneUpdates() {
-        viewModelScope.launch {
+        if (zoneUpdatesJob?.isActive == true) return
+        zoneUpdatesJob = viewModelScope.launch {
             update { copy(isLoadingZoneUpdates = true, zoneUpdatesError = null) }
             when (val result = getRequestsUseCase(EntityFilter.ZONE_UPDATE.value)) {
                 is Result.Success -> update { copy(isLoadingZoneUpdates = false, zoneUpdates = result.data) }
@@ -138,7 +152,8 @@ class AnalyticsViewModel(
     }
 
     private fun loadStats() {
-        viewModelScope.launch {
+        if (statsJob?.isActive == true) return
+        statsJob = viewModelScope.launch {
             update { copy(isLoadingStats = true) }
             when (val result = getStatsUseCase()) {
                 is Result.Success -> update { copy(isLoadingStats = false, stats = result.data) }
@@ -149,7 +164,10 @@ class AnalyticsViewModel(
     }
 
     private fun loadRequests(entityType: String?) {
-        viewModelScope.launch {
+        if (requestsJob?.isActive == true && requestsFilter == entityType) return
+        requestsJob?.cancel()
+        requestsFilter = entityType
+        requestsJob = viewModelScope.launch {
             update { copy(isLoadingRequests = true, error = null) }
             when (val result = getRequestsUseCase(entityType)) {
                 is Result.Success -> update { copy(isLoadingRequests = false, requests = result.data) }
@@ -163,6 +181,8 @@ class AnalyticsViewModel(
 
     // Best effort — on failure the cards just fall back to showing zone ids.
     private fun loadZoneNames() {
+        if (zoneNamesLoaded) return
+        zoneNamesLoaded = true
         viewModelScope.launch {
             val result = getZones()
             if (result is Result.Success) {

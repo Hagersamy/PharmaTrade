@@ -9,14 +9,12 @@ import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.feature.pharmacyorder.domain.PharmacyCartBus
 import com.pharmatrade.feature.pharmacyorder.domain.SupplierPageOrder
 import com.pharmatrade.feature.pharmacyorder.domain.model.DraftOrderItem
-import com.pharmatrade.feature.pharmacyorder.domain.model.OrderDetail
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrderMode
 import com.pharmatrade.feature.pharmacyorder.domain.model.SupplierCatalogItem
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.AddOrderItemUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.CancelOrderUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.CreateOrderUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.GetAllSuppliersDrugsUseCase
-import com.pharmatrade.feature.pharmacyorder.domain.usecase.GetOrderDetailUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.GetPharmacyOrdersUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.RemoveOrderItemUseCase
 import kotlinx.coroutines.Job
@@ -90,7 +88,6 @@ private const val SEARCH_LOG_TAG = "PharmaSearch"
 class PharmacyHomeViewModel(
     private val getPharmacyOrdersUseCase: GetPharmacyOrdersUseCase,
     private val getAllSuppliersDrugsUseCase: GetAllSuppliersDrugsUseCase,
-    private val getOrderDetailUseCase: GetOrderDetailUseCase,
     private val createOrderUseCase: CreateOrderUseCase,
     private val addOrderItemUseCase: AddOrderItemUseCase,
     private val removeOrderItemUseCase: RemoveOrderItemUseCase,
@@ -133,23 +130,19 @@ class PharmacyHomeViewModel(
         // entry<NavKeys.Home> lifecycle observer calls it on ON_RESUME, which fires immediately
         // (synchronous catch-up, since the Activity is already RESUMED when this VM is constructed)
         // and covers first load on its own. Calling it here too used to double that one request.
-        val firstPage = startCatalog(query = "")
-        viewModelScope.launch {
-            // Let the first catalog page land before restoring, so draft items already on it
-            // don't need their own lookup request.
-            firstPage.join()
-            restoreCartFromDraftOrders()
-        }
+        startCatalog(query = "")
+        // No cart restore from the backend's draft orders: GET pharmacy/orders/{id} returns no
+        // `items` for drafts, so restoring cost one request per draft (25+ in practice, run back to
+        // back right as the buyer opens New order — slowing the supplier list to ~5 s) and never
+        // brought anything back.
+
         // Fires when a draft order gets confirmed or cancelled (checkout/allocation), which runs
         // on a separate back-stack entry with no direct reference back to this ViewModel — drop
-        // this supplier's local cart bookkeeping (that order id is no longer usable) and refresh
-        // the active-orders count so it reflects the just-confirmed order without waiting for
-        // Home to be torn down and recreated.
+        // this supplier's local cart bookkeeping (that order id is no longer usable). The
+        // active-orders count is NOT refreshed here: this fires once per supplier (a 3-supplier
+        // checkout = 3 events), and Home's resume refreshes it once when the buyer gets back.
         PharmacyCartBus.supplierOrderResolved
-            .onEach { supplierId ->
-                clearSupplierCart(supplierId)
-                loadActiveOrdersCount()
-            }
+            .onEach { supplierId -> clearSupplierCart(supplierId) }
             .launchIn(viewModelScope)
         // The supplier page (New order → supplier, or a supplier opened from the Cart tab) hands
         // its order back here when the buyer leaves it.
@@ -225,80 +218,6 @@ class PharmacyHomeViewModel(
         }
     }
 
-    // The cart here is really just whatever draft orders exist on the backend — this ViewModel's
-    // own cartQuantities/cartItemIds/orderIdsBySupplier are only an in-memory projection of that,
-    // rebuilt from scratch every time the app process restarts. Without this, items the buyer
-    // added before the app was killed would look gone from the Cart tab even though the backend
-    // still has the draft order sitting there — this reloads it so nothing disappears until the
-    // buyer removes it themselves or successfully checks out.
-    private suspend fun restoreCartFromDraftOrders() {
-        val draftOrders = when (val result = getPharmacyOrdersUseCase(status = "draft", perPage = 100)) {
-            is Result.Success -> result.data.orders
-            else -> return
-        }
-        if (draftOrders.isEmpty()) return
-
-        // NOTE: never treat an empty `items` here as "abandoned draft" — GET pharmacy/orders/{id}
-        // does not return an `items` array for drafts at all, so every draft looks empty even
-        // when it has lines. Cancelling on that basis wipes out real carts.
-        val details = draftOrders.mapNotNull { summary ->
-            (getOrderDetailUseCase(summary.id) as? Result.Success)?.data
-        }.filter { it.items.isNotEmpty() }
-        if (details.isEmpty()) return
-
-        // A draft order has no supplier recorded on the backend until it's allocated (createOrder
-        // only takes an order mode, not a supplier id — see CreateOrderRequest), so supplierOrders
-        // is empty for it. Infer the supplier instead: this app only ever puts one supplier's
-        // items in a given draft order (setCartQuantity reuses orderIdsBySupplier per supplier),
-        // so the right supplier is whichever one has every one of this order's drugIds listed.
-        fun known() = _uiState.value.knownCatalogItems.values
-
-        fun resolveSupplierId(detail: OrderDetail): String? {
-            detail.supplierOrders.firstOrNull()?.supplierId?.let { return it }
-            val drugIds = detail.items.map { it.drugId }.toSet()
-            val candidates = known().filter { it.drugId in drugIds }.map { it.supplierId }.toSet()
-            return candidates.firstOrNull { supplierId ->
-                drugIds.all { drugId -> known().any { it.supplierId == supplierId && it.drugId == drugId } }
-            } ?: candidates.firstOrNull()
-        }
-
-        // Only the first catalog page is loaded by now. Rather than paging through the whole
-        // catalog to find the rest, look each missing drug up by name with one ?search= request.
-        val knownDrugIds = known().map { it.drugId }.toSet()
-        val missing = details.flatMap { it.items }.filter { it.drugId !in knownDrugIds && it.drugName.isNotBlank() }
-        val neededDrugIds = missing.map { it.drugId }.toSet()
-        for (drugName in missing.map { it.drugName.trim() }.distinct()) {
-            val result = getAllSuppliersDrugsUseCase(page = 1, search = drugName, perPage = CATALOG_PAGE_SIZE)
-            if (result is Result.Success) {
-                val found = result.data.items.filter { it.drugId in neededDrugIds }
-                update { copy(knownCatalogItems = knownCatalogItems + found.associateBy { it.id }) }
-            }
-        }
-
-        val catalogByKey = known().associateBy { it.supplierId to it.drugId }
-        val newQuantities = mutableMapOf<String, Int>()
-        val newItemIds = mutableMapOf<String, String>()
-        for (detail in details) {
-            val supplierId = resolveSupplierId(detail) ?: continue
-            orderIdsBySupplier[supplierId] = detail.id
-            for (item in detail.items) {
-                val catalogItem = catalogByKey[supplierId to item.drugId] ?: continue
-                newQuantities[catalogItem.id] = item.quantity
-                newItemIds[catalogItem.id] = item.id
-            }
-        }
-        if (newQuantities.isEmpty()) return
-        syncedQuantities.putAll(newQuantities)
-        update {
-            val mergedQuantities = cartQuantities + newQuantities
-            copy(
-                cartQuantities = mergedQuantities,
-                cartItemIds = cartItemIds + newItemIds,
-                supplierCarts = recomputeSupplierCarts(mergedQuantities)
-            )
-        }
-    }
-
     private fun clearSupplierCart(supplierId: String) {
         orderIdsBySupplier.remove(supplierId)
         val itemsById = _uiState.value.knownCatalogItems
@@ -319,8 +238,12 @@ class PharmacyHomeViewModel(
         }
     }
 
+    private var activeOrdersJob: Job? = null
+
     fun loadActiveOrdersCount() {
-        viewModelScope.launch {
+        // One in flight at a time — a second ask while it's running would just fetch the same number.
+        if (activeOrdersJob?.isActive == true) return
+        activeOrdersJob = viewModelScope.launch {
             update { copy(isLoadingOrders = true, ordersError = null) }
             when (val result = getPharmacyOrdersUseCase(status = "pending_supplier_confirmation", perPage = 1)) {
                 is Result.Success -> update { copy(isLoadingOrders = false, activeOrdersTotal = result.data.total) }

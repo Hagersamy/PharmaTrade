@@ -110,8 +110,9 @@ fun AdminDashboardScreen(
                 NavigationBarItem(
                     selected = dest == AdminDest.REQUESTS,
                     onClick = {
+                        // Re-tapping the open tab doesn't refetch.
+                        if (dest != AdminDest.REQUESTS) analyticsViewModel.refreshZoneUpdates()
                         dest = AdminDest.REQUESTS
-                        analyticsViewModel.refreshZoneUpdates()
                     },
                     icon = {
                         if (totalPending > 0) {
@@ -128,8 +129,8 @@ fun AdminDashboardScreen(
                 NavigationBarItem(
                     selected = dest == AdminDest.ANALYTICS,
                     onClick = {
+                        if (dest != AdminDest.ANALYTICS) analyticsViewModel.refresh()
                         dest = AdminDest.ANALYTICS
-                        analyticsViewModel.refresh()
                     },
                     icon = { Icon(Icons.Filled.Analytics, null) },
                     label = { Text(strings.navAnalytics) },

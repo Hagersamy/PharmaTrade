@@ -26,8 +26,14 @@ class Navigator(private val backStack: NavBackStack<NavKey>) {
         backStack.removeLastOrNull()
     }
 
-    // Pops back to an entry already on the stack (kept, with its ViewModels) without pushing anything.
+    // Pops back to an entry already on the stack (kept, with its ViewModels) without pushing
+    // anything — so its screen isn't rebuilt and doesn't re-fetch everything it loads on creation.
+    // If the target isn't on the stack, the stack is replaced by a fresh one.
     fun popBackTo(target: NavKey) {
+        if (backStack.none { it == target }) {
+            navigate(target, popUpTo = PopUpTo(target = null))
+            return
+        }
         applyPopUpTo(PopUpTo(target))
     }
 

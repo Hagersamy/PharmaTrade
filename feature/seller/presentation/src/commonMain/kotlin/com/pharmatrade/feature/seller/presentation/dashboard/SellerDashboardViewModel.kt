@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 data class SellerDashboardUiState(
@@ -83,11 +84,15 @@ class SellerDashboardViewModel(
             .launchIn(viewModelScope)
     }
 
+    // One load in flight at a time — Home resume and InventoryRefreshBus can both ask at once.
+    private var loadJob: Job? = null
+
     fun loadData() {
+        if (loadJob?.isActive == true) return
         val currentUser = SessionManager.user ?: return
         val sellerId = currentUser.sellerId ?: currentUser.id
         println("$TAG: loadData() called, sellerId=$sellerId")
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             // getProfileUseCase still reads from a mock seller-profile source that doesn't know
             // about real backend accounts, so its failure is expected for real logins and must

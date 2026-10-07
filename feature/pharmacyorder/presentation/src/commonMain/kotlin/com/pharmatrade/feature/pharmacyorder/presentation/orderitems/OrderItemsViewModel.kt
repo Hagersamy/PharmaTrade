@@ -89,7 +89,9 @@ class OrderItemsViewModel(
     private val searchQueryFlow = MutableStateFlow("")
 
     init {
-        loadItems()
+        // No loadItems() here: the order is either brand new (nothing to read) or opened from the
+        // cart with its lines handed over (initialItems) — and GET pharmacy/orders/{id} returns no
+        // items for drafts anyway, so the call only cost a request.
         if (isSpecificSupplier) {
             loadSupplierInventory()
         } else {
@@ -294,7 +296,9 @@ class OrderItemsViewModel(
         val lines = state.items.map { line ->
             val catalogItem = inventoryByDrugId[line.drugId]?.let { inv ->
                 SupplierCatalogItem(
-                    id = inv.id,
+                    // Same key the all-suppliers catalog uses (see getAllSuppliersDrugs), so the
+                    // cart treats it as the same item.
+                    id = "${sId}_${inv.drugId}",
                     supplierId = sId,
                     supplierName = state.supplier?.name.orEmpty(),
                     drugId = inv.drugId,
