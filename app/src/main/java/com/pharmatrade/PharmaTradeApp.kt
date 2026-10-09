@@ -40,16 +40,11 @@ import org.json.JSONTokener
 class PharmaTradeApp : Application() {
     lateinit var container: AppContainer
         private set
-
-    // Application has no built-in coroutine scope (unlike a ViewModel or Activity); this lives
-    // for the process lifetime, matching the session-tracking observer below.
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
-        // Must run before anything below can trigger a network call — picks the backend URL for
-        // this build flavor (see app/build.gradle.kts productFlavors) instead of ApiClient's
-        // built-in production default.
+
         ApiClient.baseUrl = BuildConfig.BASE_URL
         val prefs = getSharedPreferences("pharmatrade_session", MODE_PRIVATE)
         SessionManager.init(SharedPreferencesSettings(prefs))
@@ -64,31 +59,19 @@ class PharmaTradeApp : Application() {
         setupCrashlyticsUserTracking()
         logFcmTokenForDebugging()
     }
-
-    // Any API call that comes back 401 while we still think we're logged in means the backend
-    // no longer honors this token (expired/revoked) — reuse the same logout flow the user's own
-    // "Sign Out" button uses: call the logout endpoint (best-effort), then clear the local session.
     private fun setupAutoLogoutOnInvalidToken() {
         ApiClient.onUnauthorized = {
             appScope.launch { container.authRepository.logout() }
         }
     }
-
-    // TEMP diagnostic: onNewToken only fires once (first token generation or rotation), so it logs
-    // nothing on a run where the token was already established. This forces a fetch on every launch
-    // so we can see the actual success/failure reason in logcat while debugging why no push
-    // notification has ever reached this device.
     private fun logFcmTokenForDebugging() {
         FirebaseMessaging.getInstance().token
             .addOnSuccessListener { token -> Log.i("PharmaFCM", "Current FCM token: $token") }
             .addOnFailureListener { e -> Log.e("PharmaFCM", "Failed to fetch FCM token", e) }
     }
 
-    // Tags every crash/non-fatal report with which account hit it — without this, Crashlytics
-    // reports are anonymous and much harder to correlate with a specific user's support ticket.
     private fun setupCrashlyticsUserTracking() {
         val crashlytics = FirebaseCrashlytics.getInstance()
-        // Shared-code diagnostics (e.g. catalog pagination duplicates) report through this.
         CrashReporter.sink = object : CrashReportSink {
             override fun log(message: String) = crashlytics.log(message)
             override fun setKey(key: String, value: String) = crashlytics.setCustomKey(key, value)
@@ -125,7 +108,6 @@ class PharmaTradeApp : Application() {
         SingletonImageLoader.setSafe { context ->
             ImageLoader.Builder(context)
                 .components {
-                    // Must come before Coil's own String→Uri mapping, which has no data: URI support.
                     add(DataUriMapper())
                     add(OkHttpNetworkFetcherFactory(callFactory = { client }))
                 }
@@ -133,8 +115,6 @@ class PharmaTradeApp : Application() {
         }
     }
 
-    // Admin licence images come as "data:image/jpeg;base64,…" (registration-requests data_url).
-    // Coil 3 can't fetch data: URIs, but it can decode raw bytes.
     private class DataUriMapper : Mapper<String, ByteArray> {
         override fun map(data: String, options: Options): ByteArray? {
             if (!data.startsWith("data:")) return null
@@ -143,9 +123,6 @@ class PharmaTradeApp : Application() {
         }
     }
 
-    // Endpoints like admin/registration-requests/{id}/licence-image-url may answer with JSON that
-    // points at the image (a signed/storage url or an inline data_url) instead of the image bytes.
-    // Coil can't decode JSON, so follow that pointer here and hand Coil the actual image.
     private fun unwrapJsonImageResponse(chain: Interceptor.Chain, response: Response): Response {
         val contentType = response.body?.contentType()
         if (!response.isSuccessful || contentType?.subtype?.contains("json") != true) return response
@@ -157,8 +134,6 @@ class PharmaTradeApp : Application() {
         }.getOrNull()
         Log.i("LicenceImage", "JSON from ${response.request.url} -> ${target?.take(80)}")
 
-        // The request has no image on the asked-for side (most only upload a front) — answer 404 so
-        // the UI shows "Not uploaded" rather than a decode failure on the JSON body.
         if (target == null && side != null) {
             return response.newBuilder().code(404).message("No $side licence image")
                 .body(text.toResponseBody(contentType)).build()
@@ -185,9 +160,6 @@ class PharmaTradeApp : Application() {
             .build()
         return chain.proceed(followReq)
     }
-
-    // A registration request's detail response lists every licence image under licence_images, the
-    // primary one being the front. Pick the requested side and return its data_url (or its url).
     private fun findLicenceBySide(node: Any?, side: String): String? {
         val images = findArray(node, "licence_images") ?: return null
         val wantPrimary = side == "front"

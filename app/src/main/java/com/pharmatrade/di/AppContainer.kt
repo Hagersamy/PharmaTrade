@@ -42,7 +42,9 @@ import com.pharmatrade.feature.notification.domain.usecase.GetNotificationsUseCa
 import com.pharmatrade.feature.notification.domain.usecase.GetUnreadNotificationCountUseCase
 import com.pharmatrade.feature.notification.domain.usecase.MarkAllNotificationsAsReadUseCase
 import com.pharmatrade.feature.notification.domain.usecase.MarkNotificationAsReadUseCase
+import com.pharmatrade.feature.pharmacyorder.data.local.PharmacyCartStoreImpl
 import com.pharmatrade.feature.pharmacyorder.data.repository.PharmacyOrderRepositoryImpl
+import com.pharmatrade.feature.pharmacyorder.domain.repository.PharmacyCartStore
 import com.pharmatrade.feature.pharmacyorder.domain.repository.PharmacyOrderRepository
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.*
 import com.pharmatrade.feature.profile.data.repository.ProfileRepositoryImpl
@@ -76,6 +78,11 @@ class AppContainer(context: Context) {
     }
     val drugRepository: DrugRepository by lazy { DrugRepositoryImpl(PlatformFileReader(appContext)) }
     val pharmacyOrderRepository: PharmacyOrderRepository by lazy { PharmacyOrderRepositoryImpl(PlatformFileReader(appContext)) }
+    // The pharmacy Home cart, kept on the device so it survives the app being killed.
+    val pharmacyCartStore: PharmacyCartStore by lazy {
+        val prefs = appContext.getSharedPreferences("pharmatrade_pharmacy_cart", Context.MODE_PRIVATE)
+        PharmacyCartStoreImpl(SharedPreferencesSettings(prefs))
+    }
     val supplierOrderRepository: SupplierOrderRepository by lazy { SupplierOrderRepositoryImpl() }
     val profileRepository: ProfileRepository by lazy { ProfileRepositoryImpl() }
     val notificationRepository: NotificationRepository by lazy { NotificationRepositoryImpl() }

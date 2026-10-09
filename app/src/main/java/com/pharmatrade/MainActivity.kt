@@ -17,9 +17,6 @@ import com.pharmatrade.push.NotificationDeepLink
 import com.pharmatrade.push.toNotificationDeepLink
 
 class MainActivity : ComponentActivity() {
-    // Set from the launching Intent's extras (cold start) or onNewIntent (already running, e.g.
-    // launchMode="singleTop" reusing this instance) when it came from tapping a push notification.
-    // AppNavigation observes this and navigates once, then clears it.
     private val pendingDeepLink = mutableStateOf<NotificationDeepLink?>(null)
 
     private val notificationPermissionLauncher =

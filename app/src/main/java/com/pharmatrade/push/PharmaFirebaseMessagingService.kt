@@ -17,18 +17,10 @@ import com.google.firebase.messaging.RemoteMessage
 import com.pharmatrade.MainActivity
 import com.pharmatrade.R
 
-// Data-only pushes are assumed (see project-pharmatrade-fcm-scope memory) so this always builds
-// the notification itself from `message.data`, using the same title/body/type/notifiable_id shape
-// as the REST notification list (feature/notification), rather than relying on FCM's own
-// notification-payload auto-display.
 class PharmaFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        // The backend only accepts device_token on login/register (see AuthRepositoryImpl), so a
-        // rotation here doesn't reach it until the next login — nothing to actively do in that
-        // case. Logged so the current token can still be copied into Firebase console's "Send
-        // test message" tool for manual testing.
         Log.i(TAG, "New FCM device token: $token")
         PendingDeviceToken.latest = token
     }
@@ -68,12 +60,16 @@ class PharmaFirebaseMessagingService : FirebaseMessagingService() {
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
         ) {
             Log.w(TAG, "POST_NOTIFICATIONS not granted — dropping push (type=$type)")
             return
         }
-        NotificationManagerCompat.from(this).notify(System.currentTimeMillis().toInt(), notification)
+        NotificationManagerCompat.from(this)
+            .notify(System.currentTimeMillis().toInt(), notification)
     }
 
     private fun ensureChannel() {
@@ -81,17 +77,16 @@ class PharmaFirebaseMessagingService : FirebaseMessagingService() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Order & account updates", NotificationManager.IMPORTANCE_HIGH)
+            NotificationChannel(
+                CHANNEL_ID,
+                "Order & account updates",
+                NotificationManager.IMPORTANCE_HIGH
+            )
         )
     }
 
     companion object {
         private const val TAG = "PharmaFCM"
-
-        // Matches app/src/main/res/values/strings.xml's default_notification_channel_id, and the
-        // AndroidManifest com.google.firebase.messaging.default_notification_channel_id meta-data —
-        // kept identical so a system-auto-displayed notification-payload push (if the backend ever
-        // sends one) and our own data-only pushes land in the same channel.
         const val CHANNEL_ID = "pharmatrade_updates"
         const val EXTRA_NOTIFICATION_TYPE = "notification_type"
         const val EXTRA_NOTIFIABLE_ID = "notifiable_id"

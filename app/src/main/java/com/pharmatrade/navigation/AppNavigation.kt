@@ -92,13 +92,6 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
     val backStack: NavBackStack<NavKey> = rememberNavBackStack(startKey)
     val navigator = remember { Navigator(backStack) }
     val coroutineScope = rememberCoroutineScope()
-
-    // Hoisted above Home's own content so a back press can be intercepted here: the bottom nav
-    // bar's tabs (Home/Cart/Orders/Profile) are plain UI state, not separate back-stack entries.
-    // This tracks the order tabs were visited in (e.g. Home -> Orders -> Cart -> Profile) so back
-    // un-does one tab switch at a time in reverse — Profile -> Cart -> Orders -> Home -> exit —
-    // instead of jumping straight from any tab to Home. Re-selecting Home directly resets the
-    // history back to just [Home], since Home is this stack's root.
     val tabHistory = rememberSaveable(
         saver = listSaver(
             save = { it.map(HomeTab::name) },
@@ -153,11 +146,6 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
         }
     )
     val notificationState by notificationViewModel.uiState.collectAsState()
-
-    // Consumes a push-notification tap that launched or resumed this Activity (see MainActivity's
-    // pendingDeepLink). Re-fires whenever MainActivity sets a new value (cold start or a warm
-    // onNewIntent), reuses the same type -> destination mapping as tapping a notification row
-    // in-app, and is dropped (not queued) if the session isn't logged in.
     val deepLink by pendingDeepLink
     LaunchedEffect(deepLink) {
         val link = deepLink ?: return@LaunchedEffect
@@ -170,13 +158,6 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
         }
         pendingDeepLink.value = null
     }
-
-    // Catches a session ending outside the user's own "Sign Out" tap — e.g. ApiClient's
-    // onUnauthorized callback (see PharmaTradeApp.setupAutoLogoutOnInvalidToken) clearing
-    // SessionManager after a 401. Those flows only clear session state; nothing else force-navigates
-    // off whatever protected screen was showing. Guarded by the backstack check so it's a no-op for
-    // the explicit logout buttons above, which already navigate to Login themselves before this
-    // recomposes.
     val sessionUser by SessionManager.currentUser.collectAsState()
     LaunchedEffect(sessionUser) {
         if (sessionUser == null && backStack.lastOrNull() != NavKeys.Login) {
@@ -349,9 +330,6 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                             user = adminUser,
                             onLogout = {
                                 coroutineScope.launch { container.logoutUseCase() }
-                                // Reset the Home tab-visit history so the next login always lands back on
-                                // the Home tab, instead of resuming whatever tab (e.g. Profile) was open
-                                // when this session logged out.
                                 selectHomeTab(HomeTab.HOME)
                                 navigator.navigate(
                                     NavKeys.Login,
@@ -393,7 +371,8 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                                 createOrderUseCase = container.createOrderUseCase,
                                 addOrderItemUseCase = container.addOrderItemUseCase,
                                 removeOrderItemUseCase = container.removeOrderItemUseCase,
-                                cancelOrderUseCase = container.cancelOrderUseCase
+                                cancelOrderUseCase = container.cancelOrderUseCase,
+                                cartStore = container.pharmacyCartStore
                             )
                         }
                     }
@@ -424,12 +403,6 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         }
                     }
                 )
-                // Home's ViewModels are scoped to this back-stack entry and only fetch once in
-                // init{}. Without this, returning here from InventoryUpload/AddListing/EditListing/
-                // Allocation (which pop back rather than recreating Home) leaves the seller dashboard
-                // and the buyer's order list showing stale data — e.g. an order just reviewed and
-                // allocated wouldn't show up in the Orders tab until Home was fully recreated,
-                // looking to the buyer like the order had been deleted.
                 RefreshOnResume {
                     sellerVm?.loadData()
                     pharmacyHomeVm?.loadActiveOrdersCount()
@@ -440,11 +413,6 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         notificationViewModel.refreshList()
                     }
                 }
-                // The order list ("All" alone is 6 parallel requests) and the notification list
-                // (only used for the order rows' "new" badges) belong to the Orders tab, so they
-                // load when that tab is shown, not on every Home resume. OkHttp runs at most 5
-                // requests per host at once, so loading them up front queued everything else —
-                // e.g. the supplier list on New order — behind them.
                 LaunchedEffect(homeSelectedTab) {
                     if (homeSelectedTab == HomeTab.ORDERS) {
                         orderListVm?.loadOrders()
@@ -838,10 +806,6 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
     )
 }
 
-// Single source of truth for the backend's notification "type" -> screen routing table, shared by
-// both an in-app notification-row tap (entry<NavKeys.Notifications>) and a push-notification tap
-// that launched/resumed the app (the pendingDeepLink LaunchedEffect above). "general" and any
-// unrecognized type resolve to null, meaning no navigation happens.
 private fun resolveNotificationDestination(type: String, notifiableId: String?): NavKeys? =
     when (type) {
         "new_order" -> notifiableId?.let { NavKeys.SupplierOrderDetail(it) }

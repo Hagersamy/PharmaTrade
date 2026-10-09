@@ -21,21 +21,17 @@ import com.pharmatrade.core.common.reminder.ReminderTime
 import com.pharmatrade.core.common.reminder.UploadReminderScheduler
 import java.util.Calendar
 
-// Local (on-device) daily reminders for a seller agent to upload their inventory — no backend push
-// involved. One alarm per reminder time; each fires once and re-arms itself for the next day, which
-// keeps working through Doze without needing the exact-alarm permission.
 class AndroidUploadReminderScheduler(context: Context) : UploadReminderScheduler {
     private val appContext = context.applicationContext
     private val alarmManager = appContext.getSystemService(AlarmManager::class.java)
 
     override fun schedule(times: List<ReminderTime>) {
         cancelAll()
-        times.take(ReminderTime.MAX_PER_DAY).forEachIndexed { slot, time -> scheduleNext(slot, time) }
+        times.take(ReminderTime.MAX_PER_DAY)
+            .forEachIndexed { slot, time -> scheduleNext(slot, time) }
     }
 
     override fun cancelAll() {
-        // Slots are 0 until MAX_PER_DAY, so every alarm this app could have set can be looked up
-        // without remembering what was scheduled last time.
         repeat(ReminderTime.MAX_PER_DAY) { slot ->
             pendingIntent(slot, time = null, flags = PendingIntent.FLAG_NO_CREATE)?.let {
                 alarmManager.cancel(it)
@@ -47,11 +43,11 @@ class AndroidUploadReminderScheduler(context: Context) : UploadReminderScheduler
     fun scheduleNext(slot: Int, time: ReminderTime) {
         val pending = pendingIntent(slot, time, PendingIntent.FLAG_UPDATE_CURRENT) ?: return
         val triggerAt = nextTriggerMillis(time)
-        val canExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
+        val canExact =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
         if (canExact) {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
         } else {
-            // Without SCHEDULE_EXACT_ALARM (Android 12+) the system may shift this by a few minutes.
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
         }
     }
@@ -65,7 +61,12 @@ class AndroidUploadReminderScheduler(context: Context) : UploadReminderScheduler
                 putExtra(EXTRA_MINUTE, it.minute)
             }
         }
-        return PendingIntent.getBroadcast(appContext, REQUEST_CODE_BASE + slot, intent, flags or PendingIntent.FLAG_IMMUTABLE)
+        return PendingIntent.getBroadcast(
+            appContext,
+            REQUEST_CODE_BASE + slot,
+            intent,
+            flags or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     private fun nextTriggerMillis(time: ReminderTime): Long {
@@ -97,14 +98,15 @@ class UploadReminderReceiver : BroadcastReceiver() {
         if (slot < 0 || hour < 0 || minute < 0) return
 
         showNotification(context)
-        // Re-arm for the same time tomorrow. If the seller has logged out since, PharmaTradeApp's
-        // UploadReminderStore sync has already cancelled this slot and nothing reaches here.
         AndroidUploadReminderScheduler(context).scheduleNext(slot, ReminderTime(hour, minute))
     }
 
     private fun showNotification(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
         ) {
             Log.w(TAG, "POST_NOTIFICATIONS not granted — skipping upload reminder")
             return
@@ -117,18 +119,22 @@ class UploadReminderReceiver : BroadcastReceiver() {
             putExtra(PharmaFirebaseMessagingService.EXTRA_NOTIFICATION_TYPE, NOTIFICATION_TYPE)
         }
         val contentIntent = PendingIntent.getActivity(
-            context, NOTIFICATION_ID, tapIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            context,
+            NOTIFICATION_ID,
+            tapIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_notification)
             .setContentTitle(strings.uploadReminderNotificationTitle)
             .setContentText(strings.uploadReminderNotificationBody)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(strings.uploadReminderNotificationBody))
+            .setStyle(
+                NotificationCompat.BigTextStyle().bigText(strings.uploadReminderNotificationBody)
+            )
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
-        // Fixed id: a newer reminder replaces an unread older one instead of stacking up.
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
     }
 
@@ -146,13 +152,10 @@ class UploadReminderReceiver : BroadcastReceiver() {
         private const val CHANNEL_ID = "pharmatrade_upload_reminders"
         private const val NOTIFICATION_ID = 7300
 
-        // Routed to the inventory upload screen by AppNavigation's resolveNotificationDestination.
         const val NOTIFICATION_TYPE = "upload_reminder"
     }
 }
 
-// Alarms don't survive a reboot or an app update. Nothing to do here beyond waking the process:
-// PharmaTradeApp.onCreate re-runs UploadReminderStore.startSync, which re-schedules them.
 class UploadReminderRestoreReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) = Unit
 }

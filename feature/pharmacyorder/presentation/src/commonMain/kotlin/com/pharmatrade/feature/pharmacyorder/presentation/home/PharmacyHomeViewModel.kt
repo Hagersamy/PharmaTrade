@@ -6,11 +6,15 @@ import com.pharmatrade.core.common.error.userMessage
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.log.debugLog
 import com.pharmatrade.core.common.result.Result
+import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.feature.pharmacyorder.domain.PharmacyCartBus
 import com.pharmatrade.feature.pharmacyorder.domain.SupplierPageOrder
 import com.pharmatrade.feature.pharmacyorder.domain.model.DraftOrderItem
 import com.pharmatrade.feature.pharmacyorder.domain.model.OrderMode
 import com.pharmatrade.feature.pharmacyorder.domain.model.SupplierCatalogItem
+import com.pharmatrade.feature.pharmacyorder.domain.repository.PharmacyCartLine
+import com.pharmatrade.feature.pharmacyorder.domain.repository.PharmacyCartSnapshot
+import com.pharmatrade.feature.pharmacyorder.domain.repository.PharmacyCartStore
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.AddOrderItemUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.CancelOrderUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.CreateOrderUseCase
@@ -23,7 +27,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -82,6 +89,8 @@ private const val CATALOG_PAGE_SIZE = 20
 private const val SEARCH_DEBOUNCE_MS = 500L
 // How long the buyer must stop tapping +/- on an item before its quantity is sent to the backend.
 private const val CART_SYNC_DEBOUNCE_MS = 700L
+// One request lists every draft order when checking a restored cart against the backend.
+private const val DRAFT_CHECK_PAGE_SIZE = 100
 // logcat: adb logcat -s PharmaSearch
 private const val SEARCH_LOG_TAG = "PharmaSearch"
 
@@ -91,7 +100,8 @@ class PharmacyHomeViewModel(
     private val createOrderUseCase: CreateOrderUseCase,
     private val addOrderItemUseCase: AddOrderItemUseCase,
     private val removeOrderItemUseCase: RemoveOrderItemUseCase,
-    private val cancelOrderUseCase: CancelOrderUseCase
+    private val cancelOrderUseCase: CancelOrderUseCase,
+    private val cartStore: PharmacyCartStore? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PharmacyHomeUiState())
@@ -131,10 +141,12 @@ class PharmacyHomeViewModel(
         // (synchronous catch-up, since the Activity is already RESUMED when this VM is constructed)
         // and covers first load on its own. Calling it here too used to double that one request.
         startCatalog(query = "")
-        // No cart restore from the backend's draft orders: GET pharmacy/orders/{id} returns no
-        // `items` for drafts, so restoring cost one request per draft (25+ in practice, run back to
-        // back right as the buyer opens New order — slowing the supplier list to ~5 s) and never
-        // brought anything back.
+        // The cart comes back from the device, not the backend: draft orders are returned with no
+        // items and no supplier (GET pharmacy/orders?status=draft and pharmacy/orders/{id}), so
+        // they can't rebuild it. The draft list is still read once to drop carts whose draft order
+        // is gone (see restoreCart).
+        restoreCart()
+        persistCartChanges()
 
         // Fires when a draft order gets confirmed or cancelled (checkout/allocation), which runs
         // on a separate back-stack entry with no direct reference back to this ViewModel — drop
@@ -216,6 +228,75 @@ class PharmacyHomeViewModel(
                 supplierCarts = recomputeSupplierCarts(newQuantities)
             )
         }
+    }
+
+    // ── Cart kept on the device ───────────────────────────────────────────────
+
+    // A getter, not a stored val: init{} (which restores the cart) runs before properties
+    // declared below it are initialized.
+    private val cartOwnerId: String? get() = SessionManager.user?.id
+
+    // Puts back the cart saved before the app was killed, then — once — checks it against the
+    // backend's draft orders: a supplier whose draft is no longer a draft (checked out or
+    // cancelled elsewhere) is dropped. Quantities changed but not yet sent when the app died are
+    // sent now.
+    private fun restoreCart() {
+        val ownerId = cartOwnerId ?: return
+        val snapshot = cartStore?.load(ownerId) ?: return
+        orderIdsBySupplier.putAll(snapshot.orderIdsBySupplier)
+        val lines = snapshot.lines.filter { it.quantity > 0 || it.syncedQuantity > 0 }
+        lines.filter { it.syncedQuantity > 0 }.forEach { syncedQuantities[it.item.id] = it.syncedQuantity }
+        update {
+            val quantities = lines.filter { it.quantity > 0 }.associate { it.item.id to it.quantity }
+            copy(
+                knownCatalogItems = knownCatalogItems + lines.associate { it.item.id to it.item },
+                cartQuantities = quantities,
+                cartItemIds = lines.mapNotNull { line -> line.backendItemId?.let { line.item.id to it } }.toMap()
+            )
+        }
+        update { copy(supplierCarts = recomputeSupplierCarts(cartQuantities)) }
+        lines.filter { it.quantity != it.syncedQuantity }.forEach { scheduleCartSync(it.item) }
+
+        if (orderIdsBySupplier.isEmpty()) return
+        viewModelScope.launch {
+            val result = getPharmacyOrdersUseCase(status = "draft", perPage = DRAFT_CHECK_PAGE_SIZE)
+            val drafts = (result as? Result.Success)?.data ?: return@launch
+            // Only trust the list when it's complete — otherwise a draft on a later page would
+            // look gone.
+            if (drafts.orders.size < drafts.total) return@launch
+            val draftIds = drafts.orders.map { it.id }.toSet()
+            orderIdsBySupplier.filterValues { it !in draftIds }.keys.toList().forEach(::clearSupplierCart)
+        }
+    }
+
+    // Saves the cart whenever its contents change, so it's there after the app is killed.
+    private fun persistCartChanges() {
+        val ownerId = cartOwnerId ?: return
+        val store = cartStore ?: return
+        uiState
+            .map { it.cartQuantities to it.cartItemIds }
+            .distinctUntilChanged()
+            .drop(1)
+            .onEach { store.save(ownerId, cartSnapshot()) }
+            .launchIn(viewModelScope)
+    }
+
+    private fun cartSnapshot(): PharmacyCartSnapshot {
+        val state = _uiState.value
+        val itemIds = state.cartQuantities.keys + syncedQuantities.keys
+        return PharmacyCartSnapshot(
+            orderIdsBySupplier = orderIdsBySupplier.toMap(),
+            lines = itemIds.mapNotNull { id ->
+                state.knownCatalogItems[id]?.let { item ->
+                    PharmacyCartLine(
+                        item = item,
+                        quantity = state.cartQuantities[id] ?: 0,
+                        syncedQuantity = syncedQuantities[id] ?: 0,
+                        backendItemId = state.cartItemIds[id]
+                    )
+                }
+            }
+        )
     }
 
     private fun clearSupplierCart(supplierId: String) {
