@@ -133,7 +133,6 @@ fun OrderItemsScreen(
                     viewModel = viewModel,
                     quantityByDrugId = quantityByDrugId,
                     orderSubtotal = orderSubtotal,
-                    onUploadClick = launchFilePicker,
                     onReviewAndAllocate = onReviewAndAllocate
                 )
             } else {
@@ -156,7 +155,6 @@ private fun ColumnScope.SpecificSupplierContent(
     viewModel: OrderItemsViewModel,
     quantityByDrugId: Map<String, Int>,
     orderSubtotal: Double,
-    onUploadClick: () -> Unit,
     onReviewAndAllocate: () -> Unit
 ) {
     val strings = LocalStrings.current
@@ -183,12 +181,10 @@ private fun ColumnScope.SpecificSupplierContent(
                 }
 
                 item {
-                    SearchAndUploadRow(
+                    SupplierFilterField(
                         query = uiState.supplierInventoryFilter,
                         onQueryChange = viewModel::onSupplierInventoryFilterChange,
-                        placeholder = uiState.supplier?.name?.takeIf { it.isNotBlank() }?.let { strings.oiFilterSupplierDrugs(it) } ?: strings.oiFilterDrugsGeneric,
-                        isUploading = uiState.isUploading,
-                        onUploadClick = onUploadClick
+                        placeholder = uiState.supplier?.name?.takeIf { it.isNotBlank() }?.let { strings.oiFilterSupplierDrugs(it) } ?: strings.oiFilterDrugsGeneric
                     )
                 }
 
@@ -295,52 +291,34 @@ private fun SupplierContextCard(supplier: PharmacySupplier, itemCount: Int, orde
 }
 
 @Composable
-private fun SearchAndUploadRow(
+private fun SupplierFilterField(
     query: String,
     onQueryChange: (String) -> Unit,
-    placeholder: String,
-    isUploading: Boolean,
-    onUploadClick: () -> Unit
+    placeholder: String
 ) {
     val strings = LocalStrings.current
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            placeholder = { Text(placeholder, maxLines = 1, style = MaterialTheme.typography.bodySmall) },
-            leadingIcon = { Icon(Icons.Filled.Search, null, tint = TextSecondary, modifier = Modifier.size(18.dp)) },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(20.dp)) {
-                        Icon(Icons.Filled.Close, contentDescription = strings.commonClear, tint = TextSecondary, modifier = Modifier.size(16.dp))
-                    }
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = { Text(placeholder, maxLines = 1, style = MaterialTheme.typography.bodySmall) },
+        leadingIcon = { Icon(Icons.Filled.Search, null, tint = TextSecondary, modifier = Modifier.size(18.dp)) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(20.dp)) {
+                    Icon(Icons.Filled.Close, contentDescription = strings.commonClear, tint = TextSecondary, modifier = Modifier.size(16.dp))
                 }
-            },
-            singleLine = true,
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(14.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = PrimaryBlue,
-                unfocusedBorderColor = DividerGray,
-                focusedContainerColor = SurfaceWhite,
-                unfocusedContainerColor = SurfaceWhite
-            )
-        )
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(if (isUploading) CardGray else PrimaryBlueContainer)
-                .clickable(enabled = !isUploading, onClick = onUploadClick),
-            contentAlignment = Alignment.Center
-        ) {
-            if (isUploading) {
-                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = PrimaryBlue)
-            } else {
-                Icon(Icons.Filled.UploadFile, contentDescription = strings.oiUploadExcelCsvContentDescription, tint = PrimaryBlue)
             }
-        }
-    }
+        },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = PrimaryBlue,
+            unfocusedBorderColor = DividerGray,
+            focusedContainerColor = SurfaceWhite,
+            unfocusedContainerColor = SurfaceWhite
+        )
+    )
 }
 
 @Composable
