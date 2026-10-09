@@ -405,6 +405,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     notificationViewModel.refreshUnreadCount()
                     if (homeSelectedTab == HomeTab.ORDERS) {
                         orderListVm?.loadOrders()
+                        sellerOrdersVm?.loadOrders()
                         notificationViewModel.refreshList()
                     }
                 }
@@ -416,6 +417,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                 LaunchedEffect(homeSelectedTab) {
                     if (homeSelectedTab == HomeTab.ORDERS) {
                         orderListVm?.loadOrders()
+                        sellerOrdersVm?.loadOrders()
                         notificationViewModel.refreshList()
                     }
                 }
