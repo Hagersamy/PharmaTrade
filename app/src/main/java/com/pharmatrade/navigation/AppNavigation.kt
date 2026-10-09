@@ -80,8 +80,6 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<NotificationDeepLink?>) {
-    // Restored once per process launch: if SessionManager already holds a persisted session
-    // (see SessionManager.init in PharmaTradeApp.onCreate), skip straight past the login screen.
     val startKey = remember {
         when {
             !SessionManager.isLoggedIn -> NavKeys.Login
@@ -102,7 +100,9 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
     // instead of jumping straight from any tab to Home. Re-selecting Home directly resets the
     // history back to just [Home], since Home is this stack's root.
     val tabHistory = rememberSaveable(
-        saver = listSaver(save = { it.map(HomeTab::name) }, restore = { it.map(HomeTab::valueOf).toMutableStateList() })
+        saver = listSaver(
+            save = { it.map(HomeTab::name) },
+            restore = { it.map(HomeTab::valueOf).toMutableStateList() })
     ) { mutableStateListOf(HomeTab.HOME) }
     val homeSelectedTab = tabHistory.last()
     fun selectHomeTab(tab: HomeTab) {
@@ -162,7 +162,11 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
     LaunchedEffect(deepLink) {
         val link = deepLink ?: return@LaunchedEffect
         if (SessionManager.isLoggedIn) {
-            resolveNotificationDestination(link.type, link.notifiableId)?.let { navigator.navigate(it) }
+            resolveNotificationDestination(link.type, link.notifiableId)?.let {
+                navigator.navigate(
+                    it
+                )
+            }
         }
         pendingDeepLink.value = null
     }
@@ -198,19 +202,34 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     viewModel = vm,
                     onNavigateToRegister = { navigator.navigate(NavKeys.Register) },
                     onNavigateToSellerDashboard = {
-                        navigator.navigate(NavKeys.Home, popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true))
+                        navigator.navigate(
+                            NavKeys.Home,
+                            popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true)
+                        )
                     },
                     onNavigateToBuyerCatalog = {
-                        navigator.navigate(NavKeys.Home, popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true))
+                        navigator.navigate(
+                            NavKeys.Home,
+                            popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true)
+                        )
                     },
                     onNavigateToAdminDashboard = {
-                        navigator.navigate(NavKeys.AdminDashboard, popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true))
+                        navigator.navigate(
+                            NavKeys.AdminDashboard,
+                            popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true)
+                        )
                     },
                     onNavigateToPendingApproval = {
-                        navigator.navigate(NavKeys.PendingApproval, popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true))
+                        navigator.navigate(
+                            NavKeys.PendingApproval,
+                            popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true)
+                        )
                     },
                     onNavigateToRegistrationDeclined = {
-                        navigator.navigate(NavKeys.RegistrationDeclined, popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true))
+                        navigator.navigate(
+                            NavKeys.RegistrationDeclined,
+                            popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true)
+                        )
                     }
                 )
             }
@@ -230,7 +249,10 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     viewModel = vm,
                     onNavigateBack = { navigator.goBack() },
                     onNavigateToPendingApproval = {
-                        navigator.navigate(NavKeys.PendingApproval, popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true))
+                        navigator.navigate(
+                            NavKeys.PendingApproval,
+                            popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true)
+                        )
                     }
                 )
             }
@@ -246,7 +268,10 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         // the Home tab, instead of resuming whatever tab (e.g. Profile) was open
                         // when this session logged out.
                         selectHomeTab(HomeTab.HOME)
-                        navigator.navigate(NavKeys.Login, popUpTo = Navigator.PopUpTo(target = null))
+                        navigator.navigate(
+                            NavKeys.Login,
+                            popUpTo = Navigator.PopUpTo(target = null)
+                        )
                     }
                 )
             }
@@ -261,7 +286,10 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     onBackToLogin = {
                         coroutineScope.launch { container.logoutUseCase() }
                         selectHomeTab(HomeTab.HOME)
-                        navigator.navigate(NavKeys.Login, popUpTo = Navigator.PopUpTo(target = null))
+                        navigator.navigate(
+                            NavKeys.Login,
+                            popUpTo = Navigator.PopUpTo(target = null)
+                        )
                     }
                 )
             }
@@ -325,7 +353,10 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                                 // the Home tab, instead of resuming whatever tab (e.g. Profile) was open
                                 // when this session logged out.
                                 selectHomeTab(HomeTab.HOME)
-                                navigator.navigate(NavKeys.Login, popUpTo = Navigator.PopUpTo(target = null))
+                                navigator.navigate(
+                                    NavKeys.Login,
+                                    popUpTo = Navigator.PopUpTo(target = null)
+                                )
                             }
                         )
                     }
@@ -434,11 +465,12 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     unreadSupplierOrderIds = notificationState.unreadSupplierOrderIds,
                     onNavigateToNotifications = { navigator.navigate(NavKeys.Notifications) },
                     onNavigateToSearch = {
-                        val key = if (SessionManager.currentUser.value?.userType == UserType.SELLER) {
-                            NavKeys.SellerSearch
-                        } else {
-                            NavKeys.BuyerSearch
-                        }
+                        val key =
+                            if (SessionManager.currentUser.value?.userType == UserType.SELLER) {
+                                NavKeys.SellerSearch
+                            } else {
+                                NavKeys.BuyerSearch
+                            }
                         navigator.navigate(key)
                     },
                     onNavigateToUploadInventory = { navigator.navigate(NavKeys.InventoryUpload) },
@@ -455,7 +487,12 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     },
                     onCheckoutAll = { orders ->
                         navigator.navigate(
-                            NavKeys.Checkout(orders.map { (orderId, supplierId) -> OrderSupplierPair(orderId, supplierId) })
+                            NavKeys.Checkout(orders.map { (orderId, supplierId) ->
+                                OrderSupplierPair(
+                                    orderId,
+                                    supplierId
+                                )
+                            })
                         )
                     },
                     onOpenSupplierOrder = { orderId, supplierId, lines ->
@@ -463,17 +500,24 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                             NavKeys.OrderItems(
                                 orderId = orderId,
                                 supplierId = supplierId,
-                                initialLines = lines.map { DraftOrderLine(it.id, it.drugId, it.drugName, it.quantity) }
+                                initialLines = lines.map {
+                                    DraftOrderLine(
+                                        it.id,
+                                        it.drugId,
+                                        it.drugName,
+                                        it.quantity
+                                    )
+                                }
                             )
                         )
                     },
                     onLogout = {
                         coroutineScope.launch { container.logoutUseCase() }
-                        // Reset the Home tab-visit history so the next login always lands back on
-                        // the Home tab, instead of resuming whatever tab (e.g. Profile) was open
-                        // when this session logged out.
                         selectHomeTab(HomeTab.HOME)
-                        navigator.navigate(NavKeys.Login, popUpTo = Navigator.PopUpTo(target = null))
+                        navigator.navigate(
+                            NavKeys.Login,
+                            popUpTo = Navigator.PopUpTo(target = null)
+                        )
                     }
                 )
             }
@@ -636,7 +680,10 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     viewModel = cartViewModel,
                     onNavigateBack = { navigator.goBack() },
                     onOrderSuccess = { orderId ->
-                        navigator.navigate(NavKeys.OrderSuccess(orderId), popUpTo = Navigator.PopUpTo(NavKeys.Home))
+                        navigator.navigate(
+                            NavKeys.OrderSuccess(orderId),
+                            popUpTo = Navigator.PopUpTo(NavKeys.Home)
+                        )
                     }
                 )
             }
@@ -686,14 +733,24 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                                 removeOrderItemUseCase = container.removeOrderItemUseCase,
                                 uploadOrderItemsUseCase = container.uploadOrderItemsUseCase,
                                 getOrderDetailUseCase = container.getOrderDetailUseCase,
-                                initialItems = key.initialLines.map { DraftOrderItem(it.id, it.drugId, it.drugName, it.quantity) }
+                                initialItems = key.initialLines.map {
+                                    DraftOrderItem(
+                                        it.id,
+                                        it.drugId,
+                                        it.drugName,
+                                        it.quantity
+                                    )
+                                }
                             )
                         }
                     }
                 )
+                // +/- taps are sent after a short debounce — send any still waiting before leaving,
+                // or they'd be lost with the ViewModel (and missing from the order handed to the cart).
+                BackHandler { vm.syncPendingThen { navigator.goBack() } }
                 OrderItemsScreen(
                     viewModel = vm,
-                    onNavigateBack = { navigator.goBack() },
+                    onNavigateBack = { vm.syncPendingThen { navigator.goBack() } },
                     onReviewAndAllocate = {
                         if (key.supplierId.isNullOrBlank()) {
                             navigator.navigate(NavKeys.Allocation(key.orderId, key.supplierId))
@@ -725,7 +782,10 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     viewModel = vm,
                     onNavigateBack = { navigator.goBack() },
                     onConfirmed = { confirmedOrderId ->
-                        navigator.navigate(NavKeys.OrderDetail(confirmedOrderId), popUpTo = Navigator.PopUpTo(NavKeys.Home))
+                        navigator.navigate(
+                            NavKeys.OrderDetail(confirmedOrderId),
+                            popUpTo = Navigator.PopUpTo(NavKeys.Home)
+                        )
                     },
                     onCancelled = {
                         navigator.popBackTo(NavKeys.Home)
@@ -782,14 +842,20 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
 // both an in-app notification-row tap (entry<NavKeys.Notifications>) and a push-notification tap
 // that launched/resumed the app (the pendingDeepLink LaunchedEffect above). "general" and any
 // unrecognized type resolve to null, meaning no navigation happens.
-private fun resolveNotificationDestination(type: String, notifiableId: String?): NavKeys? = when (type) {
-    "new_order" -> notifiableId?.let { NavKeys.SupplierOrderDetail(it) }
-    "order_confirmed", "shortage_reported", "order_shipped", "order_delivered" -> notifiableId?.let { NavKeys.OrderDetail(it) }
-    "registration_approved" -> NavKeys.Home
-    "registration_declined" -> NavKeys.RegistrationDeclined
-    "upload_reminder" -> NavKeys.InventoryUpload
-    else -> null
-}
+private fun resolveNotificationDestination(type: String, notifiableId: String?): NavKeys? =
+    when (type) {
+        "new_order" -> notifiableId?.let { NavKeys.SupplierOrderDetail(it) }
+        "order_confirmed", "shortage_reported", "order_shipped", "order_delivered" -> notifiableId?.let {
+            NavKeys.OrderDetail(
+                it
+            )
+        }
+
+        "registration_approved" -> NavKeys.Home
+        "registration_declined" -> NavKeys.RegistrationDeclined
+        "upload_reminder" -> NavKeys.InventoryUpload
+        else -> null
+    }
 
 @Composable
 private fun OrderSuccessScreen(orderId: String, onNavigateHome: () -> Unit) {

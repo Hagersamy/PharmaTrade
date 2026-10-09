@@ -103,14 +103,16 @@ fun OrderItemsScreen(
         )
     }
 
-    val quantityByDrugId = remember(uiState.items) {
-        uiState.items.groupBy { it.drugId }.mapValues { (_, v) -> v.sumOf { it.quantity } }
+    // What the backend holds, overridden by +/- taps that haven't been sent yet.
+    val quantityByDrugId = remember(uiState.items, uiState.pendingQuantities) {
+        (uiState.items.groupBy { it.drugId }.mapValues { (_, v) -> v.sumOf { it.quantity } } + uiState.pendingQuantities)
+            .filterValues { it > 0 }
     }
     val priceByDrugId = remember(uiState.supplierInventory) {
         uiState.supplierInventory.associateBy { it.drugId }
     }
-    val orderSubtotal = remember(uiState.items, priceByDrugId) {
-        uiState.items.sumOf { (priceByDrugId[it.drugId]?.effectivePrice ?: 0.0) * it.quantity }
+    val orderSubtotal = remember(quantityByDrugId, priceByDrugId) {
+        quantityByDrugId.entries.sumOf { (drugId, quantity) -> (priceByDrugId[drugId]?.effectivePrice ?: 0.0) * quantity }
     }
 
     // PharmaTopBar already applies statusBarsPadding(), so the Scaffold must only inset for the
@@ -228,12 +230,12 @@ private fun ColumnScope.SpecificSupplierContent(
     }
 
     OrderSummaryFooter(
-        itemCount = uiState.items.size,
+        itemCount = quantityByDrugId.size,
         subtotal = orderSubtotal,
         minOrderValue = uiState.supplier?.minOrderValue ?: 0.0,
-        onReviewAndAllocate = onReviewAndAllocate,
-        // Wait for in-flight +/- taps, so the order handed to the cart has every line.
-        canReview = uiState.items.isNotEmpty() && uiState.quickAddingItemIds.isEmpty()
+        // Sends any +/- taps still waiting out their debounce first, so the cart gets every line.
+        onReviewAndAllocate = { viewModel.syncPendingThen(onReviewAndAllocate) },
+        canReview = quantityByDrugId.isNotEmpty() && uiState.quickAddingItemIds.isEmpty()
     )
 }
 
@@ -725,7 +727,10 @@ private fun QuantityDialog(
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit
 ) {
-    var quantityText by remember(item.drugId) { mutableStateOf("1") }
+    // Opens on what the order already holds for this drug, so the buyer edits the real quantity.
+    var quantityText by remember(item.drugId, item.currentQuantity) {
+        mutableStateOf(item.currentQuantity.takeIf { it > 0 }?.toString() ?: "1")
+    }
     val quantity = quantityText.toIntOrNull()
     val strings = LocalStrings.current
 
@@ -761,7 +766,7 @@ private fun QuantityDialog(
                 if (isSubmitting) {
                     CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 } else {
-                    Text(strings.catalogAdd)
+                    Text(if (item.currentQuantity > 0) strings.commonSave else strings.catalogAdd)
                 }
             }
         },

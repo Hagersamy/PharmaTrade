@@ -21,19 +21,31 @@ import com.pharmatrade.feature.pharmacyorder.domain.usecase.GetOrderDetailUseCas
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.GetSupplierInventoryUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.RemoveOrderItemUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.UploadOrderItemsUseCase
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+
+// How long +/- waits after the last tap before sending the drug's quantity (same as the Home cart).
+private const val QUANTITY_SYNC_DEBOUNCE_MS = 700L
 
 // A drug picked (either from the generic catalog search or a specific supplier's inventory)
 // awaiting a quantity before it's added to the order.
 data class PendingAddItem(
     val drugId: String,
     val displayName: String,
-    val priceInfo: String? = null
+    val priceInfo: String? = null,
+    // How many the order already holds — the dialog opens on this and "confirm" sets it, rather
+    // than adding a fresh amount on top. 0 for a drug not in the order yet.
+    val currentQuantity: Int = 0
 )
 
 data class OrderItemsUiState(
@@ -55,6 +67,9 @@ data class OrderItemsUiState(
     // the row's own id rather than drugId so a backend response with a missing/duplicated
     // drug_id can't make every row light up together.
     val quickAddingItemIds: Set<String> = emptySet(),
+    // +/- quantities (by drugId) not yet sent to the backend — shown right away, synced once the
+    // buyer stops tapping. Overrides what `items` holds for that drug.
+    val pendingQuantities: Map<String, Int> = emptyMap(),
     val items: List<DraftOrderItem> = emptyList(),
     val isLoadingItems: Boolean = false,
     val itemsError: String? = null,
@@ -165,15 +180,20 @@ class OrderItemsViewModel(
         copy(pendingItem = PendingAddItem(drugId = drug.id, displayName = drug.name), addItemError = null)
     }
 
-    fun onSupplierItemSelected(item: SupplierInventoryItem) = update {
-        copy(
-            pendingItem = PendingAddItem(
-                drugId = item.drugId,
-                displayName = item.drugName,
-                priceInfo = "EGP ${"%.2f".format(item.effectivePrice)}/unit · ${item.quantityAvailable} in stock"
-            ),
-            addItemError = null
-        )
+    fun onSupplierItemSelected(item: SupplierInventoryItem) {
+        inventoryByDrugId[item.drugId] = item
+        val current = quantityInOrder(item.drugId)
+        update {
+            copy(
+                pendingItem = PendingAddItem(
+                    drugId = item.drugId,
+                    displayName = item.drugName,
+                    priceInfo = "EGP ${"%.2f".format(item.effectivePrice)}/unit · ${item.quantityAvailable} in stock",
+                    currentQuantity = current
+                ),
+                addItemError = null
+            )
+        }
     }
 
     fun dismissQuantityDialog() = update { copy(pendingItem = null) }
@@ -192,16 +212,52 @@ class OrderItemsViewModel(
         setSupplierItemQuantity(item, current - 1)
     }
 
-    // Sets the drug's quantity to an absolute value. The backend has no update-quantity call
-    // (only an add and a remove-whole-line) and how repeat adds of the same drug combine isn't
-    // something we can observe (drafts' lines aren't readable via GET), so rather than send a
-    // "+1" and guess the result — which double-counted — this removes the drug's existing
-    // line(s) and re-adds the exact target as one fresh line. Same approach as the Home cart.
+    // Per-drug debounce timers and locks for the +/- sync (see scheduleSync / syncSupplierItem).
+    private val syncJobs = mutableMapOf<String, Job>()
+    private val syncLocks = mutableMapOf<String, Mutex>()
+    private val inventoryByDrugId = mutableMapOf<String, SupplierInventoryItem>()
+
+    // Only the local quantity changes here — the backend sync is debounced per drug, so tapping
+    // "+" five times quickly sends one update with the final quantity instead of five.
     private fun setSupplierItemQuantity(item: SupplierInventoryItem, target: Int) {
-        if (item.id in _uiState.value.quickAddingItemIds) return
-        val oldLines = _uiState.value.items.filter { it.drugId == item.drugId }
-        viewModelScope.launch {
-            update { copy(quickAddingItemIds = quickAddingItemIds + item.id, addItemError = null) }
+        inventoryByDrugId[item.drugId] = item
+        update { copy(pendingQuantities = pendingQuantities + (item.drugId to target), addItemError = null) }
+        scheduleSync(item.drugId)
+    }
+
+    // (Re)starts this drug's debounce timer; each new tap cancels the previous wait.
+    private fun scheduleSync(drugId: String) {
+        syncJobs[drugId]?.cancel()
+        syncJobs[drugId] = viewModelScope.launch {
+            val self = coroutineContext[Job]
+            try {
+                delay(QUANTITY_SYNC_DEBOUNCE_MS)
+                syncSupplierItem(drugId)
+            } finally {
+                if (syncJobs[drugId] === self) syncJobs.remove(drugId)
+            }
+        }
+    }
+
+    // Pushes the drug's pending quantity to the backend. The backend has no update-quantity call
+    // (only an add and a remove-whole-line) and how repeat adds of the same drug combine isn't
+    // something we can observe (drafts' lines aren't readable via GET), so this removes the drug's
+    // existing line(s) and re-adds the exact target as one fresh line. Same approach as the Home
+    // cart. NonCancellable under a per-drug lock: a tap arriving mid-request must never abort it
+    // between the remove and the add; it just schedules another sync that runs after this one.
+    // Returns false if the backend rejected the change (the pending quantity is dropped, so the
+    // card falls back to what the backend actually holds).
+    private suspend fun syncSupplierItem(drugId: String): Boolean = withContext(NonCancellable) {
+        syncLocks.getOrPut(drugId) { Mutex() }.withLock {
+            val target = _uiState.value.pendingQuantities[drugId] ?: return@withLock true
+            val rowId = inventoryByDrugId[drugId]?.id
+            val oldLines = _uiState.value.items.filter { it.drugId == drugId }
+            if (oldLines.sumOf { it.quantity } == target) {
+                update { copy(pendingQuantities = pendingQuantities.dropIfStill(drugId, target)) }
+                return@withLock true
+            }
+
+            update { copy(quickAddingItemIds = rowId?.let { quickAddingItemIds + it } ?: quickAddingItemIds) }
             var failure: String? = null
             val removedIds = mutableSetOf<String>()
             for (line in oldLines) {
@@ -212,28 +268,69 @@ class OrderItemsViewModel(
             }
             var added: DraftOrderItem? = null
             if (failure == null && target > 0) {
-                when (val result = addOrderItemUseCase(orderId, item.drugId, target)) {
+                when (val result = addOrderItemUseCase(orderId, drugId, target)) {
                     is Result.Success -> added = result.data
                     is Result.Error -> failure = result.message
                     is Result.Loading -> Unit
+                }
+                // The old line is already gone — if the new amount was rejected (e.g. over the
+                // supplier's per-order limit), put the previous quantity back so the drug isn't
+                // silently dropped from the order.
+                val previous = oldLines.sumOf { it.quantity }
+                if (failure != null && previous > 0 && removedIds.size == oldLines.size) {
+                    (addOrderItemUseCase(orderId, drugId, previous) as? Result.Success)?.let { added = it.data }
                 }
             }
             update {
                 val kept = items.filterNot { it.id in removedIds }
                 copy(
                     items = added?.let { kept.upsert(it) } ?: kept,
-                    quickAddingItemIds = quickAddingItemIds - item.id,
+                    // A newer tap may have changed the target meanwhile — keep that one pending.
+                    pendingQuantities = if (failure != null) pendingQuantities - drugId else pendingQuantities.dropIfStill(drugId, target),
+                    quickAddingItemIds = rowId?.let { quickAddingItemIds - it } ?: quickAddingItemIds,
                     addItemError = failure?.let { LanguageManager.strings.friendlyError(it) }
                 )
             }
+            failure == null
+        }
+    }
+
+    private fun Map<String, Int>.dropIfStill(drugId: String, target: Int) =
+        if (this[drugId] == target) this - drugId else this
+
+    // Sends any +/- changes still waiting out their debounce right away, then runs [onDone] —
+    // used before "Review" and before leaving the page, so the order handed to the cart has
+    // every tap. Stays on the page if a sync was rejected, so the buyer sees the error first.
+    fun syncPendingThen(onDone: () -> Unit) {
+        viewModelScope.launch {
+            val drugIds = _uiState.value.pendingQuantities.keys.toList()
+            drugIds.forEach { syncJobs.remove(it)?.cancel() }
+            var allSynced = true
+            for (drugId in drugIds) {
+                if (!syncSupplierItem(drugId)) allSynced = false
+            }
+            if (allSynced) onDone()
         }
     }
 
     private fun quantityInOrder(drugId: String): Int =
-        _uiState.value.items.filter { it.drugId == drugId }.sumOf { it.quantity }
+        _uiState.value.pendingQuantities[drugId]
+            ?: _uiState.value.items.filter { it.drugId == drugId }.sumOf { it.quantity }
 
     fun confirmAddItem(quantity: Int) {
         val item = _uiState.value.pendingItem ?: return
+        // A supplier's drug: the dialog edits its quantity in the order, so set it to exactly
+        // this (one sync, right away) instead of adding the amount on top of what's there.
+        inventoryByDrugId[item.drugId]?.let { invItem ->
+            if (quantity > invItem.quantityAvailable) {
+                update { copy(addItemError = LanguageManager.strings.errorOnlyUnitsAvailable(invItem.quantityAvailable, invItem.drugName)) }
+                return
+            }
+            syncJobs.remove(item.drugId)?.cancel()
+            update { copy(pendingItem = null, pendingQuantities = pendingQuantities + (item.drugId to quantity), addItemError = null) }
+            viewModelScope.launch { syncSupplierItem(item.drugId) }
+            return
+        }
         viewModelScope.launch {
             update { copy(isAddingItem = true, addItemError = null) }
             when (val result = addOrderItemUseCase(orderId, item.drugId, quantity)) {
