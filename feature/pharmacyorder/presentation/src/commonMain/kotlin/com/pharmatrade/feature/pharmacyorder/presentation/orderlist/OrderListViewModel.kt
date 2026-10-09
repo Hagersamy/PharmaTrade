@@ -5,26 +5,21 @@ import androidx.lifecycle.viewModelScope
 import com.pharmatrade.core.common.error.userMessage
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.result.Result
-import com.pharmatrade.feature.pharmacyorder.domain.model.OrdersPage
 import com.pharmatrade.feature.pharmacyorder.domain.model.PharmacyOrderSummary
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.GetPharmacyOrdersUseCase
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 enum class OrderListTab(val label: String, val apiStatus: String?) {
-    // The backend has no single "return every status" filter — an absent status param defaults
-    // to drafts only, and there's no "all" value it recognizes. So "All" fetches every other
-    // tab's status in parallel and merges the results client-side instead of a single API call.
+    // GET pharmacy/orders with no status param returns every status — drafts (the cart's
+    // per-supplier draft orders) included — so "All" is a single call with drafts dropped
+    // client-side. See OrderListViewModel.loadOrders().
     ALL("All", null),
     PENDING("Pending", "pending_supplier_confirmation"),
     // A supplier reported a shortage and the pharmacy has to cancel or accept the short items.
-    // Having its own tab also pulls these orders into "All", which merges every tab's status.
     SHORTAGE("Shortage", "partially_available"),
     CONFIRMED("Confirmed", "confirmed"),
     SHIPPED("Shipped", "shipped"),
@@ -49,12 +44,9 @@ class OrderListViewModel(
 
     init {
         // Deliberately does NOT call loadOrders() here — AppNavigation's entry<NavKeys.Home>
-        // lifecycle observer calls it on ON_RESUME, which fires immediately (synchronous catch-up,
-        // since the Activity is already RESUMED when this VM is constructed) and covers first load
-        // on its own. Calling it here too used to double every one of the (up to 4, for "All")
-        // requests this fires on startup. It only loads while the Orders tab is showing (on Home
-        // resume or when the tab is selected), which also covers a just-placed order: checkout
-        // returns to Home, and the list reloads the moment the Orders tab is visible.
+        // loads it only while the Orders tab is showing (when the tab is selected, or on Home
+        // resume while it's showing), which also covers a just-placed order: checkout returns to
+        // Home, and the list reloads the moment the Orders tab is visible.
     }
 
     fun onTabSelected(tab: OrderListTab) {
@@ -78,42 +70,34 @@ class OrderListViewModel(
         loadingTab = tab
         loadJob = viewModelScope.launch {
             update { copy(isLoading = true, error = null) }
-            if (tab == OrderListTab.ALL) {
-                loadAll()
-            } else {
-                when (val result = getPharmacyOrdersUseCase(status = tab.apiStatus, perPage = 20)) {
-                    is Result.Success -> update { copy(isLoading = false, orders = result.data.orders, total = result.data.total) }
-                    is Result.Error -> update {
-                        copy(isLoading = false, error = LanguageManager.strings.userMessage(result))
+            // "All" asks for a bigger page: the backend has no way to exclude drafts, so they
+            // share the page with real orders and are dropped here.
+            val isAll = tab == OrderListTab.ALL
+            val perPage = if (isAll) ALL_PAGE_SIZE else PAGE_SIZE
+            when (val result = getPharmacyOrdersUseCase(status = tab.apiStatus, perPage = perPage)) {
+                is Result.Success -> {
+                    val orders = if (isAll) {
+                        result.data.orders.filter { it.status != DRAFT_STATUS }.sortedByDescending { it.date }
+                    } else {
+                        result.data.orders
                     }
-                    is Result.Loading -> Unit
+                    update { copy(isLoading = false, orders = orders, total = if (isAll) orders.size else result.data.total) }
                 }
+                is Result.Error -> update {
+                    copy(isLoading = false, error = LanguageManager.strings.userMessage(result))
+                }
+                is Result.Loading -> Unit
             }
         }
     }
 
-    private suspend fun loadAll() {
-        val realStatuses = OrderListTab.entries.filter { it != OrderListTab.ALL }.map { it.apiStatus }
-        // Children of the calling load (not viewModelScope), so cancelling that load stops them too.
-        val results = coroutineScope {
-            realStatuses.map { status ->
-                async { getPharmacyOrdersUseCase(status = status, perPage = 20) }
-            }.awaitAll()
-        }
-
-        val firstError = results.filterIsInstance<Result.Error>().firstOrNull()
-        if (firstError != null && results.none { it is Result.Success }) {
-            update { copy(isLoading = false, error = LanguageManager.strings.userMessage(firstError)) }
-            return
-        }
-
-        val merged = results.filterIsInstance<Result.Success<OrdersPage>>()
-            .flatMap { it.data.orders }
-            .sortedByDescending { it.date }
-        update { copy(isLoading = false, orders = merged, total = merged.size) }
-    }
-
     private fun update(block: OrderListUiState.() -> OrderListUiState) {
         _uiState.value = _uiState.value.block()
+    }
+
+    private companion object {
+        const val PAGE_SIZE = 20
+        const val ALL_PAGE_SIZE = 100
+        const val DRAFT_STATUS = "draft"
     }
 }
