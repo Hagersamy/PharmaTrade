@@ -14,6 +14,8 @@ import com.pharmatrade.core.common.log.CrashReportSink
 import com.pharmatrade.core.common.log.CrashReporter
 import com.google.firebase.messaging.FirebaseMessaging
 import com.pharmatrade.core.common.i18n.LanguageManager
+import com.pharmatrade.core.common.theme.ThemeManager
+import com.pharmatrade.core.common.search.SearchHistoryStore
 import com.pharmatrade.core.common.reminder.UploadReminderStore
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.core.network.ApiClient
@@ -50,8 +52,11 @@ class PharmaTradeApp : Application() {
         SessionManager.init(SharedPreferencesSettings(prefs))
         val languagePrefs = getSharedPreferences("pharmatrade_prefs", MODE_PRIVATE)
         LanguageManager.init(SharedPreferencesSettings(languagePrefs))
+        ThemeManager.init(SharedPreferencesSettings(languagePrefs))
         val reminderPrefs = getSharedPreferences("pharmatrade_reminders", MODE_PRIVATE)
         UploadReminderStore.init(SharedPreferencesSettings(reminderPrefs))
+        val searchHistoryPrefs = getSharedPreferences("pharmatrade_search_history", MODE_PRIVATE)
+        SearchHistoryStore.init(SharedPreferencesSettings(searchHistoryPrefs))
         UploadReminderStore.startSync(appScope, AndroidUploadReminderScheduler(this))
         container = AppContainer(this)
         setupAutoLogoutOnInvalidToken()

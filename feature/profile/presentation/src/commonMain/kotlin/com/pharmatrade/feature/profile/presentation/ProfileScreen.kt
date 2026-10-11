@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -23,24 +25,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pharmatrade.core.common.i18n.AppLanguage
-import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.model.User
 import com.pharmatrade.core.common.model.UserType
-import com.pharmatrade.core.common.reminder.ReminderTime
-import com.pharmatrade.core.ui.components.PharmaButton
+import com.pharmatrade.core.ui.components.LocalBottomBarInset
 import com.pharmatrade.core.ui.components.PharmaTextField
-import com.pharmatrade.core.ui.components.UploadRemindersEditor
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.core.common.model.Zone
 import com.pharmatrade.feature.pharmacyorder.domain.model.Branch
 import kotlinx.coroutines.delay
 
 @Composable
-fun ProfileScreen(viewModel: ProfileViewModel, user: User?, onLogout: () -> Unit) {
+fun ProfileScreen(
+    viewModel: ProfileViewModel,
+    user: User?,
+    onOpenSettings: () -> Unit,
+    onLogout: () -> Unit
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val strings = LocalStrings.current
 
@@ -58,7 +60,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, user: User?, onLogout: () -> Unit
             .fillMaxSize()
             .background(BackgroundGray)
             .verticalScroll(rememberScrollState())
-            .padding(20.dp),
+            .padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 20.dp + LocalBottomBarInset.current),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         if (uiState.successMessage != null) {
@@ -219,12 +221,6 @@ fun ProfileScreen(viewModel: ProfileViewModel, user: User?, onLogout: () -> Unit
                     }
                 }
             }
-
-            UploadRemindersCard(
-                times = uiState.reminderTimes,
-                onAdd = viewModel::addReminder,
-                onRemove = viewModel::removeReminder
-            )
         }
 
         if (user?.userType == UserType.BUYER) {
@@ -238,16 +234,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, user: User?, onLogout: () -> Unit
             )
         }
 
-        LanguageCard()
-
-        Spacer(Modifier.height(8.dp))
-
-        PharmaButton(
-            text = strings.profileSignOut,
-            onClick = onLogout,
-            modifier = Modifier.fillMaxWidth(),
-            containerColor = ErrorRed
-        )
+        OtherServicesSection(onOpenSettings = onOpenSettings, onLogout = onLogout)
     }
 
     if (uiState.showEditProfileDialog) {
@@ -264,39 +251,6 @@ fun ProfileScreen(viewModel: ProfileViewModel, user: User?, onLogout: () -> Unit
     }
     if (uiState.showRequestZoneDialog) {
         RequestZoneDialog(uiState, viewModel)
-    }
-}
-
-@Composable
-private fun UploadRemindersCard(
-    times: List<ReminderTime>,
-    onAdd: (ReminderTime) -> Unit,
-    onRemove: (ReminderTime) -> Unit
-) {
-    val strings = LocalStrings.current
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.NotificationsActive, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    strings.regUploadReminders,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-            }
-            Divider(color = DividerGray)
-            UploadRemindersEditor(times = times, onAdd = onAdd, onRemove = onRemove)
-        }
     }
 }
 
@@ -396,67 +350,70 @@ private fun ZoneChipsRow(zoneNames: List<String>) {
 }
 
 @Composable
-private fun LanguageCard() {
+private fun OtherServicesSection(onOpenSettings: () -> Unit, onLogout: () -> Unit) {
     val strings = LocalStrings.current
-    val currentLanguage by LanguageManager.language.collectAsState()
-
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            strings.profileOtherServices,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = TextSecondary,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                strings.profileLanguage,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
+            ServiceRow(
+                icon = Icons.Filled.Settings,
+                label = strings.settingsTitle,
+                showChevron = true,
+                onClick = onOpenSettings
             )
-            Divider(color = DividerGray)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                LanguageOption(
-                    label = strings.profileLanguageEnglish,
-                    selected = currentLanguage == AppLanguage.ENGLISH,
-                    onClick = { LanguageManager.setLanguage(AppLanguage.ENGLISH) },
-                    modifier = Modifier.weight(1f)
-                )
-                LanguageOption(
-                    label = strings.profileLanguageArabic,
-                    selected = currentLanguage == AppLanguage.ARABIC,
-                    onClick = { LanguageManager.setLanguage(AppLanguage.ARABIC) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            // Inset to line up with the label, past the icon tile.
+            HorizontalDivider(color = DividerGray, modifier = Modifier.padding(start = 64.dp, end = 16.dp))
+            ServiceRow(
+                icon = Icons.AutoMirrored.Filled.Logout,
+                label = strings.profileSignOut,
+                showChevron = false,
+                onClick = onLogout
+            )
         }
     }
 }
 
 @Composable
-private fun LanguageOption(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        color = if (selected) PrimaryBlue else CardGray
+private fun ServiceRow(
+    icon: ImageVector,
+    label: String,
+    showChevron: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(vertical = 10.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(PrimaryBlueContainer),
+            contentAlignment = Alignment.Center
         ) {
-            if (selected) {
-                Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-            }
-            Text(
-                label,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = if (selected) Color.White else TextSecondary
-            )
+            Icon(icon, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            color = TextPrimary,
+            modifier = Modifier.weight(1f)
+        )
+        if (showChevron) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextHint)
         }
     }
 }

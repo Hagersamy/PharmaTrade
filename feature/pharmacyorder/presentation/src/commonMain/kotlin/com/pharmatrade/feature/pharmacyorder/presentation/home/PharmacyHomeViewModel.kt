@@ -6,6 +6,7 @@ import com.pharmatrade.core.common.error.userMessage
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.log.debugLog
 import com.pharmatrade.core.common.result.Result
+import com.pharmatrade.core.common.search.SearchHistoryStore
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.feature.pharmacyorder.domain.PharmacyCartBus
 import com.pharmatrade.feature.pharmacyorder.domain.SupplierPageOrder
@@ -21,6 +22,7 @@ import com.pharmatrade.feature.pharmacyorder.domain.usecase.CreateOrderUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.GetAllSuppliersDrugsUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.GetPharmacyOrdersUseCase
 import com.pharmatrade.feature.pharmacyorder.domain.usecase.RemoveOrderItemUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -29,6 +31,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -64,6 +68,8 @@ data class PharmacyHomeUiState(
     val catalogError: String? = null,
     // Raw search-field text; catalogQuery follows it after the debounce.
     val catalogFilter: String = "",
+    // This account's recent searches on this device, newest first (SearchHistoryStore).
+    val recentSearches: List<String> = emptyList(),
     // Every catalog item seen so far (any page, any search), by id. The cart looks items up here
     // rather than in catalogItems, since a search replaces catalogItems and would otherwise make
     // in-cart items from the previous list vanish from the Cart tab.
@@ -147,6 +153,7 @@ class PharmacyHomeViewModel(
         // is gone (see restoreCart).
         restoreCart()
         persistCartChanges()
+        observeSearchHistory()
 
         // Fires when a draft order gets confirmed or cancelled (checkout/allocation), which runs
         // on a separate back-stack entry with no direct reference back to this ViewModel — drop
@@ -373,6 +380,54 @@ class PharmacyHomeViewModel(
         }
     }
 
+    // --- Recent searches (on-device, per account) ---
+    //
+    // A search is saved only once it's clearly intentional — the keyboard's search key, or the
+    // buyer acting on a result (tap / quick add) — never on the typing debounce, which would
+    // record every half-typed word ("par", "parac", ...).
+
+    private val historyAccount: String?
+        get() = SessionManager.user?.let { it.id.ifBlank { it.phone } }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun observeSearchHistory() {
+        SessionManager.currentUser
+            .map { user -> user?.let { it.id.ifBlank { it.phone } } }
+            .distinctUntilChanged()
+            .flatMapLatest { account -> if (account == null) flowOf(emptyList()) else SearchHistoryStore.observe(account) }
+            .onEach { recent -> update { copy(recentSearches = recent) } }
+            .launchIn(viewModelScope)
+    }
+
+    private fun rememberActiveSearch() {
+        val state = _uiState.value
+        if (state.isSearchActive) historyAccount?.let { SearchHistoryStore.add(it, state.catalogQuery) }
+    }
+
+    // Keyboard "search" key: save it and search right away instead of waiting out the debounce.
+    fun onSearchSubmitted() {
+        val query = _uiState.value.catalogFilter.trim()
+        if (query.isEmpty()) return
+        historyAccount?.let { SearchHistoryStore.add(it, query) }
+        searchDebounceJob?.cancel()
+        if (query != _uiState.value.catalogQuery) startCatalog(query)
+    }
+
+    fun onRecentSearchSelected(query: String) {
+        update { copy(catalogFilter = query) }
+        historyAccount?.let { SearchHistoryStore.add(it, query) }
+        searchDebounceJob?.cancel()
+        if (query != _uiState.value.catalogQuery) startCatalog(query)
+    }
+
+    fun removeRecentSearch(query: String) {
+        historyAccount?.let { SearchHistoryStore.remove(it, query) }
+    }
+
+    fun clearRecentSearches() {
+        historyAccount?.let { SearchHistoryStore.clear(it) }
+    }
+
     // Drops the current list and loads page 1 for [query] (blank = full catalog).
     private fun startCatalog(query: String): Job {
         catalogJob?.cancel()
@@ -443,12 +498,16 @@ class PharmacyHomeViewModel(
         }
     }
 
-    fun onCatalogItemTapped(item: SupplierCatalogItem) = update { copy(pendingCatalogItem = item, catalogActionError = null) }
+    fun onCatalogItemTapped(item: SupplierCatalogItem) {
+        rememberActiveSearch()
+        update { copy(pendingCatalogItem = item, catalogActionError = null) }
+    }
     fun dismissCatalogDialog() = update { copy(pendingCatalogItem = null) }
 
     // "+" on the catalog card, or on the in-cart stepper — both just mean "one more than
     // whatever's currently in the cart for this item", capped at available stock.
     fun quickAddCatalogItem(item: SupplierCatalogItem) {
+        rememberActiveSearch()
         val current = _uiState.value.cartQuantities[item.id] ?: 0
         setCartQuantity(item, current + 1)
     }

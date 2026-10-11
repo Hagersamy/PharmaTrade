@@ -47,10 +47,11 @@ data class AppColors(
 )
 
 val LightAppColors = AppColors(
-    primaryBlue = Color(0xFF1E40AF),
-    primaryBlueDark = Color(0xFF1E3A8A),
-    primaryBlueLight = Color(0xFF3B82F6),
-    primaryBlueContainer = Color(0xFFDBEAFE),
+    // The blue family is derived from the app logo blue (BrandBlue, #0459A2).
+    primaryBlue = Color(0xFF0459A2),
+    primaryBlueDark = Color(0xFF03457E),
+    primaryBlueLight = Color(0xFF3A82C4),
+    primaryBlueContainer = Color(0xFFD6E6F5),
     secondaryGreen = Color(0xFF059669),
     secondaryGreenDark = Color(0xFF047857),
     secondaryGreenLight = Color(0xFF10B981),
@@ -69,7 +70,7 @@ val LightAppColors = AppColors(
     textHint = Color(0xFF94A3B8),
     discountBadge = Color(0xFF7C3AED),
     discountBadgeContainer = Color(0xFFEDE9FE),
-    topBarContainer = Color(0xFF1E40AF),
+    topBarContainer = Color(0xFF0459A2),
     topBarContent = Color(0xFFFFFFFF),
     inTransitTeal = Color(0xFF0E7490),
     inTransitTealContainer = Color(0xFFCFFAFE)
@@ -79,10 +80,11 @@ val DarkAppColors = AppColors(
     // Accent hues are lifted a step or two lighter than their light-mode counterparts so they stay
     // legible against dark surfaces (e.g. secondaryGreenDark is used throughout as body text color,
     // not just a background tint, so it needs real contrast against a dark card, not a dark tone).
-    primaryBlue = Color(0xFF2563EB),
-    primaryBlueDark = Color(0xFF1E3A8A),
-    primaryBlueLight = Color(0xFF93C5FD),
-    primaryBlueContainer = Color(0xFF1E3A8A),
+    // Same hue as the logo blue (#0459A2), lifted a step so it stays readable on dark surfaces.
+    primaryBlue = Color(0xFF2F7BC2),
+    primaryBlueDark = Color(0xFF03457E),
+    primaryBlueLight = Color(0xFF8DBDE8),
+    primaryBlueContainer = Color(0xFF033B6B),
     secondaryGreen = Color(0xFF10B981),
     secondaryGreenDark = Color(0xFF34D399),
     secondaryGreenLight = Color(0xFF6EE7B7),
@@ -149,3 +151,7 @@ val TopBarContent: Color @Composable get() = LocalAppColors.current.topBarConten
 
 val InTransitTeal: Color @Composable get() = LocalAppColors.current.inTransitTeal
 val InTransitTealContainer: Color @Composable get() = LocalAppColors.current.inTransitTealContainer
+
+// Brand blue sampled from the app launcher icon (mipmap ic_launcher_round). Fixed rather than
+// themed: it's the logo's color, so it stays the same in light and dark mode.
+val BrandBlue = Color(0xFF0459A2)

@@ -28,6 +28,9 @@ okhttp = "4.12.0"
 googleServices = "4.5.0"
 firebaseBom = "34.19.0"
 firebaseCrashlyticsPlugin = "3.0.8"
+# Backdrop blur for the liquid-glass bottom bar. Pinned to 1.1.1: the last release built against
+# Kotlin 2.0.21 / Compose MP 1.7 — 1.2+ needs Kotlin 2.1, whose iOS klibs this compiler can't read.
+haze = "1.1.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -71,6 +74,7 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
 firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
+haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 # Compose Multiplatform artifacts (same coordinates the `compose.*` accessors resolve to), referenced
 # from the :build-logic convention plugins where those accessors aren't available.
 compose-mp-runtime = { group = "org.jetbrains.compose.runtime", name = "runtime", version.ref = "composeMultiplatform" }

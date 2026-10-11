@@ -75,6 +75,7 @@ object ArabicStrings : Strings {
 
     override val pendingSubmittedTitle = "تم إرسال طلب التسجيل!"
     override fun pendingGreeting(name: String) = "مرحباً $name،"
+    override fun homeGreeting(name: String) = if (name.isBlank()) "مرحبا" else "مرحبا، $name"
     override val pendingBodyMessage =
         "حسابك قيد مراجعة الإدارة. ستتمكن من تسجيل الدخول بمجرد مراجعة طلب التسجيل الخاص بك."
     override val pendingWhatsNextTitle = "ماذا يحدث بعد ذلك؟"
@@ -114,6 +115,14 @@ object ArabicStrings : Strings {
     // so a user can always recognize their language — same values in both implementations.
     override val profileLanguageEnglish = "English"
     override val profileLanguageArabic = "العربية"
+    override val profileOtherServices = "خدمات أخرى"
+
+    override val settingsTitle = "الإعدادات"
+    override val settingsAppearance = "المظهر"
+    override val settingsThemeSystem = "النظام"
+    override val settingsThemeLight = "فاتح"
+    override val settingsThemeDark = "داكن"
+    override val settingsAppVersion = "الإصدار"
 
     override val profileDialogEditProfileTitle = "تعديل الملف الشخصي"
     override val profileDialogName = "الاسم"
@@ -178,6 +187,9 @@ object ArabicStrings : Strings {
 
     override val pharmacyAllSuppliersDrugs = "أدوية جميع الموردين"
     override val pharmacySearchDrugName = "ابحث عن اسم الدواء"
+    override val pharmacyRecentSearches = "عمليات البحث الأخيرة"
+    override val pharmacyNoRecentSearches = "لا توجد عمليات بحث حديثة"
+    override val pharmacyNoRecentSearchesMessage = "ستظهر هنا الأدوية التي تبحث عنها."
     override val commonDismiss = "إغلاق"
     override val pharmacyNoDrugsAvailable = "لا توجد أدوية متاحة"
     override val pharmacyCheckBackLater = "تحقق مرة أخرى لاحقاً"

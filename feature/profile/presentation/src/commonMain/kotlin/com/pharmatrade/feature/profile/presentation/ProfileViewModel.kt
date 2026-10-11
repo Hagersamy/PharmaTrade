@@ -6,7 +6,6 @@ import com.pharmatrade.core.common.error.friendlyError
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.model.User
 import com.pharmatrade.core.common.model.UserType
-import com.pharmatrade.core.common.reminder.ReminderTime
 import com.pharmatrade.core.common.reminder.UploadReminderStore
 import com.pharmatrade.core.common.result.Result
 import com.pharmatrade.core.common.session.SessionManager
@@ -20,16 +19,9 @@ import com.pharmatrade.feature.profile.domain.usecase.RequestZoneUpdateUseCase
 import com.pharmatrade.feature.profile.domain.usecase.UpdateBranchProfileUseCase
 import com.pharmatrade.feature.profile.domain.usecase.UpdateProfileUseCase
 import com.pharmatrade.feature.profile.domain.usecase.UpdateSupplierProfileUseCase
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 data class ProfileUiState(
@@ -80,9 +72,6 @@ data class ProfileUiState(
     val isSubmittingZoneRequest: Boolean = false,
     val zoneRequestError: String? = null,
 
-    // Seller agent's daily "upload your data" reminders (on-device only, applied immediately)
-    val reminderTimes: List<ReminderTime> = emptyList(),
-
     val successMessage: String? = null
 )
 
@@ -100,12 +89,6 @@ class ProfileViewModel(
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
-    init {
-        if (SessionManager.user?.userType == UserType.SELLER) {
-            observeReminders()
-        }
-    }
-
     // This ViewModel is created with Home (and the admin dashboard), but its data is only shown on
     // the Profile tab — so GET profile / pharmacy/branch run the first time that tab is opened,
     // once per ViewModel, instead of on every Home creation whether the tab is ever opened or not.
@@ -118,31 +101,6 @@ class ProfileViewModel(
         if (SessionManager.user?.userType == UserType.BUYER) {
             loadBranch()
         }
-    }
-
-    // --- Upload reminders (seller agent) ---
-
-    // Follows the session's phone so the list stays right after the seller edits their number.
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private fun observeReminders() {
-        SessionManager.currentUser
-            .map { it?.phone }
-            .distinctUntilChanged()
-            .flatMapLatest { phone -> if (phone == null) flowOf(emptyList()) else UploadReminderStore.observe(phone) }
-            .onEach { times -> update { copy(reminderTimes = times) } }
-            .launchIn(viewModelScope)
-    }
-
-    fun addReminder(time: ReminderTime) {
-        val phone = SessionManager.user?.phone ?: return
-        val current = _uiState.value.reminderTimes
-        if (time in current || current.size >= ReminderTime.MAX_PER_DAY) return
-        UploadReminderStore.save(phone, current + time)
-    }
-
-    fun removeReminder(time: ReminderTime) {
-        val phone = SessionManager.user?.phone ?: return
-        UploadReminderStore.save(phone, _uiState.value.reminderTimes - time)
     }
 
     fun loadProfile() {

@@ -35,6 +35,7 @@ import com.pharmatrade.feature.admin.presentation.AdminDashboardScreen
 import com.pharmatrade.feature.admin.presentation.AdminDashboardViewModel
 import com.pharmatrade.feature.admin.presentation.AnalyticsViewModel
 import com.pharmatrade.feature.auth.presentation.login.LoginScreen
+import com.pharmatrade.feature.auth.presentation.welcome.WelcomeScreen
 import com.pharmatrade.feature.auth.presentation.login.LoginViewModel
 import com.pharmatrade.feature.auth.presentation.pending.PendingApprovalScreen
 import com.pharmatrade.feature.auth.presentation.pending.RegistrationOutcome
@@ -48,6 +49,16 @@ import com.pharmatrade.feature.home.HomeScreen
 import com.pharmatrade.feature.home.HomeTab
 import com.pharmatrade.feature.profile.presentation.ProfileScreen
 import com.pharmatrade.feature.profile.presentation.ProfileViewModel
+import com.pharmatrade.feature.profile.presentation.SettingsScreen
+import com.pharmatrade.feature.profile.presentation.SettingsViewModel
+import com.pharmatrade.BuildConfig
+import com.pharmatrade.R
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import com.pharmatrade.feature.notification.presentation.NotificationViewModel
 import com.pharmatrade.feature.notification.presentation.NotificationsScreen
 import com.pharmatrade.push.NotificationDeepLink
@@ -82,7 +93,7 @@ import kotlinx.coroutines.launch
 fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<NotificationDeepLink?>) {
     val startKey = remember {
         when {
-            !SessionManager.isLoggedIn -> NavKeys.Login
+            !SessionManager.isLoggedIn -> NavKeys.Welcome
             SessionManager.user?.isPending == true -> NavKeys.PendingApproval
             SessionManager.user?.isDeclined == true -> NavKeys.RegistrationDeclined
             SessionManager.user?.userType == UserType.ADMIN -> NavKeys.AdminDashboard
@@ -98,15 +109,23 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
             restore = { it.map(HomeTab::valueOf).toMutableStateList() })
     ) { mutableStateListOf(HomeTab.HOME) }
     val homeSelectedTab = tabHistory.last()
+    var isPharmacySearchOpen by rememberSaveable { mutableStateOf(false) }
     fun selectHomeTab(tab: HomeTab) {
         if (tab == HomeTab.HOME) {
+            // Also the reset every logout path runs, so the next login starts on plain Home.
+            isPharmacySearchOpen = false
             tabHistory.clear()
             tabHistory.add(HomeTab.HOME)
         } else if (tab != tabHistory.last()) {
             tabHistory.add(tab)
         }
     }
-    BackHandler(enabled = backStack.lastOrNull() == NavKeys.Home && tabHistory.size > 1) {
+    // The pharmacy search screen is shown inside Home (it shares Home's ViewModel), so back has to
+    // close it here, before the tab history gets a turn.
+    BackHandler(enabled = backStack.lastOrNull() == NavKeys.Home && isPharmacySearchOpen) {
+        isPharmacySearchOpen = false
+    }
+    BackHandler(enabled = backStack.lastOrNull() == NavKeys.Home && !isPharmacySearchOpen && tabHistory.size > 1) {
         tabHistory.removeAt(tabHistory.lastIndex)
     }
 
@@ -160,9 +179,14 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
     }
     val sessionUser by SessionManager.currentUser.collectAsState()
     LaunchedEffect(sessionUser) {
-        if (sessionUser == null && backStack.lastOrNull() != NavKeys.Login) {
+        // Session lost (logout, expired token) while inside the app → back to Welcome. Already on
+        // one of the logged-out screens means there's nothing to redirect.
+        val onAuthScreen = backStack.lastOrNull().let {
+            it == NavKeys.Welcome || it == NavKeys.Login || it == NavKeys.Register
+        }
+        if (sessionUser == null && !onAuthScreen) {
             selectHomeTab(HomeTab.HOME)
-            navigator.navigate(NavKeys.Login, popUpTo = Navigator.PopUpTo(target = null))
+            navigator.navigate(NavKeys.Welcome, popUpTo = Navigator.PopUpTo(target = null))
         }
     }
 
@@ -175,41 +199,50 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
         ),
         entryProvider = entryProvider {
 
+            entry<NavKeys.Welcome> {
+                WelcomeScreen(
+                    appLogo = rememberAppLogo(),
+                    onLoginClick = { navigator.navigate(NavKeys.Login) },
+                    onRegisterClick = { navigator.navigate(NavKeys.Register) }
+                )
+            }
+
             entry<NavKeys.Login> {
                 val vm: LoginViewModel = viewModel(
                     factory = viewModelFactory { initializer { LoginViewModel(container.loginUseCase) } }
                 )
                 LoginScreen(
                     viewModel = vm,
+                    appLogo = rememberAppLogo(),
                     onNavigateToRegister = { navigator.navigate(NavKeys.Register) },
                     onNavigateToSellerDashboard = {
                         navigator.navigate(
                             NavKeys.Home,
-                            popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true)
+                            popUpTo = Navigator.PopUpTo(target = null)
                         )
                     },
                     onNavigateToBuyerCatalog = {
                         navigator.navigate(
                             NavKeys.Home,
-                            popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true)
+                            popUpTo = Navigator.PopUpTo(target = null)
                         )
                     },
                     onNavigateToAdminDashboard = {
                         navigator.navigate(
                             NavKeys.AdminDashboard,
-                            popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true)
+                            popUpTo = Navigator.PopUpTo(target = null)
                         )
                     },
                     onNavigateToPendingApproval = {
                         navigator.navigate(
                             NavKeys.PendingApproval,
-                            popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true)
+                            popUpTo = Navigator.PopUpTo(target = null)
                         )
                     },
                     onNavigateToRegistrationDeclined = {
                         navigator.navigate(
                             NavKeys.RegistrationDeclined,
-                            popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true)
+                            popUpTo = Navigator.PopUpTo(target = null)
                         )
                     }
                 )
@@ -228,11 +261,10 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                 )
                 RegisterScreen(
                     viewModel = vm,
-                    onNavigateBack = { navigator.goBack() },
                     onNavigateToPendingApproval = {
                         navigator.navigate(
                             NavKeys.PendingApproval,
-                            popUpTo = Navigator.PopUpTo(NavKeys.Login, inclusive = true)
+                            popUpTo = Navigator.PopUpTo(target = null)
                         )
                     }
                 )
@@ -249,10 +281,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         // the Home tab, instead of resuming whatever tab (e.g. Profile) was open
                         // when this session logged out.
                         selectHomeTab(HomeTab.HOME)
-                        navigator.navigate(
-                            NavKeys.Login,
-                            popUpTo = Navigator.PopUpTo(target = null)
-                        )
+                        navigator.navigate(NavKeys.Welcome, popUpTo = Navigator.PopUpTo(target = null))
                     }
                 )
             }
@@ -267,10 +296,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     onBackToLogin = {
                         coroutineScope.launch { container.logoutUseCase() }
                         selectHomeTab(HomeTab.HOME)
-                        navigator.navigate(
-                            NavKeys.Login,
-                            popUpTo = Navigator.PopUpTo(target = null)
-                        )
+                        navigator.navigate(NavKeys.Welcome, popUpTo = Navigator.PopUpTo(target = null))
                     }
                 )
             }
@@ -328,13 +354,11 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         ProfileScreen(
                             viewModel = adminProfileVm,
                             user = adminUser,
+                            onOpenSettings = { navigator.navigate(NavKeys.Settings) },
                             onLogout = {
                                 coroutineScope.launch { container.logoutUseCase() }
                                 selectHomeTab(HomeTab.HOME)
-                                navigator.navigate(
-                                    NavKeys.Login,
-                                    popUpTo = Navigator.PopUpTo(target = null)
-                                )
+                                navigator.navigate(NavKeys.Welcome, popUpTo = Navigator.PopUpTo(target = null))
                             }
                         )
                     }
@@ -428,10 +452,13 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     profileViewModel = profileVm,
                     selectedTab = homeSelectedTab,
                     onTabSelected = ::selectHomeTab,
+                    isPharmacySearchOpen = isPharmacySearchOpen,
+                    onPharmacySearchOpenChange = { isPharmacySearchOpen = it },
                     unreadNotificationCount = notificationState.unreadCount,
                     unreadPharmacyOrderIds = notificationState.unreadPharmacyOrderIds,
                     unreadSupplierOrderIds = notificationState.unreadSupplierOrderIds,
                     onNavigateToNotifications = { navigator.navigate(NavKeys.Notifications) },
+                    onNavigateToSettings = { navigator.navigate(NavKeys.Settings) },
                     onNavigateToSearch = {
                         val key =
                             if (SessionManager.currentUser.value?.userType == UserType.SELLER) {
@@ -482,10 +509,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     onLogout = {
                         coroutineScope.launch { container.logoutUseCase() }
                         selectHomeTab(HomeTab.HOME)
-                        navigator.navigate(
-                            NavKeys.Login,
-                            popUpTo = Navigator.PopUpTo(target = null)
-                        )
+                        navigator.navigate(NavKeys.Welcome, popUpTo = Navigator.PopUpTo(target = null))
                     }
                 )
             }
@@ -519,6 +543,15 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         resolveNotificationDestination(notification.type, notification.notifiableId)
                             ?.let { navigator.navigate(it) }
                     }
+                )
+            }
+
+            entry<NavKeys.Settings> {
+                val vm: SettingsViewModel = viewModel { SettingsViewModel() }
+                SettingsScreen(
+                    viewModel = vm,
+                    appVersion = BuildConfig.VERSION_NAME,
+                    onNavigateBack = { navigator.goBack() }
                 )
             }
 
@@ -872,5 +905,17 @@ private fun OrderSuccessScreen(orderId: String, onNavigateHome: () -> Unit) {
             onClick = onNavigateHome,
             modifier = Modifier.fillMaxWidth()
         )
+    }
+}
+
+// The launcher icon is an adaptive icon, which painterResource can't load — render it to a
+// bitmap instead. Used by the logged-out screens (Welcome, Login).
+@Composable
+private fun rememberAppLogo(): Painter? {
+    val context = LocalContext.current
+    return remember(context) {
+        ContextCompat.getDrawable(context, R.mipmap.ic_launcher_round)
+            ?.toBitmap(width = 420, height = 420)
+            ?.let { BitmapPainter(it.asImageBitmap()) }
     }
 }

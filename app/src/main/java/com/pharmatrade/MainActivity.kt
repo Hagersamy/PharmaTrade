@@ -9,7 +9,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.text.LocalAutofillHighlightBrush
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Color
 import androidx.core.content.ContextCompat
 import com.pharmatrade.core.ui.theme.PharmaTradeTheme
 import com.pharmatrade.navigation.AppNavigation
@@ -30,7 +34,9 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermissionIfNeeded()
         setContent {
             PharmaTradeTheme {
-                AppNavigation(container = container, pendingDeepLink = pendingDeepLink)
+                CompositionLocalProvider(LocalAutofillHighlightBrush provides SolidColor(Color.Transparent)) {
+                    AppNavigation(container = container, pendingDeepLink = pendingDeepLink)
+                }
             }
         }
     }

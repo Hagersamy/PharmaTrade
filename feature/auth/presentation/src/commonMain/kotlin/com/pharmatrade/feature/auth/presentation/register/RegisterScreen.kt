@@ -49,7 +49,6 @@ import com.pharmatrade.core.common.model.Zone
 @Composable
 fun RegisterScreen(
     viewModel: RegisterViewModel,
-    onNavigateBack: () -> Unit,
     onNavigateToPendingApproval: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -84,11 +83,10 @@ fun RegisterScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
-        PharmaTopBar(title = strings.regCreateAccount, onNavigateBack = onNavigateBack)
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
                 .verticalScroll(scrollState)
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)

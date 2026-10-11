@@ -73,6 +73,7 @@ object EnglishStrings : Strings {
 
     override val pendingSubmittedTitle = "Registration Submitted!"
     override fun pendingGreeting(name: String) = "Hi $name,"
+    override fun homeGreeting(name: String) = if (name.isBlank()) "Hello" else "Hello, $name"
     override val pendingBodyMessage =
         "Your account is pending admin approval. You will be able to sign in once your registration has been reviewed."
     override val pendingWhatsNextTitle = "What happens next?"
@@ -110,6 +111,14 @@ object EnglishStrings : Strings {
     override val profileLanguage = "Language"
     override val profileLanguageEnglish = "English"
     override val profileLanguageArabic = "العربية"
+    override val profileOtherServices = "Other services"
+
+    override val settingsTitle = "Settings"
+    override val settingsAppearance = "Appearance"
+    override val settingsThemeSystem = "System"
+    override val settingsThemeLight = "Light"
+    override val settingsThemeDark = "Dark"
+    override val settingsAppVersion = "Version"
 
     override val profileDialogEditProfileTitle = "Edit Profile"
     override val profileDialogName = "Name"
@@ -174,6 +183,9 @@ object EnglishStrings : Strings {
 
     override val pharmacyAllSuppliersDrugs = "All Suppliers' Drugs"
     override val pharmacySearchDrugName = "Search drug name"
+    override val pharmacyRecentSearches = "Recent searches"
+    override val pharmacyNoRecentSearches = "No recent searches"
+    override val pharmacyNoRecentSearchesMessage = "Drugs you search for will appear here."
     override val commonDismiss = "Dismiss"
     override val pharmacyNoDrugsAvailable = "No drugs available"
     override val pharmacyCheckBackLater = "Check back later"

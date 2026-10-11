@@ -42,6 +42,11 @@ class LoginViewModel(private val loginUseCase: LoginUseCase) : ViewModel() {
         _uiState.value = _uiState.value.copy(password = password, error = null)
     }
 
+    // Called once the screen has shown the error toast, so the same error can fire again on retry.
+    fun onErrorShown() {
+        _uiState.value = _uiState.value.copy(error = null)
+    }
+
     fun togglePasswordVisibility() {
         _uiState.value = _uiState.value.copy(
             isPasswordVisible = !_uiState.value.isPasswordVisible

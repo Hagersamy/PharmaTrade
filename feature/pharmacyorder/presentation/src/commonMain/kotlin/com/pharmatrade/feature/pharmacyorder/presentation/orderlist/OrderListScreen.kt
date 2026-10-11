@@ -24,6 +24,7 @@ import com.pharmatrade.core.ui.components.EmptyState
 import com.pharmatrade.core.ui.components.ErrorScreen
 import com.pharmatrade.core.ui.components.PharmaCard
 import com.pharmatrade.core.ui.components.UnreadDot
+import com.pharmatrade.core.ui.components.LocalBottomBarInset
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.feature.pharmacyorder.domain.model.PharmacyOrderSummary
 import com.pharmatrade.core.ui.components.OrderStatusChip
@@ -68,7 +69,7 @@ fun OrderListScreen(
                 modifier = Modifier.fillMaxSize()
             )
             else -> LazyColumn(
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalBottomBarInset.current),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(uiState.orders, key = { it.id }) { order ->

@@ -83,6 +83,7 @@ interface Strings {
     // ── Pending approval / registration outcome ────────────────────────────
     val pendingSubmittedTitle: String
     fun pendingGreeting(name: String): String
+    fun homeGreeting(name: String): String
     val pendingBodyMessage: String
     val pendingWhatsNextTitle: String
     val pendingWhatsNextSteps: String
@@ -119,6 +120,15 @@ interface Strings {
     val profileLanguage: String
     val profileLanguageEnglish: String
     val profileLanguageArabic: String
+    val profileOtherServices: String
+
+    // Settings
+    val settingsTitle: String
+    val settingsAppearance: String
+    val settingsThemeSystem: String
+    val settingsThemeLight: String
+    val settingsThemeDark: String
+    val settingsAppVersion: String
 
     // Profile dialogs
     val profileDialogEditProfileTitle: String
@@ -187,6 +197,9 @@ interface Strings {
     // ── Pharmacy home / catalog browse ─────────────────────────────────────
     val pharmacyAllSuppliersDrugs: String
     val pharmacySearchDrugName: String
+    val pharmacyRecentSearches: String
+    val pharmacyNoRecentSearches: String
+    val pharmacyNoRecentSearchesMessage: String
     val commonDismiss: String
     val pharmacyNoDrugsAvailable: String
     val pharmacyCheckBackLater: String

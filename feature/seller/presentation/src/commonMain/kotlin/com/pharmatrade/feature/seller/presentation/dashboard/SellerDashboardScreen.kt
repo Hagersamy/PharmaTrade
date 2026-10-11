@@ -25,6 +25,7 @@ import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatBackendTimestamp
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.*
+import com.pharmatrade.core.ui.components.LocalBottomBarInset
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.feature.drugs.domain.model.InventoryItem
 
@@ -55,6 +56,8 @@ fun SellerDashboardScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToAddListing,
+                // Lift above the floating glass bottom bar when hosted in Home.
+                modifier = Modifier.padding(bottom = LocalBottomBarInset.current),
                 containerColor = PrimaryBlue,
                 contentColor = Color.White
             ) {
@@ -204,7 +207,7 @@ fun SellerDashboardScreen(
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalBottomBarInset.current),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         item {

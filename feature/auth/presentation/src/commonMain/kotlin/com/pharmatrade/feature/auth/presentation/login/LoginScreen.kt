@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -14,8 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -28,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.ui.components.PharmaButton
 import com.pharmatrade.core.ui.components.PharmaTextField
+import com.pharmatrade.core.ui.components.rememberToast
 import com.pharmatrade.core.ui.theme.*
 
 @Composable
@@ -38,11 +40,22 @@ fun LoginScreen(
     onNavigateToBuyerCatalog: () -> Unit,
     onNavigateToAdminDashboard: () -> Unit,
     onNavigateToPendingApproval: () -> Unit,
-    onNavigateToRegistrationDeclined: () -> Unit
+    onNavigateToRegistrationDeclined: () -> Unit,
+    // The platform's app icon (Android launcher icon), supplied by the app module since
+    // launcher resources aren't reachable from shared code. Null shows no logo.
+    appLogo: Painter? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
     val strings = LocalStrings.current
+    val showLongToast = rememberToast(long = true)
+
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            showLongToast(it)
+            viewModel.onErrorShown()
+        }
+    }
 
     LaunchedEffect(uiState.navigateTo) {
         when (uiState.navigateTo) {
@@ -73,12 +86,8 @@ fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(PrimaryBlue, PrimaryBlueDark),
-                    endY = 400f
-                )
-            )
+            // Same blue as the app icon, so the logo sits seamlessly on the background.
+            .background(BrandBlue)
     ) {
         Column(
             modifier = Modifier
@@ -90,27 +99,14 @@ fun LoginScreen(
 
             // Logo area
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color.White.copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.MedicalServices,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(48.dp)
+                if (appLogo != null) {
+                    Image(
+                        painter = appLogo,
+                        contentDescription = strings.appTitle,
+                        modifier = Modifier.size(96.dp).clip(CircleShape)
                     )
+                    Spacer(Modifier.height(16.dp))
                 }
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = strings.appTitle,
-                    style = MaterialTheme.typography.displayMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
                 Text(
                     text = strings.loginTagline,
                     style = MaterialTheme.typography.bodyMedium,
@@ -179,37 +175,14 @@ fun LoginScreen(
                         }
                     )
 
-                    if (uiState.error != null) {
-                        Spacer(Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(ErrorRedContainer)
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Filled.ErrorOutline, null,
-                                tint = ErrorRed,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = uiState.error!!,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = ErrorRed
-                            )
-                        }
-                    }
-
                     Spacer(Modifier.height(24.dp))
 
                     PharmaButton(
                         text = strings.loginSignIn,
                         onClick = viewModel::login,
                         modifier = Modifier.fillMaxWidth(),
-                        isLoading = uiState.isLoading
+                        isLoading = uiState.isLoading,
+                        containerColor = BrandBlue
                     )
 
                 }

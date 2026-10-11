@@ -25,9 +25,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.EmptyState
+import com.pharmatrade.core.ui.components.LocalBottomBarInset
 import com.pharmatrade.core.ui.components.PharmaButton
 import com.pharmatrade.core.ui.components.PharmaCard
-import com.pharmatrade.core.ui.components.SectionHeader
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.feature.pharmacyorder.domain.model.DraftOrderItem
 import com.pharmatrade.feature.pharmacyorder.domain.model.SupplierCatalogItem
@@ -61,10 +61,6 @@ fun PharmacyCartScreen(
     val grandTotal = carts.sumOf { it.subtotal }
 
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
-        Box(modifier = Modifier.padding(16.dp)) {
-            SectionHeader(title = strings.pharmacyCartTitle)
-        }
-
         if (carts.isEmpty()) {
             EmptyState(
                 title = strings.pharmacyCartEmptyTitle,
@@ -95,7 +91,12 @@ fun PharmacyCartScreen(
             }
 
             Surface(shadowElevation = 8.dp, color = SurfaceWhite) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Extra bottom padding: the summary panel runs down behind the floating glass
+                // bar, with the checkout button kept above it.
+                Column(
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalBottomBarInset.current),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
                             Text(

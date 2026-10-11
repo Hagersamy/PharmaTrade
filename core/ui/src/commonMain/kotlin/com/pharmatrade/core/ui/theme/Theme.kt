@@ -17,6 +17,8 @@ import com.pharmatrade.core.common.i18n.ArabicStrings
 import com.pharmatrade.core.common.i18n.EnglishStrings
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.i18n.LocalStrings
+import com.pharmatrade.core.common.theme.ThemeManager
+import com.pharmatrade.core.common.theme.ThemeMode
 
 // onPrimary/onSecondary are text/icon color drawn on top of a still-colored button in both
 // themes, so they stay white rather than following AppColors.surfaceWhite (which is the
@@ -69,7 +71,12 @@ private fun colorScheme(colors: AppColors, dark: Boolean): ColorScheme = if (dar
 
 @Composable
 fun PharmaTradeTheme(content: @Composable () -> Unit) {
-    val isDark = isSystemInDarkTheme()
+    val themeMode by ThemeManager.mode.collectAsState()
+    val isDark = when (themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
     val appColors = if (isDark) DarkAppColors else LightAppColors
     val scheme = colorScheme(appColors, isDark)
     ApplyStatusBarStyle(scheme)

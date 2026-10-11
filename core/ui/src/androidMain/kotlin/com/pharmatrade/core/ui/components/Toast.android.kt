@@ -6,7 +6,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 
 @Composable
-actual fun rememberToast(): (message: String) -> Unit {
+actual fun rememberToast(long: Boolean): (message: String) -> Unit {
     val context = LocalContext.current.applicationContext
-    return remember(context) { { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() } }
+    val duration = if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
+    return remember(context, duration) { { message -> Toast.makeText(context, message, duration).show() } }
 }
