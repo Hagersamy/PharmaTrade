@@ -1,6 +1,10 @@
 package com.pharmatrade.feature.home
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
@@ -8,6 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -100,6 +106,8 @@ fun HomeScreen(
                 onSearchClick = { onPharmacySearchOpenChange(true) }
             )
         },
+        // Matches the tab screens so the top bar's rounded corners sit on the same backdrop.
+        containerColor = BackgroundGray,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         // The glass bar floats over the tab content (rather than sitting in Scaffold's bottomBar
@@ -233,56 +241,135 @@ private fun HomeTopBar(
     onCreateOrder: () -> Unit,
     onSearchClick: () -> Unit
 ) {
-    Surface(shadowElevation = 4.dp, color = TopBarContainer) {
+    val strings = LocalStrings.current
+    val name = userName.trim()
+    Surface(
+        color = TopBarContainer,
+        shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp),
+        shadowElevation = 6.dp
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .height(56.dp)
-                .padding(horizontal = 16.dp),
+                .padding(start = 16.dp, end = 12.dp, top = 10.dp, bottom = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val strings = LocalStrings.current
-            Text(
-                text = strings.homeGreeting(userName),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = TopBarContent,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (!isSeller) {
-                    IconButton(onClick = onSearchClick) {
-                        Icon(
-                            imageVector = Icons.Filled.Search,
-                            contentDescription = strings.pharmacySearchDrugName,
-                            tint = TopBarContent
-                        )
-                    }
-                    IconButton(onClick = onCreateOrder) {
-                        Icon(
-                            imageVector = Icons.Filled.AddShoppingCart,
-                            contentDescription = strings.homeCreateOrderContentDescription,
-                            tint = TopBarContent
-                        )
-                    }
-                }
-                IconButton(onClick = onNotificationsClick) {
-                    BadgedBox(
-                        badge = {
-                            if (unreadNotificationCount > 0) Badge { Text("$unreadNotificationCount") }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Notifications,
-                            contentDescription = strings.notificationsTitle,
-                            tint = TopBarContent
-                        )
-                    }
+            UserAvatar(name = name)
+            Spacer(Modifier.width(12.dp))
+            // Greeting on a quiet first line, the name as the strong second line: the eye lands
+            // on the name, and a long name gets the whole row width instead of sharing it.
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = strings.homeGreeting(""),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TopBarContent.copy(alpha = 0.75f),
+                    maxLines = 1
+                )
+                if (name.isNotEmpty()) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = TopBarContent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
+            Spacer(Modifier.width(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (!isSeller) {
+                    TopBarAction(
+                        icon = Icons.Filled.Search,
+                        contentDescription = strings.pharmacySearchDrugName,
+                        onClick = onSearchClick
+                    )
+                    TopBarAction(
+                        icon = Icons.Filled.AddShoppingCart,
+                        contentDescription = strings.homeCreateOrderContentDescription,
+                        onClick = onCreateOrder
+                    )
+                }
+                TopBarAction(
+                    icon = if (unreadNotificationCount > 0) Icons.Filled.NotificationsActive else Icons.Filled.Notifications,
+                    contentDescription = strings.notificationsTitle,
+                    badgeCount = unreadNotificationCount,
+                    onClick = onNotificationsClick
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserAvatar(name: String) {
+    val initials = name.split(' ')
+        .filter { it.isNotBlank() }
+        .take(2)
+        .joinToString("") { it.first().uppercase() }
+    Box(
+        modifier = Modifier
+            .size(46.dp)
+            .clip(CircleShape)
+            .background(TopBarContent.copy(alpha = 0.16f))
+            .border(1.5.dp, TopBarContent.copy(alpha = 0.35f), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        if (initials.isNotEmpty()) {
+            Text(
+                text = initials,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = TopBarContent
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Filled.Person,
+                contentDescription = null,
+                tint = TopBarContent
+            )
+        }
+    }
+}
+
+@Composable
+private fun TopBarAction(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    badgeCount: Int = 0
+) {
+    // The badge sits outside the button so the circular clip doesn't cut it off.
+    BadgedBox(
+        badge = {
+            if (badgeCount > 0) {
+                Badge(
+                    containerColor = Color(0xFFE53935),
+                    contentColor = Color.White,
+                    modifier = Modifier.offset(x = (-4).dp, y = 4.dp)
+                ) {
+                    Text(if (badgeCount > 99) "99+" else "$badgeCount")
+                }
+            }
+        }
+    ) {
+        FilledTonalIconButton(
+            onClick = onClick,
+            modifier = Modifier.size(42.dp),
+            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                containerColor = TopBarContent.copy(alpha = 0.14f),
+                contentColor = TopBarContent
+            )
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }
