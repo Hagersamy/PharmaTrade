@@ -2,6 +2,7 @@ package com.pharmatrade.feature.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,7 +46,9 @@ import com.pharmatrade.feature.seller.presentation.dashboard.SellerDashboardView
 import com.pharmatrade.feature.supplierorder.presentation.orderlist.SellerOrdersScreen
 import com.pharmatrade.feature.supplierorder.presentation.orderlist.SellerOrdersViewModel
 
-enum class HomeTab { HOME, CART, ORDERS, PROFILE }
+// MARKET is pharmacy-only. PROFILE has no bottom-bar item for pharmacies — it's opened from the
+// avatar in the top bar.
+enum class HomeTab { HOME, CART, ORDERS, MARKET, PROFILE }
 
 @Composable
 fun HomeScreen(
@@ -79,7 +82,9 @@ fun HomeScreen(
     onNavigateToSupplierOrderDetail: (String) -> Unit,
     onCheckoutAll: (orders: List<Pair<String, String>>) -> Unit,
     onOpenSupplierOrder: (orderId: String, supplierId: String, lines: List<DraftOrderItem>) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    // The pharmacy-to-pharmacy marketplace tab's content; null for suppliers, who don't get the tab.
+    marketplaceContent: (@Composable () -> Unit)? = null
 ) {
     val currentUser by SessionManager.currentUser.collectAsStateWithLifecycle()
     val pharmacyHomeState = pharmacyHomeViewModel?.uiState?.collectAsStateWithLifecycle()?.value
@@ -103,6 +108,7 @@ fun HomeScreen(
                 unreadNotificationCount = unreadNotificationCount,
                 onNotificationsClick = onNavigateToNotifications,
                 onCreateOrder = onNavigateToOrderMode,
+                onProfileClick = { onTabSelected(HomeTab.PROFILE) },
                 onSearchClick = { onPharmacySearchOpenChange(true) }
             )
         },
@@ -146,7 +152,8 @@ fun HomeScreen(
                         onNavigateToSupplierOrderDetail = onNavigateToSupplierOrderDetail,
                         onCheckoutAll = onCheckoutAll,
                         onOpenSupplierOrder = onOpenSupplierOrder,
-                        onLogout = onLogout
+                        onLogout = onLogout,
+                        marketplaceContent = marketplaceContent
                     )
                 }
             }
@@ -154,6 +161,7 @@ fun HomeScreen(
                 selectedTab = selectedTab,
                 onTabSelected = onTabSelected,
                 isSeller = isSeller,
+                hasMarketplace = marketplaceContent != null,
                 ordersBadgeCount = pharmacyHomeState?.activeOrdersTotal ?: 0,
                 cartBadgeCount = pharmacyHomeState?.totalCartItems ?: 0,
                 hazeState = hazeState,
@@ -185,7 +193,8 @@ private fun HomeTabContent(
     onNavigateToSupplierOrderDetail: (String) -> Unit,
     onCheckoutAll: (orders: List<Pair<String, String>>) -> Unit,
     onOpenSupplierOrder: (orderId: String, supplierId: String, lines: List<DraftOrderItem>) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    marketplaceContent: (@Composable () -> Unit)?
 ) {
     when (selectedTab) {
         HomeTab.HOME -> {
@@ -223,6 +232,7 @@ private fun HomeTabContent(
                 unreadOrderIds = unreadPharmacyOrderIds
             )
         }
+        HomeTab.MARKET -> marketplaceContent?.invoke()
         HomeTab.PROFILE -> ProfileScreen(
             viewModel = profileViewModel,
             user = currentUser,
@@ -239,6 +249,7 @@ private fun HomeTopBar(
     unreadNotificationCount: Int,
     onNotificationsClick: () -> Unit,
     onCreateOrder: () -> Unit,
+    onProfileClick: () -> Unit,
     onSearchClick: () -> Unit
 ) {
     val strings = LocalStrings.current
@@ -255,7 +266,7 @@ private fun HomeTopBar(
                 .padding(start = 16.dp, end = 12.dp, top = 10.dp, bottom = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            UserAvatar(name = name)
+            UserAvatar(name = name, onClick = onProfileClick)
             Spacer(Modifier.width(12.dp))
             // Greeting on a quiet first line, the name as the strong second line: the eye lands
             // on the name, and a long name gets the whole row width instead of sharing it.
@@ -306,7 +317,8 @@ private fun HomeTopBar(
 }
 
 @Composable
-private fun UserAvatar(name: String) {
+private fun UserAvatar(name: String, onClick: () -> Unit) {
+    val strings = LocalStrings.current
     val initials = name.split(' ')
         .filter { it.isNotBlank() }
         .take(2)
@@ -316,7 +328,8 @@ private fun UserAvatar(name: String) {
             .size(46.dp)
             .clip(CircleShape)
             .background(TopBarContent.copy(alpha = 0.16f))
-            .border(1.5.dp, TopBarContent.copy(alpha = 0.35f), CircleShape),
+            .border(1.5.dp, TopBarContent.copy(alpha = 0.35f), CircleShape)
+            .clickable(onClickLabel = strings.navProfile, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         if (initials.isNotEmpty()) {
@@ -379,6 +392,7 @@ private fun HomeBottomBar(
     selectedTab: HomeTab,
     onTabSelected: (HomeTab) -> Unit,
     isSeller: Boolean,
+    hasMarketplace: Boolean,
     ordersBadgeCount: Int,
     cartBadgeCount: Int,
     hazeState: HazeState,
@@ -389,11 +403,16 @@ private fun HomeBottomBar(
         add(HomeTab.HOME to GlassBarItem(Icons.Filled.Home, strings.navHome))
         if (!isSeller) add(HomeTab.CART to GlassBarItem(Icons.Filled.ShoppingCart, strings.navCart, cartBadgeCount))
         add(HomeTab.ORDERS to GlassBarItem(Icons.AutoMirrored.Filled.ReceiptLong, strings.navOrders, ordersBadgeCount))
-        add(HomeTab.PROFILE to GlassBarItem(Icons.Filled.Person, strings.navProfile))
+        // Pharmacies reach Profile through the top bar's avatar; its slot goes to the marketplace.
+        if (hasMarketplace) {
+            add(HomeTab.MARKET to GlassBarItem(Icons.Filled.Handshake, strings.navMarketplace))
+        } else {
+            add(HomeTab.PROFILE to GlassBarItem(Icons.Filled.Person, strings.navProfile))
+        }
     }
     LiquidGlassBottomBar(
         items = tabs.map { it.second },
-        selectedIndex = tabs.indexOfFirst { it.first == selectedTab }.coerceAtLeast(0),
+        selectedIndex = tabs.indexOfFirst { it.first == selectedTab },
         onItemSelected = { onTabSelected(tabs[it].first) },
         hazeState = hazeState,
         modifier = modifier

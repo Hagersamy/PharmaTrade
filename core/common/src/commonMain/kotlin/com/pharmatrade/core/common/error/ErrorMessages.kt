@@ -32,6 +32,7 @@ fun Strings.friendlyError(raw: String?): String {
         "drug name is required" -> return errorDrugNameRequired
         "trade name is required" -> return errorTradeNameRequired
         "select a drug" -> return errorSelectDrug
+        "expiry date is required" -> return errorExpiryRequired
         "quantity must be greater than 0", "quantity cannot be negative" -> return errorInvalidQuantity
         "price must be greater than 0", "price cannot be negative" -> return errorInvalidPrice
         "discount must be between 0 and 99%", "discount must be between 0 and 100" -> return errorInvalidDiscount

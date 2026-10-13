@@ -34,6 +34,9 @@ import com.pharmatrade.feature.drugs.domain.usecase.GetInventoryUseCase
 import com.pharmatrade.feature.drugs.domain.usecase.GetUploadHistoryUseCase
 import com.pharmatrade.feature.drugs.domain.usecase.UpdateInventoryItemUseCase
 import com.pharmatrade.feature.drugs.domain.usecase.UploadInventoryUseCase
+import com.pharmatrade.feature.marketplace.data.repository.MarketplaceRepositoryImpl
+import com.pharmatrade.feature.marketplace.domain.repository.MarketplaceRepository
+import com.pharmatrade.feature.marketplace.domain.usecase.*
 import com.pharmatrade.feature.notification.data.repository.NotificationRepositoryImpl
 import com.pharmatrade.feature.notification.domain.repository.NotificationRepository
 import com.pharmatrade.feature.notification.domain.usecase.ClearAllNotificationsUseCase
@@ -86,6 +89,7 @@ class AppContainer(context: Context) {
     val supplierOrderRepository: SupplierOrderRepository by lazy { SupplierOrderRepositoryImpl() }
     val profileRepository: ProfileRepository by lazy { ProfileRepositoryImpl() }
     val notificationRepository: NotificationRepository by lazy { NotificationRepositoryImpl() }
+    val marketplaceRepository: MarketplaceRepository by lazy { MarketplaceRepositoryImpl(PlatformFileReader(appContext)) }
 
     // Auth use cases
     val loginUseCase by lazy { LoginUseCase(authRepository) }
@@ -153,6 +157,28 @@ class AppContainer(context: Context) {
     val reportSupplierOrderShortageUseCase by lazy { ReportSupplierOrderShortageUseCase(supplierOrderRepository) }
     val shipSupplierOrderUseCase by lazy { ShipSupplierOrderUseCase(supplierOrderRepository) }
     val deliverSupplierOrderUseCase by lazy { DeliverSupplierOrderUseCase(supplierOrderRepository) }
+
+    // Pharmacy marketplace (P2P) use cases — selling
+    val getMarketInventoryUseCase by lazy { GetMarketInventoryUseCase(marketplaceRepository) }
+    val addMarketInventoryItemUseCase by lazy { AddMarketInventoryItemUseCase(marketplaceRepository) }
+    val importMarketInventoryUseCase by lazy { ImportMarketInventoryUseCase(marketplaceRepository) }
+    val getMyCollectionsUseCase by lazy { GetMyCollectionsUseCase(marketplaceRepository) }
+    val getMyCollectionUseCase by lazy { GetMyCollectionUseCase(marketplaceRepository) }
+    val createCollectionUseCase by lazy { CreateCollectionUseCase(marketplaceRepository) }
+    val setCollectionItemsUseCase by lazy { SetCollectionItemsUseCase(marketplaceRepository) }
+    val publishCollectionUseCase by lazy { PublishCollectionUseCase(marketplaceRepository) }
+    val deactivateCollectionUseCase by lazy { DeactivateCollectionUseCase(marketplaceRepository) }
+    val getMarketSalesUseCase by lazy { GetMarketSalesUseCase(marketplaceRepository) }
+    val sellerMarketOrderActionUseCase by lazy { SellerMarketOrderActionUseCase(marketplaceRepository) }
+
+    // Pharmacy marketplace (P2P) use cases — buying
+    val browseCollectionsUseCase by lazy { BrowseCollectionsUseCase(marketplaceRepository) }
+    val getBrowseCollectionUseCase by lazy { GetBrowseCollectionUseCase(marketplaceRepository) }
+    val placeMarketOrderUseCase by lazy { PlaceMarketOrderUseCase(marketplaceRepository) }
+    val setCollectorUseCase by lazy { SetCollectorUseCase(marketplaceRepository) }
+    val cancelMarketPurchaseUseCase by lazy { CancelMarketPurchaseUseCase(marketplaceRepository) }
+    val getMarketPurchasesUseCase by lazy { GetMarketPurchasesUseCase(marketplaceRepository) }
+    val getMarketOrderUseCase by lazy { GetMarketOrderUseCase(marketplaceRepository) }
 
     // Profile use cases
     val getProfileUseCase by lazy { GetProfileUseCase(profileRepository) }

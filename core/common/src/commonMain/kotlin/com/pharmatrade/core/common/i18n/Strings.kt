@@ -61,6 +61,7 @@ interface Strings {
     val navCart: String
     val navOrders: String
     val navProfile: String
+    val navMarketplace: String
     val navRequests: String
     val navAnalytics: String
     val appTitle: String
@@ -117,6 +118,7 @@ interface Strings {
     val profileBranchLoadError: String
     val profileBranchName: String
     val profileSignOut: String
+    val profileContactUs: String
     val profileLanguage: String
     val profileLanguageEnglish: String
     val profileLanguageArabic: String
@@ -567,4 +569,114 @@ interface Strings {
     fun minOrderNotMetTitle(sellerName: String): String
     fun minOrderCurrentVsMinimum(current: String, minimum: String): String
     fun minOrderAddMoreFromSeller(amount: String): String
+
+    // ── Pharmacy marketplace (P2P) ─────────────────────────────────────────
+    val errorExpiryRequired: String
+    val mkTabBrowse: String
+    val mkTabPurchases: String
+    val mkTabCollections: String
+    val mkTabInventory: String
+    val mkTabSales: String
+    val mkBrowseEmptyTitle: String
+    val mkBrowseEmptyMessage: String
+    val mkPurchasesEmptyTitle: String
+    val mkPurchasesEmptyMessage: String
+    val mkCollectionsEmptyTitle: String
+    val mkCollectionsEmptyMessage: String
+    val mkInventoryEmptyTitle: String
+    val mkInventoryEmptyMessage: String
+    val mkSalesEmptyTitle: String
+    val mkSalesEmptyMessage: String
+    val mkNewCollection: String
+    val mkAddDrug: String
+    val mkImportExcel: String
+    val mkImportStarted: String
+    fun mkItemsCount(count: Int): String
+    fun mkFromSeller(name: String): String
+    fun mkForBuyer(name: String): String
+    fun mkPrice(formattedAmount: String): String
+    fun mkStockLine(quantity: Int, formattedPrice: String): String
+    fun mkItemLine(quantity: Int, formattedPrice: String): String
+    fun mkExpires(date: String): String
+    fun mkBatch(batch: String): String
+    val mkCollectionStatusDraft: String
+    val mkCollectionStatusActive: String
+    val mkCollectionStatusOrdered: String
+    val mkCollectionStatusCompleted: String
+    val mkCollectionStatusSuspended: String
+    val mkOrderStatusPendingCollector: String
+    val mkOrderStatusPendingSeller: String
+    val mkOrderStatusAccepted: String
+    val mkOrderStatusReady: String
+    val mkOrderStatusCompleted: String
+    val mkOrderStatusRejected: String
+    val mkOrderStatusCancelled: String
+    val mkCollectionName: String
+    val mkCollectionDescription: String
+    val mkCollectionNotes: String
+    val mkCreate: String
+    val mkSearchDrug: String
+    val mkNoDrugsFound: String
+    val mkQuantity: String
+    val mkUnitPrice: String
+    val mkExpiryDate: String
+    val mkBatchNumber: String
+    val mkDrugAddedToast: String
+    val mkCollectionTitle: String
+    val mkItems: String
+    val mkNotes: String
+    val mkOrderCollection: String
+    val mkOrderConfirmTitle: String
+    fun mkOrderConfirmMessage(formattedAmount: String): String
+    val mkEditItems: String
+    val mkPublish: String
+    val mkUnpublish: String
+    val mkPublishHint: String
+    val mkCollectionNoItems: String
+    val mkPublishedToast: String
+    val mkUnpublishedToast: String
+    val mkCollectionLocked: String
+    val mkCollectionSold: String
+    val mkCollectionSuspended: String
+    val mkCollectionUnavailable: String
+    val mkEditItemsTitle: String
+    fun mkMaxAvailable(quantity: Int): String
+    val mkSaveItems: String
+    val mkItemsSavedToast: String
+    val mkNoStockForItems: String
+    val mkOrderTitle: String
+    val mkSeller: String
+    val mkBuyer: String
+    val mkTotal: String
+    fun mkCommission(percent: String): String
+    val mkYouReceive: String
+    val mkCollector: String
+    val mkCollectorName: String
+    val mkCollectorPhone: String
+    val mkConfirmCollector: String
+    val mkCollectorHint: String
+    val mkCancelOrder: String
+    val mkCancelOrderConfirm: String
+    val mkAccept: String
+    val mkReject: String
+    val mkRejectConfirm: String
+    val mkMarkReady: String
+    val mkComplete: String
+    val mkCompleteConfirm: String
+    val mkWaitingCollector: String
+    val mkWaitingSeller: String
+    val mkWaitingReady: String
+    val mkSellerPrepare: String
+    val mkReadyForPickupBuyer: String
+    val mkReadyForPickupSeller: String
+    val mkOrderCompletedMsg: String
+    val mkOrderRejectedMsg: String
+    val mkOrderCancelledMsg: String
+    val mkOrderUpdatedToast: String
+    val mkOrderPlacedToast: String
+    val mkStepPlaced: String
+    val mkStepCollector: String
+    val mkStepAccepted: String
+    val mkStepReady: String
+    val mkStepCompleted: String
 }

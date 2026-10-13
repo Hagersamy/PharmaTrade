@@ -1,0 +1,117 @@
+package com.pharmatrade.feature.marketplace.domain.usecase
+
+import com.pharmatrade.core.common.result.Result
+import com.pharmatrade.feature.marketplace.domain.model.CollectionItemInput
+import com.pharmatrade.feature.marketplace.domain.model.MarketCollection
+import com.pharmatrade.feature.marketplace.domain.model.MarketInventoryItem
+import com.pharmatrade.feature.marketplace.domain.model.MarketOrder
+import com.pharmatrade.feature.marketplace.domain.model.MarketPage
+import com.pharmatrade.feature.marketplace.domain.model.SellerOrderAction
+import com.pharmatrade.feature.marketplace.domain.repository.MarketplaceRepository
+
+// ── Selling ─────────────────────────────────────────────────────────────────
+
+class GetMarketInventoryUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(): Result<List<MarketInventoryItem>> = repository.getInventory()
+}
+
+class AddMarketInventoryItemUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(
+        drugId: String,
+        quantity: Int,
+        unitPrice: Double,
+        expiryDate: String,
+        batchNumber: String?
+    ): Result<MarketInventoryItem> {
+        if (drugId.isBlank()) return Result.Error("Select a drug")
+        if (quantity <= 0) return Result.Error("Quantity must be greater than 0")
+        if (unitPrice <= 0) return Result.Error("Price must be greater than 0")
+        if (expiryDate.isBlank()) return Result.Error("Expiry date is required")
+        return repository.addInventoryItem(drugId, quantity, unitPrice, expiryDate, batchNumber?.takeIf { it.isNotBlank() })
+    }
+}
+
+class ImportMarketInventoryUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(fileUri: String, fileName: String): Result<Unit> =
+        repository.importInventory(fileUri, fileName)
+}
+
+class GetMyCollectionsUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(): Result<List<MarketCollection>> = repository.getMyCollections()
+}
+
+class GetMyCollectionUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(collectionId: String): Result<MarketCollection> = repository.getMyCollection(collectionId)
+}
+
+class CreateCollectionUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(name: String, description: String?, notes: String?): Result<MarketCollection> {
+        if (name.isBlank()) return Result.Error("Name cannot be empty")
+        return repository.createCollection(
+            name = name.trim(),
+            description = description?.trim()?.takeIf { it.isNotEmpty() },
+            notes = notes?.trim()?.takeIf { it.isNotEmpty() }
+        )
+    }
+}
+
+class SetCollectionItemsUseCase(private val repository: MarketplaceRepository) {
+    // Replaces every item in the draft collection with `items`.
+    suspend operator fun invoke(collectionId: String, items: List<CollectionItemInput>): Result<MarketCollection> {
+        val nonEmpty = items.filter { it.quantity > 0 }
+        if (nonEmpty.isEmpty()) return Result.Error("Quantity must be greater than 0")
+        return repository.setCollectionItems(collectionId, nonEmpty)
+    }
+}
+
+class PublishCollectionUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(collectionId: String): Result<MarketCollection> = repository.publishCollection(collectionId)
+}
+
+class DeactivateCollectionUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(collectionId: String): Result<MarketCollection> = repository.deactivateCollection(collectionId)
+}
+
+class GetMarketSalesUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(): Result<List<MarketOrder>> = repository.getSales()
+}
+
+class SellerMarketOrderActionUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(orderId: String, action: SellerOrderAction): Result<MarketOrder> =
+        repository.sellerOrderAction(orderId, action)
+}
+
+// ── Buying ──────────────────────────────────────────────────────────────────
+
+class BrowseCollectionsUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(page: Int = 1): Result<MarketPage<MarketCollection>> = repository.browse(page)
+}
+
+class GetBrowseCollectionUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(collectionId: String): Result<MarketCollection> = repository.getBrowseCollection(collectionId)
+}
+
+class PlaceMarketOrderUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(collectionId: String): Result<MarketOrder> = repository.placeOrder(collectionId)
+}
+
+class SetCollectorUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(orderId: String, name: String, phone: String): Result<MarketOrder> {
+        if (name.isBlank()) return Result.Error("Name cannot be empty")
+        if (phone.isBlank()) return Result.Error("Phone number cannot be empty")
+        return repository.setCollector(orderId, name.trim(), phone.trim())
+    }
+}
+
+class CancelMarketPurchaseUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(orderId: String): Result<Unit> = repository.cancelPurchase(orderId)
+}
+
+class GetMarketPurchasesUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(): Result<List<MarketOrder>> = repository.getPurchases()
+}
+
+class GetMarketOrderUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(orderId: String, asSeller: Boolean): Result<MarketOrder> =
+        repository.getOrder(orderId, asSeller)
+}

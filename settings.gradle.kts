@@ -36,6 +36,7 @@ include(":feature:auth:domain", ":feature:auth:data", ":feature:auth:presentatio
 include(":feature:cart:domain", ":feature:cart:data", ":feature:cart:presentation")
 include(":feature:catalog:domain", ":feature:catalog:data", ":feature:catalog:presentation")
 include(":feature:drugs:domain", ":feature:drugs:data")
+include(":feature:marketplace:domain", ":feature:marketplace:data", ":feature:marketplace:presentation")
 include(":feature:notification:domain", ":feature:notification:data", ":feature:notification:presentation")
 include(":feature:pharmacyorder:domain", ":feature:pharmacyorder:data", ":feature:pharmacyorder:presentation")
 include(":feature:profile:domain", ":feature:profile:data", ":feature:profile:presentation")

@@ -59,6 +59,17 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
+import com.pharmatrade.feature.marketplace.presentation.collection.MarketCollectionScreen
+import com.pharmatrade.feature.marketplace.presentation.collection.MarketCollectionViewModel
+import com.pharmatrade.feature.marketplace.presentation.hub.MarketBrowseViewModel
+import com.pharmatrade.feature.marketplace.presentation.hub.MarketInventoryViewModel
+import com.pharmatrade.feature.marketplace.presentation.hub.MarketOrdersViewModel
+import com.pharmatrade.feature.marketplace.presentation.hub.MarketTab
+import com.pharmatrade.feature.marketplace.presentation.hub.MarketplaceScreen
+import com.pharmatrade.feature.marketplace.presentation.hub.MarketplaceTabViewModels
+import com.pharmatrade.feature.marketplace.presentation.hub.MyCollectionsViewModel
+import com.pharmatrade.feature.marketplace.presentation.order.MarketOrderScreen
+import com.pharmatrade.feature.marketplace.presentation.order.MarketOrderViewModel
 import com.pharmatrade.feature.notification.presentation.NotificationViewModel
 import com.pharmatrade.feature.notification.presentation.NotificationsScreen
 import com.pharmatrade.push.NotificationDeepLink
@@ -110,6 +121,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
     ) { mutableStateListOf(HomeTab.HOME) }
     val homeSelectedTab = tabHistory.last()
     var isPharmacySearchOpen by rememberSaveable { mutableStateOf(false) }
+    var marketTab by rememberSaveable { mutableStateOf(MarketTab.BROWSE) }
     fun selectHomeTab(tab: HomeTab) {
         if (tab == HomeTab.HOME) {
             // Also the reset every logout path runs, so the next login starts on plain Home.
@@ -169,10 +181,15 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
     LaunchedEffect(deepLink) {
         val link = deepLink ?: return@LaunchedEffect
         if (SessionManager.isLoggedIn) {
-            resolveNotificationDestination(link.type, link.notifiableId)?.let {
-                navigator.navigate(
-                    it
-                )
+            if (isMarketplaceNotification(link.type)) {
+                selectHomeTab(HomeTab.MARKET)
+                navigator.popBackTo(NavKeys.Home)
+            } else {
+                resolveNotificationDestination(link.type, link.notifiableId)?.let {
+                    navigator.navigate(
+                        it
+                    )
+                }
             }
         }
         pendingDeepLink.value = null
@@ -411,6 +428,47 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         initializer { SellerOrdersViewModel(getSupplierOrdersUseCase = container.getSupplierOrdersUseCase) }
                     }
                 ) else null
+                val marketplaceVms: MarketplaceTabViewModels? = if (isPharmacy) MarketplaceTabViewModels(
+                    browse = viewModel(
+                        factory = viewModelFactory {
+                            initializer { MarketBrowseViewModel(browseCollectionsUseCase = container.browseCollectionsUseCase) }
+                        }
+                    ),
+                    purchases = viewModel(
+                        key = "market_purchases",
+                        factory = viewModelFactory {
+                            initializer { MarketOrdersViewModel(loadOrders = { container.getMarketPurchasesUseCase() }) }
+                        }
+                    ),
+                    collections = viewModel(
+                        factory = viewModelFactory {
+                            initializer {
+                                MyCollectionsViewModel(
+                                    getMyCollectionsUseCase = container.getMyCollectionsUseCase,
+                                    createCollectionUseCase = container.createCollectionUseCase
+                                )
+                            }
+                        }
+                    ),
+                    inventory = viewModel(
+                        factory = viewModelFactory {
+                            initializer {
+                                MarketInventoryViewModel(
+                                    getMarketInventoryUseCase = container.getMarketInventoryUseCase,
+                                    addMarketInventoryItemUseCase = container.addMarketInventoryItemUseCase,
+                                    importMarketInventoryUseCase = container.importMarketInventoryUseCase,
+                                    getDrugsUseCase = container.getDrugsUseCase
+                                )
+                            }
+                        }
+                    ),
+                    sales = viewModel(
+                        key = "market_sales",
+                        factory = viewModelFactory {
+                            initializer { MarketOrdersViewModel(loadOrders = { container.getMarketSalesUseCase() }) }
+                        }
+                    )
+                ) else null
                 val profileVm: ProfileViewModel = viewModel(
                     factory = viewModelFactory {
                         initializer {
@@ -436,6 +494,8 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         sellerOrdersVm?.loadOrders()
                         notificationViewModel.refreshList()
                     }
+                    // Back from a collection/order — its actions change these lists.
+                    if (homeSelectedTab == HomeTab.MARKET) marketplaceVms?.refresh(marketTab)
                 }
                 LaunchedEffect(homeSelectedTab) {
                     if (homeSelectedTab == HomeTab.ORDERS) {
@@ -443,6 +503,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         sellerOrdersVm?.loadOrders()
                         notificationViewModel.refreshList()
                     }
+                    if (homeSelectedTab == HomeTab.MARKET) marketplaceVms?.refresh(marketTab)
                 }
                 HomeScreen(
                     sellerDashboardViewModel = sellerVm,
@@ -510,6 +571,20 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         coroutineScope.launch { container.logoutUseCase() }
                         selectHomeTab(HomeTab.HOME)
                         navigator.navigate(NavKeys.Welcome, popUpTo = Navigator.PopUpTo(target = null))
+                    },
+                    marketplaceContent = marketplaceVms?.let { vms ->
+                        {
+                            MarketplaceScreen(
+                                viewModels = vms,
+                                selectedTab = marketTab,
+                                onTabSelected = { tab ->
+                                    marketTab = tab
+                                    vms.refresh(tab)
+                                },
+                                onOpenCollection = { id, mine -> navigator.navigate(NavKeys.MarketCollection(id, mine)) },
+                                onOpenOrder = { id, asSeller -> navigator.navigate(NavKeys.MarketOrder(id, asSeller)) }
+                            )
+                        }
                     }
                 )
             }
@@ -540,8 +615,13 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     viewModel = notificationViewModel,
                     onNavigateBack = { navigator.goBack() },
                     onNotificationClick = { notification ->
-                        resolveNotificationDestination(notification.type, notification.notifiableId)
-                            ?.let { navigator.navigate(it) }
+                        if (isMarketplaceNotification(notification.type)) {
+                            selectHomeTab(HomeTab.MARKET)
+                            navigator.popBackTo(NavKeys.Home)
+                        } else {
+                            resolveNotificationDestination(notification.type, notification.notifiableId)
+                                ?.let { navigator.navigate(it) }
+                        }
                     }
                 )
             }
@@ -835,9 +915,63 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     onNavigateBack = { navigator.goBack() }
                 )
             }
+
+            entry<NavKeys.MarketCollection> { key ->
+                val vm: MarketCollectionViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            MarketCollectionViewModel(
+                                collectionId = key.collectionId,
+                                mine = key.mine,
+                                getMyCollectionUseCase = container.getMyCollectionUseCase,
+                                getBrowseCollectionUseCase = container.getBrowseCollectionUseCase,
+                                placeMarketOrderUseCase = container.placeMarketOrderUseCase,
+                                setCollectionItemsUseCase = container.setCollectionItemsUseCase,
+                                publishCollectionUseCase = container.publishCollectionUseCase,
+                                deactivateCollectionUseCase = container.deactivateCollectionUseCase,
+                                getMarketInventoryUseCase = container.getMarketInventoryUseCase
+                            )
+                        }
+                    }
+                )
+                MarketCollectionScreen(
+                    viewModel = vm,
+                    onNavigateBack = { navigator.goBack() },
+                    // The collection is no longer orderable — replace it with the new order, where
+                    // the buyer names the collector next.
+                    onOrderPlaced = { orderId ->
+                        navigator.navigate(
+                            NavKeys.MarketOrder(orderId, asSeller = false),
+                            popUpTo = Navigator.PopUpTo(key, inclusive = true)
+                        )
+                    }
+                )
+            }
+
+            entry<NavKeys.MarketOrder> { key ->
+                val vm: MarketOrderViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            MarketOrderViewModel(
+                                orderId = key.orderId,
+                                asSeller = key.asSeller,
+                                getMarketOrderUseCase = container.getMarketOrderUseCase,
+                                setCollectorUseCase = container.setCollectorUseCase,
+                                cancelMarketPurchaseUseCase = container.cancelMarketPurchaseUseCase,
+                                sellerMarketOrderActionUseCase = container.sellerMarketOrderActionUseCase
+                            )
+                        }
+                    }
+                )
+                MarketOrderScreen(viewModel = vm, onNavigateBack = { navigator.goBack() })
+            }
         }
     )
 }
+
+// Marketplace notifications are p2p_*-prefixed; which ones exist (and whether they point at an
+// order or a collection) isn't specified, so they all open Home's Marketplace tab.
+private fun isMarketplaceNotification(type: String) = type.startsWith("p2p_")
 
 private fun resolveNotificationDestination(type: String, notifiableId: String?): NavKeys? =
     when (type) {

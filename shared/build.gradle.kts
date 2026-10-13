@@ -10,7 +10,7 @@ val exportedModules = listOf(
     ":core:network",
     ":core:ui",
 ) + listOf(
-    "admin", "auth", "cart", "catalog", "drugs", "notification",
+    "admin", "auth", "cart", "catalog", "drugs", "marketplace", "notification",
     "pharmacyorder", "profile", "search", "seller", "supplierorder",
 ).flatMap { feature ->
     listOf("domain", "data", "presentation").map { ":feature:$feature:$it" }

@@ -55,6 +55,12 @@ sealed class NavKeys : NavKey {
     // together on one summary screen; each order id is paired with its supplier id.
     @Serializable data class Checkout(val orders: List<OrderSupplierPair>) : NavKeys()
 
+    // Pharmacy marketplace (P2P): one pharmacy sells surplus stock to another.
+    // mine = the current pharmacy owns it (manage it) rather than browsing it to buy.
+    @Serializable data class MarketCollection(val collectionId: String, val mine: Boolean) : NavKeys()
+    // asSeller = the current pharmacy is the selling side of the order.
+    @Serializable data class MarketOrder(val orderId: String, val asSeller: Boolean) : NavKeys()
+
     // Supplier order flow (seller side)
     @Serializable data class SupplierOrderDetail(val orderId: String) : NavKeys()
 

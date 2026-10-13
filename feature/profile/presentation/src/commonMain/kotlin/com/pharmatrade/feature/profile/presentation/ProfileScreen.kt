@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -349,9 +350,13 @@ private fun ZoneChipsRow(zoneNames: List<String>) {
     }
 }
 
+// Support line: +20 10 67487203.
+private const val SUPPORT_WHATSAPP_URL = "https://wa.me/201067487203"
+
 @Composable
 private fun OtherServicesSection(onOpenSettings: () -> Unit, onLogout: () -> Unit) {
     val strings = LocalStrings.current
+    val uriHandler = LocalUriHandler.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             strings.profileOtherServices,
@@ -373,6 +378,14 @@ private fun OtherServicesSection(onOpenSettings: () -> Unit, onLogout: () -> Uni
                 onClick = onOpenSettings
             )
             // Inset to line up with the label, past the icon tile.
+            HorizontalDivider(color = DividerGray, modifier = Modifier.padding(start = 64.dp, end = 16.dp))
+            ServiceRow(
+                icon = Icons.Filled.SupportAgent,
+                label = strings.profileContactUs,
+                showChevron = true,
+                // wa.me opens the WhatsApp chat, or WhatsApp Web when the app isn't installed.
+                onClick = { runCatching { uriHandler.openUri(SUPPORT_WHATSAPP_URL) } }
+            )
             HorizontalDivider(color = DividerGray, modifier = Modifier.padding(start = 64.dp, end = 16.dp))
             ServiceRow(
                 icon = Icons.AutoMirrored.Filled.Logout,

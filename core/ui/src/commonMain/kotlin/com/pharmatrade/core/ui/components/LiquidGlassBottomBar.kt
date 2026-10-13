@@ -104,11 +104,15 @@ fun LiquidGlassBottomBar(
         ) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 val itemWidth = maxWidth / items.size.coerceAtLeast(1)
-                GlassLens(
-                    offset = itemWidth * selectedIndex,
-                    width = itemWidth,
-                    isDark = isDark
-                )
+                // -1: the visible screen isn't one of the bar's items (e.g. Profile opened from
+                // the top bar's avatar), so nothing is highlighted.
+                if (selectedIndex >= 0) {
+                    GlassLens(
+                        offset = itemWidth * selectedIndex,
+                        width = itemWidth,
+                        isDark = isDark
+                    )
+                }
                 Row(modifier = Modifier.fillMaxSize()) {
                     items.forEachIndexed { index, item ->
                         GlassBarTab(
