@@ -259,7 +259,7 @@ object ArabicStrings : Strings {
     override val orderModeNotesPlaceholder = "مثال: قائمة نقص عاجلة"
     override val commonContinue = "متابعة"
     override val orderModeLoadingSuppliers = "جارٍ تحميل الموردين..."
-    override val orderModeSupplierRequired = "المورد *"
+    override val orderModeSupplierRequired = "المورد"
     override val orderModeSelectSupplier = "اختر مورداً"
     override fun orderModeSupplierMinOrder(formattedAmount: String) = "الحد الأدنى للطلب $formattedAmount جنيه"
     override fun orderModeSupplierItemCount(count: Int) = "$count عنصر"

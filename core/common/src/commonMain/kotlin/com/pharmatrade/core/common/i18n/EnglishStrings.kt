@@ -255,7 +255,7 @@ object EnglishStrings : Strings {
     override val orderModeNotesPlaceholder = "e.g. Urgent shortage list"
     override val commonContinue = "Continue"
     override val orderModeLoadingSuppliers = "Loading suppliers..."
-    override val orderModeSupplierRequired = "Supplier *"
+    override val orderModeSupplierRequired = "Supplier"
     override val orderModeSelectSupplier = "Select a supplier"
     override fun orderModeSupplierMinOrder(formattedAmount: String) = "Min order EGP $formattedAmount"
     override fun orderModeSupplierItemCount(count: Int) = "$count items"
