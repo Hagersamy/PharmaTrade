@@ -579,6 +579,8 @@ interface Strings {
     val mkTabSales: String
     val mkBrowseEmptyTitle: String
     val mkBrowseEmptyMessage: String
+    val mkBrowseTip: String
+    val mkViewDrugs: String
     val mkPurchasesEmptyTitle: String
     val mkPurchasesEmptyMessage: String
     val mkCollectionsEmptyTitle: String
@@ -653,6 +655,7 @@ interface Strings {
     val mkCollector: String
     val mkCollectorName: String
     val mkCollectorPhone: String
+    val mkCollectorAddress: String
     val mkConfirmCollector: String
     val mkCollectorHint: String
     val mkCancelOrder: String

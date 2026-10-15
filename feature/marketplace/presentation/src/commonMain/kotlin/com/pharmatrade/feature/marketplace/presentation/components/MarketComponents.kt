@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -23,6 +26,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -99,10 +103,13 @@ fun CollectionCard(
     collection: MarketCollection,
     showStatus: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // An explicit button, so buyers who don't think to tap the card still find the drugs list.
+    showViewDrugsButton: Boolean = false
 ) {
     val strings = LocalStrings.current
-    PharmaCard(modifier = modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    // Clipped to the card's corners so the press ripple doesn't spill past them.
+    PharmaCard(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick)) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Inventory2, null, tint = PrimaryBlue, modifier = Modifier.size(22.dp))
@@ -146,6 +153,22 @@ fun CollectionCard(
                     fontWeight = FontWeight.Bold,
                     color = PrimaryBlue
                 )
+            }
+            if (showViewDrugsButton) {
+                Spacer(Modifier.height(12.dp))
+                FilledTonalButton(
+                    onClick = onClick,
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = PrimaryBlueContainer,
+                        contentColor = PrimaryBlue
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Filled.Medication, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(strings.mkViewDrugs, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.size(20.dp))
+                }
             }
         }
     }

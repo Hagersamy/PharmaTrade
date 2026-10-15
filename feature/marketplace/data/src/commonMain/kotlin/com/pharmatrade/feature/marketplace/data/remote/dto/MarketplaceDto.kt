@@ -178,6 +178,8 @@ data class MarketOrderDto(
     @SerialName("net_amount") @JsonNames("seller_net_amount", "seller_net") val netAmount: JsonElement? = null,
     @SerialName("collector_name") val collectorName: String? = null,
     @SerialName("collector_phone") val collectorPhone: String? = null,
+    // JsonElement so an unexpected shape (e.g. an object) can't break decoding the whole order.
+    @SerialName("collector_address") val collectorAddress: JsonElement? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("accepted_at") val acceptedAt: String? = null,
     @SerialName("ready_at") val readyAt: String? = null,
@@ -202,6 +204,7 @@ data class MarketOrderDto(
             netAmount = netAmount?.rawDoubleOrZero() ?: (total - commission),
             collectorName = collectorName?.takeIf { it.isNotBlank() },
             collectorPhone = collectorPhone?.takeIf { it.isNotBlank() },
+            collectorAddress = collectorAddress.rawStringOrNull()?.takeIf { it.isNotBlank() },
             createdAt = createdAt.orEmpty(),
             acceptedAt = acceptedAt,
             readyAt = readyAt,

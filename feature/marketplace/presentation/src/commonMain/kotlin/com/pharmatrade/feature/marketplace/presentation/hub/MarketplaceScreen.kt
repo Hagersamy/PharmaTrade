@@ -1,6 +1,17 @@
 package com.pharmatrade.feature.marketplace.presentation.hub
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.draw.clip
+import com.pharmatrade.core.common.hints.DismissedHintsStore
+import com.pharmatrade.core.ui.theme.PrimaryBlueContainer
+import com.pharmatrade.core.ui.theme.TextPrimary
+import com.pharmatrade.core.ui.theme.TextSecondary
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -162,6 +173,8 @@ private fun TabList(
 private fun BrowseTab(viewModel: MarketBrowseViewModel, onOpenCollection: (String) -> Unit) {
     val strings = LocalStrings.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val tipDismissed by remember { DismissedHintsStore.observe(DismissedHintsStore.MARKETPLACE_BROWSE) }
+        .collectAsStateWithLifecycle(initialValue = true)
     TabList(
         isLoading = state.isLoading || !state.loaded,
         error = state.error,
@@ -170,9 +183,21 @@ private fun BrowseTab(viewModel: MarketBrowseViewModel, onOpenCollection: (Strin
         emptyTitle = strings.mkBrowseEmptyTitle,
         emptyMessage = strings.mkBrowseEmptyMessage,
         emptyIcon = Icons.Filled.Handshake,
+        header = {
+            if (!tipDismissed && state.collections.isNotEmpty()) {
+                item(key = "browse_tip") {
+                    BrowseTip(onDismiss = { DismissedHintsStore.dismiss(DismissedHintsStore.MARKETPLACE_BROWSE) })
+                }
+            }
+        },
         content = {
             items(state.collections, key = { it.id }) { collection ->
-                CollectionCard(collection = collection, showStatus = false, onClick = { onOpenCollection(collection.id) })
+                CollectionCard(
+                    collection = collection,
+                    showStatus = false,
+                    onClick = { onOpenCollection(collection.id) },
+                    showViewDrugsButton = true
+                )
             }
             if (state.isLoadingMore) {
                 item {
@@ -184,6 +209,32 @@ private fun BrowseTab(viewModel: MarketBrowseViewModel, onOpenCollection: (Strin
         },
         onReachedEnd = viewModel::loadMore
     )
+}
+
+// First-visit hint; once closed it stays hidden on this device (DismissedHintsStore).
+@Composable
+private fun BrowseTip(onDismiss: () -> Unit) {
+    val strings = LocalStrings.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(PrimaryBlueContainer)
+            .padding(start = 16.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Filled.TouchApp, null, tint = PrimaryBlue, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(
+            strings.mkBrowseTip,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextPrimary,
+            modifier = Modifier.weight(1f).padding(vertical = 8.dp)
+        )
+        IconButton(onClick = onDismiss) {
+            Icon(Icons.Filled.Close, contentDescription = strings.commonDismiss, tint = TextSecondary)
+        }
+    }
 }
 
 @Composable

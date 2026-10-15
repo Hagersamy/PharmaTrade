@@ -94,6 +94,8 @@ data class MarketOrder(
     val netAmount: Double,
     val collectorName: String?,
     val collectorPhone: String?,
+    // Where the collector picks the order up; sent by the backend once the order is accepted.
+    val collectorAddress: String?,
     val createdAt: String,
     val acceptedAt: String?,
     val readyAt: String?,

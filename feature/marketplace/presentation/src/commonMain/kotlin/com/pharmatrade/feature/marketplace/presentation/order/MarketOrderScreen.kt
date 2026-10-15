@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.HorizontalDivider
@@ -131,7 +132,10 @@ fun MarketOrderScreen(viewModel: MarketOrderViewModel, onNavigateBack: () -> Uni
                         onSubmit = viewModel::submitCollector
                     )
                 }
-                if (order.collectorName != null) CollectorCard(order)
+                // The seller gets the pickup address once they've accepted the order.
+                val pickupAddress = order.collectorAddress
+                    ?.takeIf { viewModel.asSeller && order.status == MarketOrderStatus.ACCEPTED }
+                if (order.collectorName != null || pickupAddress != null) CollectorCard(order, pickupAddress)
                 AmountsCard(order, viewModel.asSeller)
                 if (order.items.isNotEmpty()) {
                     SectionHeader(strings.mkItems)
@@ -319,21 +323,33 @@ private fun CollectorForm(
 }
 
 @Composable
-private fun CollectorCard(order: MarketOrder) {
+private fun CollectorCard(order: MarketOrder, address: String?) {
     val strings = LocalStrings.current
     PharmaCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(strings.mkCollector, style = MaterialTheme.typography.labelLarge, color = TextSecondary)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Person, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(order.collectorName.orEmpty(), style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+            order.collectorName?.let { name ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Person, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(name, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+                }
             }
             order.collectorPhone?.let { phone ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.Phone, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(phone, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+                }
+            }
+            address?.let {
+                Row(verticalAlignment = Alignment.Top) {
+                    Icon(Icons.Filled.LocationOn, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp).padding(top = 2.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(LocalStrings.current.mkCollectorAddress, style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                        Text(it, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+                    }
                 }
             }
         }

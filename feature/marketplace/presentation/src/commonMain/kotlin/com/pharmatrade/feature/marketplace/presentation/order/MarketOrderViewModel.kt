@@ -122,6 +122,7 @@ class MarketOrderViewModel(
                 buyerName = updated.buyerName.ifBlank { previous.buyerName },
                 sellerName = updated.sellerName.ifBlank { previous.sellerName },
                 items = updated.items.ifEmpty { previous.items },
+                collectorAddress = updated.collectorAddress ?: previous.collectorAddress,
                 totalAmount = if (updated.totalAmount > 0) updated.totalAmount else previous.totalAmount,
                 netAmount = if (updated.totalAmount > 0) updated.netAmount else previous.netAmount,
                 commissionAmount = if (updated.totalAmount > 0) updated.commissionAmount else previous.commissionAmount,

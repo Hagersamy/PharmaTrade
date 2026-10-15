@@ -49,6 +49,10 @@
             <option value="$PROJECT_DIR$/feature/drugs" />
             <option value="$PROJECT_DIR$/feature/drugs/data" />
             <option value="$PROJECT_DIR$/feature/drugs/domain" />
+            <option value="$PROJECT_DIR$/feature/marketplace" />
+            <option value="$PROJECT_DIR$/feature/marketplace/data" />
+            <option value="$PROJECT_DIR$/feature/marketplace/domain" />
+            <option value="$PROJECT_DIR$/feature/marketplace/presentation" />
             <option value="$PROJECT_DIR$/feature/notification" />
             <option value="$PROJECT_DIR$/feature/notification/data" />
             <option value="$PROJECT_DIR$/feature/notification/domain" />
