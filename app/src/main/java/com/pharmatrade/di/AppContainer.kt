@@ -167,6 +167,7 @@ class AppContainer(context: Context) {
     val getMyCollectionUseCase by lazy { GetMyCollectionUseCase(marketplaceRepository) }
     val createCollectionUseCase by lazy { CreateCollectionUseCase(marketplaceRepository) }
     val setCollectionItemsUseCase by lazy { SetCollectionItemsUseCase(marketplaceRepository) }
+    val setFeaturedItemsUseCase by lazy { SetFeaturedItemsUseCase(marketplaceRepository) }
     val publishCollectionUseCase by lazy { PublishCollectionUseCase(marketplaceRepository) }
     val deactivateCollectionUseCase by lazy { DeactivateCollectionUseCase(marketplaceRepository) }
     val getMarketSalesUseCase by lazy { GetMarketSalesUseCase(marketplaceRepository) }

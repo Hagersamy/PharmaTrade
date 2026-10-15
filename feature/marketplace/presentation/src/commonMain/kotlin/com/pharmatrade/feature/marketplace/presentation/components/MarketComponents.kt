@@ -37,6 +37,7 @@ import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.util.formatBackendTimestamp
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.PharmaCard
+import com.pharmatrade.core.ui.theme.BackgroundGray
 import com.pharmatrade.core.ui.theme.ErrorRed
 import com.pharmatrade.core.ui.theme.ErrorRedContainer
 import com.pharmatrade.core.ui.theme.InTransitTeal
@@ -141,10 +142,18 @@ fun CollectionCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            // The seller's picks are shown on the card; the rest are a tap away.
+            // Until the seller picks, preview the first drugs so the card is never empty.
+            val shownDrugs = collection.featuredItems.ifEmpty { collection.items.take(MarketCollection.MAX_FEATURED_ITEMS) }
+            if (shownDrugs.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                FeaturedDrugsList(shownDrugs)
+            }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // 0 = the listing didn't say (see MarketCollectionDto) — no number beats a wrong one.
                 Text(
-                    strings.mkItemsCount(collection.itemsCount),
+                    if (collection.itemsCount > 0) strings.mkItemsCount(collection.itemsCount) else "",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
                     modifier = Modifier.weight(1f)
@@ -168,9 +177,32 @@ fun CollectionCard(
                 ) {
                     Icon(Icons.Filled.Medication, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(strings.mkViewDrugs, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Text(
+                        if (collection.itemsCount > 0) strings.mkViewAllDrugs(collection.itemsCount) else strings.mkViewDrugs,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f)
+                    )
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.size(20.dp))
                 }
+            }
+        }
+    }
+}
+
+// The seller's top drugs as a compact inset list — drug names only, to keep the card short.
+@Composable
+fun FeaturedDrugsList(items: List<MarketCollectionItem>, modifier: Modifier = Modifier) {
+    Surface(shape = RoundedCornerShape(10.dp), color = BackgroundGray, modifier = modifier.fillMaxWidth()) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            items.forEach { item ->
+                Text(
+                    item.drugName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }

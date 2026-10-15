@@ -15,6 +15,7 @@ import com.pharmatrade.feature.marketplace.domain.usecase.GetMyCollectionUseCase
 import com.pharmatrade.feature.marketplace.domain.usecase.PlaceMarketOrderUseCase
 import com.pharmatrade.feature.marketplace.domain.usecase.PublishCollectionUseCase
 import com.pharmatrade.feature.marketplace.domain.usecase.SetCollectionItemsUseCase
+import com.pharmatrade.feature.marketplace.domain.usecase.SetFeaturedItemsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,6 +32,13 @@ data class ItemsEditorState(
     val error: String? = null
 )
 
+// Seller-only: picking up to MAX_FEATURED_ITEMS of the collection's items to show on its card.
+data class FeaturedPickerState(
+    val selected: Set<String> = emptySet(),
+    val isSaving: Boolean = false,
+    val error: String? = null
+)
+
 data class MarketCollectionUiState(
     val collection: MarketCollection? = null,
     val isLoading: Boolean = true,
@@ -38,6 +46,7 @@ data class MarketCollectionUiState(
     val isActing: Boolean = false,
     val message: String? = null,
     val editor: ItemsEditorState? = null,
+    val featuredPicker: FeaturedPickerState? = null,
     // Set after the buyer orders this collection — the screen moves on to the order.
     val placedOrderId: String? = null
 )
@@ -50,6 +59,7 @@ class MarketCollectionViewModel(
     private val getBrowseCollectionUseCase: GetBrowseCollectionUseCase,
     private val placeMarketOrderUseCase: PlaceMarketOrderUseCase,
     private val setCollectionItemsUseCase: SetCollectionItemsUseCase,
+    private val setFeaturedItemsUseCase: SetFeaturedItemsUseCase,
     private val publishCollectionUseCase: PublishCollectionUseCase,
     private val deactivateCollectionUseCase: DeactivateCollectionUseCase,
     private val getMarketInventoryUseCase: GetMarketInventoryUseCase
@@ -132,10 +142,49 @@ class MarketCollectionViewModel(
         viewModelScope.launch {
             updateEditor { copy(isSaving = true, error = null) }
             when (val result = setCollectionItemsUseCase(collectionId, items)) {
+                // Replacing the items clears the featured picks server-side, so ask for them again.
                 is Result.Success -> _uiState.update {
-                    it.copy(collection = result.data, editor = null, message = LanguageManager.strings.mkItemsSavedToast)
+                    it.copy(
+                        collection = result.data,
+                        editor = null,
+                        featuredPicker = FeaturedPickerState().takeIf { result.data.items.isNotEmpty() },
+                        message = LanguageManager.strings.mkItemsSavedToast
+                    )
                 }
                 is Result.Error -> updateEditor { copy(isSaving = false, error = result.toMessage()) }
+                is Result.Loading -> Unit
+            }
+        }
+    }
+
+    fun openFeaturedPicker() {
+        val current = _uiState.value.collection ?: return
+        _uiState.update { it.copy(featuredPicker = FeaturedPickerState(selected = current.featuredItemIds)) }
+    }
+
+    // Tapping a third drug is ignored until one of the two picked is unticked.
+    fun onFeaturedToggle(itemId: String) = updateFeaturedPicker {
+        when {
+            itemId in selected -> copy(selected = selected - itemId, error = null)
+            selected.size < MarketCollection.MAX_FEATURED_ITEMS -> copy(selected = selected + itemId, error = null)
+            else -> this
+        }
+    }
+
+    fun dismissFeaturedPicker() = _uiState.update { if (it.featuredPicker?.isSaving == true) it else it.copy(featuredPicker = null) }
+
+    fun saveFeatured() {
+        val picker = _uiState.value.featuredPicker ?: return
+        if (picker.isSaving) return
+        // Keep the collection's item order rather than the order they were tapped in.
+        val ids = _uiState.value.collection?.items?.map { it.id }?.filter { it in picker.selected }.orEmpty()
+        viewModelScope.launch {
+            updateFeaturedPicker { copy(isSaving = true, error = null) }
+            when (val result = setFeaturedItemsUseCase(collectionId, ids)) {
+                is Result.Success -> _uiState.update {
+                    it.copy(collection = result.data, featuredPicker = null, message = LanguageManager.strings.mkFeaturedSavedToast)
+                }
+                is Result.Error -> updateFeaturedPicker { copy(isSaving = false, error = result.toMessage()) }
                 is Result.Loading -> Unit
             }
         }
@@ -152,7 +201,14 @@ class MarketCollectionViewModel(
             when (val result = call()) {
                 is Result.Success -> _uiState.update {
                     // Some endpoints return the collection without its items — keep the ones we have.
-                    val updated = result.data.let { c -> if (c.items.isEmpty()) c.copy(items = it.collection?.items.orEmpty(), itemsCount = it.collection?.itemsCount ?: 0) else c }
+                    val previous = it.collection
+                    val updated = result.data.let { c ->
+                        if (c.items.isEmpty() && previous != null) {
+                            c.copy(items = previous.items, itemsCount = previous.itemsCount, featuredItems = previous.featuredItems)
+                        } else {
+                            c
+                        }
+                    }
                     it.copy(isActing = false, collection = updated, message = successMessage)
                 }
                 is Result.Error -> _uiState.update { it.copy(isActing = false, message = result.toMessage()) }
@@ -163,6 +219,9 @@ class MarketCollectionViewModel(
 
     private fun updateEditor(block: ItemsEditorState.() -> ItemsEditorState) =
         _uiState.update { state -> state.copy(editor = state.editor?.block()) }
+
+    private fun updateFeaturedPicker(block: FeaturedPickerState.() -> FeaturedPickerState) =
+        _uiState.update { state -> state.copy(featuredPicker = state.featuredPicker?.block()) }
 
     private fun Result.Error.toMessage() = LanguageManager.strings.userMessage(this)
 }

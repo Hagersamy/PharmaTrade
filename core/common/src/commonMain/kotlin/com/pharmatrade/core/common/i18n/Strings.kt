@@ -650,6 +650,13 @@ interface Strings {
     val mkSaveItems: String
     val mkItemsSavedToast: String
     val mkNoStockForItems: String
+    val mkFeaturedDrugs: String
+    val mkChooseFeatured: String
+    fun mkFeaturedHint(max: Int): String
+    val mkFeaturedMissing: String
+    fun mkFeaturedSelected(count: Int, max: Int): String
+    val mkFeaturedSavedToast: String
+    fun mkViewAllDrugs(count: Int): String
     val mkOrderTitle: String
     val mkSeller: String
     val mkBuyer: String
@@ -660,6 +667,9 @@ interface Strings {
     val mkCollectorName: String
     val mkCollectorPhone: String
     val mkCollectorAddress: String
+    val mkBuyerDetails: String
+    val mkBuyerAddress: String
+    val mkSellerDetails: String
     val mkConfirmCollector: String
     val mkCollectorHint: String
     val mkCancelOrder: String

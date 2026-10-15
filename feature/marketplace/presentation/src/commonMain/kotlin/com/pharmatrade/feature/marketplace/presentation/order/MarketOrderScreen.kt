@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -132,9 +133,28 @@ fun MarketOrderScreen(viewModel: MarketOrderViewModel, onNavigateBack: () -> Uni
                         onSubmit = viewModel::submitCollector
                     )
                 }
-                // The seller gets the pickup address once they've accepted the order.
-                val pickupAddress = order.collectorAddress
-                    ?.takeIf { viewModel.asSeller && order.status == MarketOrderStatus.ACCEPTED }
+                // Once the seller accepts, each side gets the other's contact details, kept while
+                // the order is ready and after it's completed. The buyer's collector needs the
+                // seller's address to pick the order up.
+                val accepted = order.status in ACCEPTED_OR_LATER
+                if (accepted && viewModel.asSeller) {
+                    ContactCard(
+                        title = strings.mkBuyerDetails,
+                        name = order.buyerName,
+                        phone = order.buyerPhone,
+                        address = order.buyerAddress,
+                        addressLabel = strings.mkBuyerAddress
+                    )
+                } else if (accepted) {
+                    ContactCard(
+                        title = strings.mkSellerDetails,
+                        name = order.sellerName,
+                        phone = order.sellerPhone,
+                        address = order.collectorAddress ?: order.sellerAddress,
+                        addressLabel = strings.mkCollectorAddress
+                    )
+                }
+                val pickupAddress = order.collectorAddress?.takeIf { accepted && viewModel.asSeller }
                 if (order.collectorName != null || pickupAddress != null) CollectorCard(order, pickupAddress)
                 AmountsCard(order, viewModel.asSeller)
                 if (order.items.isNotEmpty()) {
@@ -318,6 +338,46 @@ private fun CollectorForm(
                 isLoading = isSaving,
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+    }
+}
+
+private val ACCEPTED_OR_LATER = setOf(
+    MarketOrderStatus.ACCEPTED,
+    MarketOrderStatus.READY_FOR_PICKUP,
+    MarketOrderStatus.COMPLETED
+)
+
+@Composable
+private fun ContactCard(title: String, name: String, phone: String?, address: String?, addressLabel: String) {
+    if (name.isBlank() && phone == null && address == null) return
+    PharmaCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, style = MaterialTheme.typography.labelLarge, color = TextSecondary)
+            if (name.isNotBlank()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Storefront, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = TextPrimary)
+                }
+            }
+            phone?.let { phone ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Phone, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(phone, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+                }
+            }
+            address?.let { address ->
+                Row(verticalAlignment = Alignment.Top) {
+                    Icon(Icons.Filled.LocationOn, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp).padding(top = 2.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(addressLabel, style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                        Text(address, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+                    }
+                }
+            }
         }
     }
 }

@@ -928,6 +928,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                                 getBrowseCollectionUseCase = container.getBrowseCollectionUseCase,
                                 placeMarketOrderUseCase = container.placeMarketOrderUseCase,
                                 setCollectionItemsUseCase = container.setCollectionItemsUseCase,
+                                setFeaturedItemsUseCase = container.setFeaturedItemsUseCase,
                                 publishCollectionUseCase = container.publishCollectionUseCase,
                                 deactivateCollectionUseCase = container.deactivateCollectionUseCase,
                                 getMarketInventoryUseCase = container.getMarketInventoryUseCase

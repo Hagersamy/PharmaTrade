@@ -52,8 +52,17 @@ data class MarketCollection(
     val sellerName: String,
     val items: List<MarketCollectionItem>,
     val itemsCount: Int,
+    // Up to MAX_FEATURED_ITEMS drugs the seller picked to show on the collection's card; the rest
+    // are behind "view all". Browse listings carry these without the full items list.
+    val featuredItems: List<MarketCollectionItem>,
     val createdAt: String
-)
+) {
+    val featuredItemIds: Set<String> get() = featuredItems.mapTo(mutableSetOf()) { it.id }
+
+    companion object {
+        const val MAX_FEATURED_ITEMS = 2
+    }
+}
 
 enum class MarketOrderStatus(val apiValue: String) {
     PENDING_COLLECTOR("pending_collector"),
@@ -86,7 +95,13 @@ data class MarketOrder(
     val collectionId: String,
     val collectionName: String,
     val buyerName: String,
+    // The buying pharmacy's contact details, for the seller once they've accepted.
+    val buyerPhone: String?,
+    val buyerAddress: String?,
     val sellerName: String,
+    // The selling pharmacy's contact details, for the buyer once the order is accepted.
+    val sellerPhone: String?,
+    val sellerAddress: String?,
     val totalAmount: Double,
     val commissionPct: Double,
     val commissionAmount: Double,

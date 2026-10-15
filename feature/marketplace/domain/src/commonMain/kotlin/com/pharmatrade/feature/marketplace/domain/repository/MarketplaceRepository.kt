@@ -37,6 +37,8 @@ interface MarketplaceRepository {
         notes: String?
     ): Result<MarketCollection>
     suspend fun setCollectionItems(collectionId: String, items: List<CollectionItemInput>): Result<MarketCollection>
+    // Cleared server-side whenever setCollectionItems runs, so it's picked after the items.
+    suspend fun setFeaturedItems(collectionId: String, itemIds: List<String>): Result<MarketCollection>
     suspend fun publishCollection(collectionId: String): Result<MarketCollection>
     suspend fun deactivateCollection(collectionId: String): Result<MarketCollection>
 

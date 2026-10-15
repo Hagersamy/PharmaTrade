@@ -10,6 +10,7 @@ import com.pharmatrade.feature.marketplace.data.remote.dto.AddInventoryRequest
 import com.pharmatrade.feature.marketplace.data.remote.dto.CollectionItemRequest
 import com.pharmatrade.feature.marketplace.data.remote.dto.CollectionItemsRequest
 import com.pharmatrade.feature.marketplace.data.remote.dto.CreateCollectionRequest
+import com.pharmatrade.feature.marketplace.data.remote.dto.FeaturedItemsRequest
 import com.pharmatrade.feature.marketplace.data.remote.dto.MarketCollectionDto
 import com.pharmatrade.feature.marketplace.data.remote.dto.MarketInventoryDto
 import com.pharmatrade.feature.marketplace.data.remote.dto.MarketOrderDto
@@ -131,6 +132,15 @@ class MarketplaceRepositoryImpl(
             items.map { CollectionItemRequest(inventoryId = it.inventoryId.toInt(), quantity = it.quantity) }
         )
         decodeObject(api.setCollectionItems(collectionId, request), MarketCollectionDto.serializer()).toDomain()
+    }
+
+    override suspend fun setFeaturedItems(
+        collectionId: String,
+        itemIds: List<String>
+    ): Result<MarketCollection> = call("Failed to save featured drugs") {
+        api.setFeaturedItems(collectionId, FeaturedItemsRequest(itemIds.map { it.toInt() }))
+        // The response shape isn't documented — re-read the collection rather than guess.
+        decodeObject(api.getMyCollection(collectionId), MarketCollectionDto.serializer()).toDomain()
     }
 
     override suspend fun publishCollection(collectionId: String): Result<MarketCollection> = call("Failed to publish") {

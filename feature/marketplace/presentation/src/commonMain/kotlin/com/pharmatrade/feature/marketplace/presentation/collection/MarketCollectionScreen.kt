@@ -1,5 +1,6 @@
 package com.pharmatrade.feature.marketplace.presentation.collection
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -50,10 +53,12 @@ import com.pharmatrade.core.ui.theme.PrimaryBlue
 import com.pharmatrade.core.ui.theme.SurfaceWhite
 import com.pharmatrade.core.ui.theme.TextPrimary
 import com.pharmatrade.core.ui.theme.TextSecondary
+import com.pharmatrade.core.ui.theme.WarningAmber
 import com.pharmatrade.feature.marketplace.domain.model.CollectionStatus
 import com.pharmatrade.feature.marketplace.domain.model.MarketCollection
 import com.pharmatrade.feature.marketplace.presentation.components.CollectionItemRow
 import com.pharmatrade.feature.marketplace.presentation.components.CollectionStatusChip
+import com.pharmatrade.feature.marketplace.presentation.components.FeaturedDrugsList
 import com.pharmatrade.feature.marketplace.presentation.components.ConfirmDialog
 import com.pharmatrade.feature.marketplace.presentation.components.money
 
@@ -112,7 +117,12 @@ fun MarketCollectionScreen(
                 onRetry = viewModel::load,
                 modifier = Modifier.padding(padding)
             )
-            else -> CollectionBody(collection, showStatus = viewModel.mine, modifier = Modifier.padding(padding))
+            else -> CollectionBody(
+                collection,
+                showStatus = viewModel.mine,
+                onChooseFeatured = viewModel::openFeaturedPicker,
+                modifier = Modifier.padding(padding)
+            )
         }
     }
 
@@ -134,11 +144,31 @@ fun MarketCollectionScreen(
             onDismiss = viewModel::dismissEditor
         )
     }
+
+    val collection = state.collection
+    val picker = state.featuredPicker
+    if (collection != null && picker != null) {
+        FeaturedPickerDialog(
+            collection = collection,
+            picker = picker,
+            onToggle = viewModel::onFeaturedToggle,
+            onSave = viewModel::saveFeatured,
+            onDismiss = viewModel::dismissFeaturedPicker
+        )
+    }
 }
 
 @Composable
-private fun CollectionBody(collection: MarketCollection, showStatus: Boolean, modifier: Modifier = Modifier) {
+private fun CollectionBody(
+    collection: MarketCollection,
+    showStatus: Boolean,
+    onChooseFeatured: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val strings = LocalStrings.current
+    val featuredIds = collection.featuredItemIds
+    // Featured drugs lead the list, matching what the card showed before the buyer tapped in.
+    val orderedItems = collection.items.sortedByDescending { it.id in featuredIds }
     Column(
         modifier
             .fillMaxSize()
@@ -179,6 +209,12 @@ private fun CollectionBody(collection: MarketCollection, showStatus: Boolean, mo
             }
         }
 
+        // Seller: the drugs shown on the card, while the collection can still be browsed.
+        val canFeature = collection.status == CollectionStatus.DRAFT || collection.status == CollectionStatus.ACTIVE
+        if (showStatus && canFeature && collection.items.isNotEmpty()) {
+            FeaturedSection(collection, onChooseFeatured)
+        }
+
         SectionHeader(strings.mkItems)
         PharmaCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -190,13 +226,101 @@ private fun CollectionBody(collection: MarketCollection, showStatus: Boolean, mo
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
                 }
-                collection.items.forEachIndexed { index, item ->
+                orderedItems.forEachIndexed { index, item ->
                     if (index > 0) HorizontalDivider()
                     CollectionItemRow(item)
                 }
             }
         }
     }
+}
+
+@Composable
+private fun FeaturedSection(collection: MarketCollection, onChooseFeatured: () -> Unit) {
+    val strings = LocalStrings.current
+    PharmaCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(strings.mkFeaturedDrugs, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text(
+                strings.mkFeaturedHint(MarketCollection.MAX_FEATURED_ITEMS),
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+            if (collection.featuredItems.isEmpty()) {
+                Text(strings.mkFeaturedMissing, style = MaterialTheme.typography.bodyMedium, color = WarningAmber)
+            } else {
+                // Same look as on the browse card, so the seller sees what buyers will see.
+                FeaturedDrugsList(collection.featuredItems, Modifier.padding(top = 4.dp))
+            }
+            Spacer(Modifier.height(2.dp))
+            PharmaOutlinedButton(text = strings.mkChooseFeatured, onClick = onChooseFeatured, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+private fun FeaturedPickerDialog(
+    collection: MarketCollection,
+    picker: FeaturedPickerState,
+    onToggle: (itemId: String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val strings = LocalStrings.current
+    val max = MarketCollection.MAX_FEATURED_ITEMS
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(strings.mkChooseFeatured) },
+        text = {
+            Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+                Text(strings.mkFeaturedHint(max), style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    strings.mkFeaturedSelected(picker.selected.size, max),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = PrimaryBlue
+                )
+                collection.items.forEach { item ->
+                    val checked = item.id in picker.selected
+                    // Once two are picked the rest are disabled until one is unticked.
+                    val enabled = !picker.isSaving && (checked || picker.selected.size < max)
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = enabled) { onToggle(item.id) }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = checked,
+                            onCheckedChange = { onToggle(item.id) },
+                            enabled = enabled,
+                            colors = CheckboxDefaults.colors(checkedColor = PrimaryBlue)
+                        )
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                item.drugName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = if (enabled) TextPrimary else TextSecondary
+                            )
+                            Text(strings.mkItemLine(item.quantity, money(item.unitPrice)), style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                        }
+                    }
+                }
+                if (picker.error != null) {
+                    Text(picker.error, color = ErrorRed, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onSave, enabled = !picker.isSaving && picker.selected.isNotEmpty()) {
+                if (picker.isSaving) CircularProgressIndicator(Modifier.width(18.dp).height(18.dp), strokeWidth = 2.dp)
+                else Text(strings.commonSave)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !picker.isSaving) { Text(strings.commonCancel) } }
+    )
 }
 
 @Composable

@@ -5,6 +5,7 @@ import com.pharmatrade.core.network.FormFile
 import com.pharmatrade.feature.marketplace.data.remote.dto.AddInventoryRequest
 import com.pharmatrade.feature.marketplace.data.remote.dto.CollectionItemsRequest
 import com.pharmatrade.feature.marketplace.data.remote.dto.CreateCollectionRequest
+import com.pharmatrade.feature.marketplace.data.remote.dto.FeaturedItemsRequest
 import com.pharmatrade.feature.marketplace.data.remote.dto.PlaceOrderRequest
 import com.pharmatrade.feature.marketplace.data.remote.dto.SetCollectorRequest
 import io.ktor.client.HttpClient
@@ -76,6 +77,14 @@ class MarketplaceApi(private val client: HttpClient = ApiClient.httpClient) {
 
     suspend fun setCollectionItems(id: String, request: CollectionItemsRequest): JsonElement =
         client.post("$BASE/my-collections/$id/items") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
+
+    // The backend note says collections/{id}/featured-items, but the server only routes it under
+    // my-collections like the other seller endpoints (checked 2026-10-16).
+    suspend fun setFeaturedItems(id: String, request: FeaturedItemsRequest): JsonElement =
+        client.post("$BASE/my-collections/$id/featured-items") {
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()

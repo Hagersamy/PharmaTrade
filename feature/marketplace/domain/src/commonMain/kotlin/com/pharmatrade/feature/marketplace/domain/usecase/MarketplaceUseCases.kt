@@ -89,6 +89,17 @@ class PublishCollectionUseCase(private val repository: MarketplaceRepository) {
     suspend operator fun invoke(collectionId: String): Result<MarketCollection> = repository.publishCollection(collectionId)
 }
 
+class SetFeaturedItemsUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(collectionId: String, itemIds: List<String>): Result<MarketCollection> {
+        val ids = itemIds.distinct()
+        if (ids.isEmpty()) return Result.Error("Select at least one drug")
+        if (ids.size > MarketCollection.MAX_FEATURED_ITEMS) {
+            return Result.Error("Select up to ${MarketCollection.MAX_FEATURED_ITEMS} drugs")
+        }
+        return repository.setFeaturedItems(collectionId, ids)
+    }
+}
+
 class DeactivateCollectionUseCase(private val repository: MarketplaceRepository) {
     suspend operator fun invoke(collectionId: String): Result<MarketCollection> = repository.deactivateCollection(collectionId)
 }
