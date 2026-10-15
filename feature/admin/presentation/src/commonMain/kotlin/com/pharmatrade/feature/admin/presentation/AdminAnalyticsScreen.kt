@@ -28,6 +28,7 @@ import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.i18n.Strings
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.ui.components.EmptyState
+import com.pharmatrade.core.ui.components.LocalBottomBarInset
 import com.pharmatrade.core.ui.components.ZoomableImageDialog
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.feature.admin.domain.model.PendingUser
@@ -48,7 +49,7 @@ fun AnalyticsContent(
     }
 
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalBottomBarInset.current),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // ── Stats section ─────────────────────────────────────────────────────

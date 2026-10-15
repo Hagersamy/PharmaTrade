@@ -1,6 +1,7 @@
 package com.pharmatrade.feature.admin.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,7 +19,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pharmatrade.core.common.i18n.LocalStrings
@@ -29,10 +33,15 @@ import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.core.common.util.formatTodayLabel
 import com.pharmatrade.core.ui.components.EmptyState
 import com.pharmatrade.core.ui.components.ErrorScreen
+import com.pharmatrade.core.ui.components.GlassBarItem
+import com.pharmatrade.core.ui.components.LiquidGlassBottomBar
+import com.pharmatrade.core.ui.components.LocalBottomBarInset
 import com.pharmatrade.core.ui.components.rememberToast
 import com.pharmatrade.core.ui.components.ZoomableImageDialog
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.feature.admin.domain.model.PendingUser
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 
 // ── Destinations ─────────────────────────────────────────────────────────────
 
@@ -83,154 +92,249 @@ fun AdminDashboardScreen(
     }
 
     val totalPending = uiState.pendingPharmacies.size + uiState.pendingSuppliers.size + analyticsState.zoneUpdates.size
+    val currentUser by SessionManager.currentUser.collectAsStateWithLifecycle()
+
+    fun select(target: AdminDest) {
+        // Re-tapping the open tab doesn't refetch.
+        if (target != dest) when (target) {
+            AdminDest.REQUESTS -> analyticsViewModel.refreshZoneUpdates()
+            AdminDest.ANALYTICS -> analyticsViewModel.refresh()
+            else -> Unit
+        }
+        dest = target
+    }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             AdminTopBar(
-                title = when (dest) {
-                    AdminDest.HOME      -> strings.adDashboardTitle
-                    AdminDest.REQUESTS  -> strings.adRegistrationRequestsTitle
-                    AdminDest.ANALYTICS -> strings.navAnalytics
-                    AdminDest.PROFILE   -> strings.navProfile
-                },
+                userName = currentUser?.name.orEmpty(),
                 unreadNotificationCount = unreadNotificationCount,
-                onNotificationsClick = onNavigateToNotifications
+                onNotificationsClick = onNavigateToNotifications,
+                onProfileClick = { select(AdminDest.PROFILE) }
             )
         },
-        bottomBar = {
-            NavigationBar(containerColor = SurfaceWhite) {
-                NavigationBarItem(
-                    selected = dest == AdminDest.HOME,
-                    onClick = { dest = AdminDest.HOME },
-                    icon = { Icon(Icons.Filled.Home, null) },
-                    label = { Text(strings.navHome) },
-                    colors = NavigationBarItemDefaults.colors(indicatorColor = PrimaryBlueContainer)
-                )
-                NavigationBarItem(
-                    selected = dest == AdminDest.REQUESTS,
-                    onClick = {
-                        // Re-tapping the open tab doesn't refetch.
-                        if (dest != AdminDest.REQUESTS) analyticsViewModel.refreshZoneUpdates()
-                        dest = AdminDest.REQUESTS
-                    },
-                    icon = {
-                        if (totalPending > 0) {
-                            BadgedBox(badge = { Badge { Text("$totalPending") } }) {
-                                Icon(Icons.Filled.HowToReg, null)
-                            }
-                        } else {
-                            Icon(Icons.Filled.HowToReg, null)
-                        }
-                    },
-                    label = { Text(strings.navRequests) },
-                    colors = NavigationBarItemDefaults.colors(indicatorColor = PrimaryBlueContainer)
-                )
-                NavigationBarItem(
-                    selected = dest == AdminDest.ANALYTICS,
-                    onClick = {
-                        if (dest != AdminDest.ANALYTICS) analyticsViewModel.refresh()
-                        dest = AdminDest.ANALYTICS
-                    },
-                    icon = { Icon(Icons.Filled.Analytics, null) },
-                    label = { Text(strings.navAnalytics) },
-                    colors = NavigationBarItemDefaults.colors(indicatorColor = PrimaryBlueContainer)
-                )
-                NavigationBarItem(
-                    selected = dest == AdminDest.PROFILE,
-                    onClick = { dest = AdminDest.PROFILE },
-                    icon = { Icon(Icons.Filled.Person, null) },
-                    label = { Text(strings.navProfile) },
-                    colors = NavigationBarItemDefaults.colors(indicatorColor = PrimaryBlueContainer)
-                )
-            }
-        },
+        // Matches the tab screens so the top bar's rounded corners sit on the same backdrop.
+        containerColor = BackgroundGray,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
+        // Same floating glass bar as HomeScreen: content scrolls behind it and shows through the
+        // blur; its measured height is published as LocalBottomBarInset so lists pad clear of it.
+        val hazeState = remember { HazeState() }
+        val density = LocalDensity.current
+        var bottomBarHeight by remember { mutableStateOf(0.dp) }
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(BackgroundGray)
         ) {
-            when (dest) {
-                AdminDest.HOME -> AdminHomeContent(
-                    uiState = uiState,
-                    onPharmaciesClick = {
-                        requestsTab = RequestsTab.PHARMACIES
-                        dest = AdminDest.REQUESTS
-                    },
-                    onSuppliersClick = {
-                        requestsTab = RequestsTab.SUPPLIERS
-                        dest = AdminDest.REQUESTS
+            CompositionLocalProvider(LocalBottomBarInset provides bottomBarHeight) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .haze(hazeState)
+                ) {
+                    AdminDestContent(
+                        dest = dest,
+                        uiState = uiState,
+                        analyticsState = analyticsState,
+                        viewModel = viewModel,
+                        analyticsViewModel = analyticsViewModel,
+                        snackbarHostState = snackbarHostState,
+                        requestsTab = requestsTab,
+                        onRequestsTabSelected = { requestsTab = it },
+                        onOpenRequests = { tab ->
+                            requestsTab = tab
+                            select(AdminDest.REQUESTS)
+                        },
+                        profileContent = profileContent
+                    )
+                }
+            }
+            AdminBottomBar(
+                dest = dest,
+                onSelect = ::select,
+                requestsBadgeCount = totalPending,
+                hazeState = hazeState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .onSizeChanged { bottomBarHeight = with(density) { it.height.toDp() } }
+            )
+            // Lifted above the floating bar so it isn't drawn underneath it.
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = bottomBarHeight)
+            )
+        }
+    }
+}
+
+@Composable
+private fun AdminDestContent(
+    dest: AdminDest,
+    uiState: AdminUiState,
+    analyticsState: AnalyticsUiState,
+    viewModel: AdminDashboardViewModel,
+    analyticsViewModel: AnalyticsViewModel,
+    snackbarHostState: SnackbarHostState,
+    requestsTab: RequestsTab,
+    onRequestsTabSelected: (RequestsTab) -> Unit,
+    onOpenRequests: (RequestsTab) -> Unit,
+    profileContent: @Composable () -> Unit
+) {
+    when (dest) {
+        AdminDest.HOME -> AdminHomeContent(
+            uiState = uiState,
+            onPharmaciesClick = { onOpenRequests(RequestsTab.PHARMACIES) },
+            onSuppliersClick = { onOpenRequests(RequestsTab.SUPPLIERS) }
+        )
+        AdminDest.REQUESTS -> RequestsContent(
+            pendingPharmacies = uiState.pendingPharmacies,
+            pendingSuppliers = uiState.pendingSuppliers,
+            zoneUpdateCount = analyticsState.zoneUpdates.size,
+            isLoading = uiState.isLoading,
+            selectedTab = requestsTab,
+            onTabSelected = onRequestsTabSelected,
+            onApprove = { viewModel.approveUser(it) },
+            onReject = { user, reason -> viewModel.rejectUser(user, reason) },
+            onRefresh = viewModel::refresh,
+            zoneUpdatesContent = {
+                ZoneUpdatesContent(viewModel = analyticsViewModel, snackbarHostState = snackbarHostState)
+            }
+        )
+        AdminDest.ANALYTICS -> AnalyticsContent(
+            viewModel = analyticsViewModel,
+            snackbarHostState = snackbarHostState
+        )
+        AdminDest.PROFILE -> profileContent()
+    }
+}
+
+// ── Top bar (same design as HomeScreen's) ─────────────────────────────────────
+
+@Composable
+private fun AdminTopBar(
+    userName: String,
+    unreadNotificationCount: Int,
+    onNotificationsClick: () -> Unit,
+    onProfileClick: () -> Unit
+) {
+    val strings = LocalStrings.current
+    val name = userName.trim().ifEmpty { strings.adAdminFallbackName }
+    Surface(
+        color = TopBarContainer,
+        shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp),
+        shadowElevation = 6.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(start = 16.dp, end = 12.dp, top = 10.dp, bottom = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AdminAvatar(name = name, onClick = onProfileClick)
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = strings.adminPanel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TopBarContent.copy(alpha = 0.75f),
+                    maxLines = 1
+                )
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = TopBarContent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            // The badge sits outside the button so the circular clip doesn't cut it off.
+            BadgedBox(
+                badge = {
+                    if (unreadNotificationCount > 0) {
+                        Badge(
+                            containerColor = Color(0xFFE53935),
+                            contentColor = Color.White,
+                            modifier = Modifier.offset(x = (-4).dp, y = 4.dp)
+                        ) {
+                            Text(if (unreadNotificationCount > 99) "99+" else "$unreadNotificationCount")
+                        }
                     }
-                )
-                AdminDest.REQUESTS -> RequestsContent(
-                    pendingPharmacies = uiState.pendingPharmacies,
-                    pendingSuppliers = uiState.pendingSuppliers,
-                    zoneUpdateCount = analyticsState.zoneUpdates.size,
-                    isLoading = uiState.isLoading,
-                    selectedTab = requestsTab,
-                    onTabSelected = { requestsTab = it },
-                    onApprove = { viewModel.approveUser(it) },
-                    onReject = { user, reason -> viewModel.rejectUser(user, reason) },
-                    onRefresh = viewModel::refresh,
-                    zoneUpdatesContent = {
-                        ZoneUpdatesContent(viewModel = analyticsViewModel, snackbarHostState = snackbarHostState)
-                    }
-                )
-                AdminDest.ANALYTICS -> AnalyticsContent(
-                    viewModel = analyticsViewModel,
-                    snackbarHostState = snackbarHostState
-                )
-                AdminDest.PROFILE -> profileContent()
+                }
+            ) {
+                FilledTonalIconButton(
+                    onClick = onNotificationsClick,
+                    modifier = Modifier.size(42.dp),
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = TopBarContent.copy(alpha = 0.14f),
+                        contentColor = TopBarContent
+                    )
+                ) {
+                    Icon(
+                        imageVector = if (unreadNotificationCount > 0) Icons.Filled.NotificationsActive else Icons.Filled.Notifications,
+                        contentDescription = strings.notificationsTitle,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
     }
 }
 
-// ── Top bar ───────────────────────────────────────────────────────────────────
+@Composable
+private fun AdminAvatar(name: String, onClick: () -> Unit) {
+    val strings = LocalStrings.current
+    val initials = name.split(' ')
+        .filter { it.isNotBlank() }
+        .take(2)
+        .joinToString("") { it.first().uppercase() }
+    Box(
+        modifier = Modifier
+            .size(46.dp)
+            .clip(CircleShape)
+            .background(TopBarContent.copy(alpha = 0.16f))
+            .border(1.5.dp, TopBarContent.copy(alpha = 0.35f), CircleShape)
+            .clickable(onClickLabel = strings.navProfile, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = initials,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = TopBarContent
+        )
+    }
+}
+
+// ── Bottom bar ────────────────────────────────────────────────────────────────
 
 @Composable
-private fun AdminTopBar(
-    title: String,
-    unreadNotificationCount: Int,
-    onNotificationsClick: () -> Unit
+private fun AdminBottomBar(
+    dest: AdminDest,
+    onSelect: (AdminDest) -> Unit,
+    requestsBadgeCount: Int,
+    hazeState: HazeState,
+    modifier: Modifier = Modifier
 ) {
     val strings = LocalStrings.current
-    Surface(shadowElevation = 4.dp, color = TopBarContainer) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .height(56.dp)
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = strings.adminPanel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TopBarContent.copy(alpha = 0.75f)
-                )
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = TopBarContent
-                )
-            }
-            IconButton(onClick = onNotificationsClick) {
-                BadgedBox(
-                    badge = {
-                        if (unreadNotificationCount > 0) Badge { Text("$unreadNotificationCount") }
-                    }
-                ) {
-                    Icon(Icons.Filled.Notifications, null, tint = TopBarContent)
-                }
-            }
-        }
-    }
+    val tabs = listOf(
+        AdminDest.HOME to GlassBarItem(Icons.Filled.Home, strings.navHome),
+        AdminDest.REQUESTS to GlassBarItem(Icons.Filled.HowToReg, strings.navRequests, requestsBadgeCount),
+        AdminDest.ANALYTICS to GlassBarItem(Icons.Filled.Analytics, strings.navAnalytics)
+        // Profile has no item here — it's opened from the avatar in the top bar.
+    )
+    LiquidGlassBottomBar(
+        items = tabs.map { it.second },
+        selectedIndex = tabs.indexOfFirst { it.first == dest },
+        onItemSelected = { onSelect(tabs[it].first) },
+        hazeState = hazeState,
+        modifier = modifier
+    )
 }
 
 // ── Requests screen (Pharmacies + Suppliers tabs) ─────────────────────────────
@@ -396,7 +500,7 @@ private fun ZoneUpdatesContent(
                 }
             )
         else -> LazyColumn(
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalBottomBarInset.current),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(uiState.zoneUpdates, key = { it.id }) { request ->
@@ -429,7 +533,7 @@ private fun AdminHomeContent(
     val totalPending = uiState.pendingPharmacies.size + uiState.pendingSuppliers.size
 
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalBottomBarInset.current),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
 
@@ -788,7 +892,7 @@ private fun PendingListContent(
     }
 
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalBottomBarInset.current),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(list, key = { it.id }) { user ->
