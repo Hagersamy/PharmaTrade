@@ -10,6 +10,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -267,7 +269,10 @@ fun MinimumOrderWarning(
 @Composable
 fun LoadingScreen(modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            // Centered in the visible area, not behind the floating glass bottom bar.
+            .padding(bottom = LocalBottomBarInset.current),
         contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator(color = PrimaryBlue)
@@ -279,26 +284,57 @@ fun ErrorScreen(message: String, onRetry: () -> Unit, modifier: Modifier = Modif
     // message is expected to already be a safe, localized, user-facing string — ViewModels
     // sanitize raw backend/exception text via Strings.friendlyError() before it reaches state,
     // so it is never displayed verbatim here.
+    val strings = LocalStrings.current
     Column(
-        modifier = modifier.fillMaxSize().padding(24.dp),
+        modifier = modifier
+            .fillMaxSize()
+            // Centered in the visible area, not behind the floating glass bottom bar.
+            .padding(bottom = LocalBottomBarInset.current)
+            .padding(horizontal = 32.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = Icons.Filled.Warning,
-            contentDescription = null,
-            tint = ErrorRed,
-            modifier = Modifier.size(64.dp)
+        // Same soft circular badge as EmptyState, so errors read as a calm state, not an alarm.
+        Box(
+            modifier = Modifier
+                .size(96.dp)
+                .clip(CircleShape)
+                .background(ErrorRedContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.CloudOff,
+                contentDescription = null,
+                tint = ErrorRed,
+                modifier = Modifier.size(44.dp)
+            )
+        }
+        Spacer(Modifier.height(20.dp))
+        Text(
+            text = strings.commonSomethingWentWrong,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary,
+            textAlign = TextAlign.Center
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             text = message,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = TextSecondary,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(24.dp))
-        PharmaButton(text = LocalStrings.current.commonRetry, onClick = onRetry)
+        OutlinedButton(
+            onClick = onRetry,
+            shape = RoundedCornerShape(12.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryBlue),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryBlue)
+        ) {
+            Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(strings.commonRetry, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 

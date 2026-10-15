@@ -31,6 +31,7 @@ import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.DiscountBadge
 import com.pharmatrade.core.ui.components.EmptyState
 import com.pharmatrade.core.ui.components.ErrorScreen
+import com.pharmatrade.core.ui.components.LoadingScreen
 import com.pharmatrade.core.ui.components.PharmaCard
 import com.pharmatrade.core.ui.components.LocalBottomBarInset
 import com.pharmatrade.core.ui.theme.*
@@ -88,6 +89,18 @@ internal fun CatalogList(
         )
     }
 
+    // Full-screen (outside the list) so they're centered on screen rather than a block at the top.
+    if (catalogItems.isEmpty()) {
+        if (uiState.isLoadingCatalogFirstPage) {
+            LoadingScreen(modifier = modifier)
+            return
+        }
+        if (uiState.catalogError != null) {
+            ErrorScreen(message = uiState.catalogError!!, onRetry = viewModel::retryCatalog, modifier = modifier)
+            return
+        }
+    }
+
     LazyColumn(
         state = listState,
         modifier = modifier,
@@ -114,14 +127,6 @@ internal fun CatalogList(
         }
 
         when {
-            uiState.isLoadingCatalogFirstPage && catalogItems.isEmpty() -> item {
-                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = PrimaryBlue)
-                }
-            }
-            uiState.catalogError != null && catalogItems.isEmpty() -> item {
-                ErrorScreen(message = uiState.catalogError!!, onRetry = viewModel::retryCatalog, modifier = Modifier.heightIn(min = 220.dp))
-            }
             catalogItems.isEmpty() -> item {
                 EmptyState(
                     title = if (uiState.isSearchActive) strings.pharmacyNoMatches else strings.pharmacyNoDrugsAvailable,

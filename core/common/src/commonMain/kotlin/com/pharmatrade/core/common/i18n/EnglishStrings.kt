@@ -40,6 +40,7 @@ object EnglishStrings : Strings {
     override fun errorFieldInvalid(field: String) = "Please check the $field — the value isn't valid."
 
     override val commonRetry = "Retry"
+    override val commonSomethingWentWrong = "Something went wrong"
     override val commonCancel = "Cancel"
     override val commonSave = "Save"
     override val commonSubmit = "Submit"

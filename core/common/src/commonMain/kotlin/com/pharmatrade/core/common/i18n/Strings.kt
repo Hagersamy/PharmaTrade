@@ -47,6 +47,7 @@ interface Strings {
 
     // ── Common ──────────────────────────────────────────────────────────────
     val commonRetry: String
+    val commonSomethingWentWrong: String
     val commonCancel: String
     val commonSave: String
     val commonSubmit: String

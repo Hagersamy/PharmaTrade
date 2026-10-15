@@ -22,6 +22,7 @@ import com.pharmatrade.core.common.util.formatBackendTimestamp
 import com.pharmatrade.core.common.util.formatDecimal
 import com.pharmatrade.core.ui.components.EmptyState
 import com.pharmatrade.core.ui.components.ErrorScreen
+import com.pharmatrade.core.ui.components.LoadingScreen
 import com.pharmatrade.core.ui.components.PharmaCard
 import com.pharmatrade.core.ui.components.UnreadDot
 import com.pharmatrade.core.ui.components.LocalBottomBarInset
@@ -54,9 +55,7 @@ fun OrderListScreen(
         }
 
         when {
-            uiState.isLoading && uiState.orders.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = PrimaryBlue)
-            }
+            uiState.isLoading && uiState.orders.isEmpty() -> LoadingScreen()
             uiState.error != null && uiState.orders.isEmpty() -> ErrorScreen(
                 message = uiState.error!!,
                 onRetry = viewModel::loadOrders,

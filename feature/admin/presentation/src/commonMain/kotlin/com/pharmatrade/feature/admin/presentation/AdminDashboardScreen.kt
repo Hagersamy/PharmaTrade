@@ -33,6 +33,7 @@ import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.core.common.util.formatTodayLabel
 import com.pharmatrade.core.ui.components.EmptyState
 import com.pharmatrade.core.ui.components.ErrorScreen
+import com.pharmatrade.core.ui.components.LoadingScreen
 import com.pharmatrade.core.ui.components.GlassBarItem
 import com.pharmatrade.core.ui.components.LiquidGlassBottomBar
 import com.pharmatrade.core.ui.components.LocalBottomBarInset
@@ -481,9 +482,7 @@ private fun ZoneUpdatesContent(
 
     when {
         uiState.isLoadingZoneUpdates && uiState.zoneUpdates.isEmpty() ->
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = PrimaryBlue)
-            }
+            LoadingScreen()
         uiState.zoneUpdatesError != null && uiState.zoneUpdates.isEmpty() ->
             ErrorScreen(message = uiState.zoneUpdatesError!!, onRetry = viewModel::refreshZoneUpdates)
         uiState.zoneUpdates.isEmpty() ->
@@ -869,9 +868,7 @@ private fun PendingListContent(
 ) {
     val strings = LocalStrings.current
     if (isLoading) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = PrimaryBlue)
-        }
+        LoadingScreen()
         return
     }
 

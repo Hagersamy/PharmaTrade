@@ -42,6 +42,7 @@ object ArabicStrings : Strings {
     override fun errorFieldInvalid(field: String) = "يرجى مراجعة $field، القيمة المدخلة غير صحيحة."
 
     override val commonRetry = "إعادة المحاولة"
+    override val commonSomethingWentWrong = "حدث خطأ ما"
     override val commonCancel = "إلغاء"
     override val commonSave = "حفظ"
     override val commonSubmit = "إرسال"
