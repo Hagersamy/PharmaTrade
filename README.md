@@ -103,7 +103,7 @@ iOS targets must be built on macOS with Xcode. See [iosApp/README.md](iosApp/REA
 
 ## Backend
 
-The API base URL is set per product flavor in `app/build.gradle.kts` (`BASE_URL`) and applied to `ApiClient` at startup.
+The API base URL is set per product flavor in `app/build.gradle.kts` (`BASE_URL`) and applied to `ApiClient` at startup. It can be overridden remotely via Firebase Remote Config — key `base_url_dev` / `base_url_prod` (must be an `https://` URL; invalid or empty values fall back to `BASE_URL`).
 
 | Flavor | Backend |
 |--------|---------|

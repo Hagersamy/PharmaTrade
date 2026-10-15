@@ -13,6 +13,8 @@ import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.pharmatrade.core.common.log.CrashReportSink
 import com.pharmatrade.core.common.log.CrashReporter
 import com.google.firebase.messaging.FirebaseMessaging
+import com.google.firebase.remoteconfig.FirebaseRemoteConfig
+import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.theme.ThemeManager
 import com.pharmatrade.core.common.hints.DismissedHintsStore
@@ -48,7 +50,7 @@ class PharmaTradeApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        ApiClient.baseUrl = BuildConfig.BASE_URL
+        setupRemoteBaseUrl()
         val prefs = getSharedPreferences("pharmatrade_session", MODE_PRIVATE)
         SessionManager.init(SharedPreferencesSettings(prefs))
         val languagePrefs = getSharedPreferences("pharmatrade_prefs", MODE_PRIVATE)
@@ -66,6 +68,38 @@ class PharmaTradeApp : Application() {
         setupCrashlyticsUserTracking()
         logFcmTokenForDebugging()
     }
+    /**
+     * BuildConfig.BASE_URL is the fallback; Remote Config (key BuildConfig.BASE_URL_CONFIG_KEY) can
+     * override it without shipping a new version. The last activated value is persisted by Firebase,
+     * so it applies instantly on launch; a fresh fetch then updates ApiClient for the rest of the session.
+     */
+    private fun setupRemoteBaseUrl() {
+        val key = BuildConfig.BASE_URL_CONFIG_KEY
+        val remoteConfig = FirebaseRemoteConfig.getInstance()
+        remoteConfig.setConfigSettingsAsync(
+            FirebaseRemoteConfigSettings.Builder()
+                .setMinimumFetchIntervalInSeconds(if (BuildConfig.DEBUG) 0 else 3600)
+                .build()
+        )
+        remoteConfig.setDefaultsAsync(mapOf(key to BuildConfig.BASE_URL))
+
+        fun apply() {
+            val url = remoteConfig.getString(key).trim()
+            ApiClient.baseUrl = if (url.startsWith("https://")) {
+                if (url.endsWith("/")) url else "$url/"
+            } else {
+                if (url.isNotEmpty()) Log.w("RemoteBaseUrl", "Ignoring invalid $key: $url")
+                BuildConfig.BASE_URL
+            }
+            Log.i("RemoteBaseUrl", "Base URL: ${ApiClient.baseUrl}")
+        }
+
+        apply()
+        remoteConfig.fetchAndActivate()
+            .addOnSuccessListener { apply() }
+            .addOnFailureListener { e -> Log.w("RemoteBaseUrl", "Remote Config fetch failed", e) }
+    }
+
     private fun setupAutoLogoutOnInvalidToken() {
         ApiClient.onUnauthorized = {
             appScope.launch { container.authRepository.logout() }

@@ -34,10 +34,13 @@ android {
             applicationId = "com.pharmatrade.dev.agleb"
             versionNameSuffix = "-dev"
             buildConfigField("String", "BASE_URL", "\"https://unbuckled-word-defuse.ngrok-free.dev/api/v1/\"")
+            // Firebase Remote Config key that overrides BASE_URL at runtime (see PharmaTradeApp).
+            buildConfigField("String", "BASE_URL_CONFIG_KEY", "\"base_url_dev\"")
         }
         create("prod") {
             dimension = "env"
             buildConfigField("String", "BASE_URL", "\"https://pharma-trade-backend-production-e64c.up.railway.app/api/v1/\"")
+            buildConfigField("String", "BASE_URL_CONFIG_KEY", "\"base_url_prod\"")
         }
     }
 
@@ -107,6 +110,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
     implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.config)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
