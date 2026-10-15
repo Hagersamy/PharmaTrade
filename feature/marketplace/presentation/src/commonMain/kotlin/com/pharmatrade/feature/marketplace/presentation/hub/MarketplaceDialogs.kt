@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -110,25 +111,38 @@ internal fun AddInventoryDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(strings.mkAddDrug) },
+        title = { Text(if (form.isEditing) strings.mkEditDrug else strings.mkAddDrug) },
         text = {
             Column(
                 Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
-                    value = form.drugQuery,
-                    onValueChange = onQueryChange,
-                    label = { Text(strings.mkSearchDrug) },
-                    leadingIcon = { Icon(Icons.Filled.Search, null, tint = TextSecondary) },
-                    trailingIcon = {
-                        if (form.isSearching) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                if (form.isEditing) {
+                    // The row belongs to one drug; changing it would be a different stock row.
+                    OutlinedTextField(
+                        value = form.drugQuery,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(strings.mkDrug) },
+                        leadingIcon = { Icon(Icons.Filled.Medication, null, tint = TextSecondary) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = form.drugQuery,
+                        onValueChange = onQueryChange,
+                        label = { Text(strings.mkSearchDrug) },
+                        leadingIcon = { Icon(Icons.Filled.Search, null, tint = TextSecondary) },
+                        trailingIcon = {
+                            if (form.isSearching) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 // Results only while searching — picking one collapses the list into the field.
-                if (form.selectedDrug == null && form.drugQuery.isNotBlank() && !form.isSearching) {
+                if (!form.isEditing && form.selectedDrug == null && form.drugQuery.isNotBlank() && !form.isSearching) {
                     Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
                         if (form.drugResults.isEmpty()) {
                             Text(strings.mkNoDrugsFound, color = TextSecondary, style = MaterialTheme.typography.bodySmall)

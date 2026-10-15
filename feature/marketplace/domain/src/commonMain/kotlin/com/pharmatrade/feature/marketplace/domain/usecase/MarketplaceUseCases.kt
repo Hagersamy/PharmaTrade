@@ -23,12 +23,33 @@ class AddMarketInventoryItemUseCase(private val repository: MarketplaceRepositor
         expiryDate: String,
         batchNumber: String?
     ): Result<MarketInventoryItem> {
-        if (drugId.isBlank()) return Result.Error("Select a drug")
-        if (quantity <= 0) return Result.Error("Quantity must be greater than 0")
-        if (unitPrice <= 0) return Result.Error("Price must be greater than 0")
-        if (expiryDate.isBlank()) return Result.Error("Expiry date is required")
+        validateInventoryInput(drugId, quantity, unitPrice, expiryDate)?.let { return it }
         return repository.addInventoryItem(drugId, quantity, unitPrice, expiryDate, batchNumber?.takeIf { it.isNotBlank() })
     }
+}
+
+class UpdateMarketInventoryItemUseCase(private val repository: MarketplaceRepository) {
+    suspend operator fun invoke(
+        inventoryId: String,
+        drugId: String,
+        quantity: Int,
+        unitPrice: Double,
+        expiryDate: String,
+        batchNumber: String?
+    ): Result<MarketInventoryItem> {
+        validateInventoryInput(drugId, quantity, unitPrice, expiryDate)?.let { return it }
+        return repository.updateInventoryItem(
+            inventoryId, drugId, quantity, unitPrice, expiryDate, batchNumber?.takeIf { it.isNotBlank() }
+        )
+    }
+}
+
+private fun validateInventoryInput(drugId: String, quantity: Int, unitPrice: Double, expiryDate: String): Result.Error? = when {
+    drugId.isBlank() -> Result.Error("Select a drug")
+    quantity <= 0 -> Result.Error("Quantity must be greater than 0")
+    unitPrice <= 0 -> Result.Error("Price must be greater than 0")
+    expiryDate.isBlank() -> Result.Error("Expiry date is required")
+    else -> null
 }
 
 class ImportMarketInventoryUseCase(private val repository: MarketplaceRepository) {

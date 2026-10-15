@@ -13,12 +13,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -221,10 +223,10 @@ fun MarketOrderCard(order: MarketOrder, asSeller: Boolean, onClick: () -> Unit, 
 }
 
 @Composable
-fun InventoryRow(item: MarketInventoryItem, modifier: Modifier = Modifier) {
+fun InventoryRow(item: MarketInventoryItem, onEdit: () -> Unit, modifier: Modifier = Modifier) {
     val strings = LocalStrings.current
-    PharmaCard(modifier = modifier.fillMaxWidth()) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    PharmaCard(modifier = modifier.fillMaxWidth().clickable(onClickLabel = strings.mkEditDrug, onClick = onEdit)) {
+        Row(Modifier.padding(start = 14.dp, top = 14.dp, bottom = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Medication, null, tint = PrimaryBlue, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -239,6 +241,9 @@ fun InventoryRow(item: MarketInventoryItem, modifier: Modifier = Modifier) {
                     item.batchNumber?.takeIf { it.isNotBlank() }?.let { strings.mkBatch(it) }
                 ).joinToString(" · ")
                 if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Filled.Edit, contentDescription = strings.mkEditDrug, tint = PrimaryBlue)
             }
         }
     }

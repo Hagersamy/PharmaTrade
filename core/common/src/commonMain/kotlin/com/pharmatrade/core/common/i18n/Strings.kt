@@ -624,6 +624,9 @@ interface Strings {
     val mkExpiryDate: String
     val mkBatchNumber: String
     val mkDrugAddedToast: String
+    val mkEditDrug: String
+    val mkDrug: String
+    val mkDrugUpdatedToast: String
     val mkCollectionTitle: String
     val mkItems: String
     val mkNotes: String

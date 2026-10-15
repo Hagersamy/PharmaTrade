@@ -18,6 +18,14 @@ interface MarketplaceRepository {
         expiryDate: String,
         batchNumber: String?
     ): Result<MarketInventoryItem>
+    suspend fun updateInventoryItem(
+        inventoryId: String,
+        drugId: String,
+        quantity: Int,
+        unitPrice: Double,
+        expiryDate: String,
+        batchNumber: String?
+    ): Result<MarketInventoryItem>
     suspend fun importInventory(fileUri: String, fileName: String): Result<Unit>
 
     // ── Selling: collections ──

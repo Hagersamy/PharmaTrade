@@ -16,6 +16,7 @@ import com.pharmatrade.feature.marketplace.domain.usecase.CreateCollectionUseCas
 import com.pharmatrade.feature.marketplace.domain.usecase.GetMarketInventoryUseCase
 import com.pharmatrade.feature.marketplace.domain.usecase.GetMyCollectionsUseCase
 import com.pharmatrade.feature.marketplace.domain.usecase.ImportMarketInventoryUseCase
+import com.pharmatrade.feature.marketplace.domain.usecase.UpdateMarketInventoryItemUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,10 @@ import kotlinx.coroutines.launch
 // it's shown and refreshes the visible one on resume (e.g. back from an order).
 
 private fun Result.Error.toMessage() = LanguageManager.strings.userMessage(this)
+
+// "12" rather than "12.0" when prefilling the price field.
+private fun formatPriceInput(value: Double): String =
+    if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()
 
 // ── Browse (buyer) ──────────────────────────────────────────────────────────
 
@@ -200,8 +205,12 @@ data class AddInventoryForm(
     val expiryDate: String = "",
     val batchNumber: String = "",
     val isSaving: Boolean = false,
-    val error: String? = null
-)
+    val error: String? = null,
+    // Non-null when editing an existing stock row; its drug is fixed, only the rest can change.
+    val editingItem: MarketInventoryItem? = null
+) {
+    val isEditing: Boolean get() = editingItem != null
+}
 
 data class MarketInventoryUiState(
     val items: List<MarketInventoryItem> = emptyList(),
@@ -217,6 +226,7 @@ data class MarketInventoryUiState(
 class MarketInventoryViewModel(
     private val getMarketInventoryUseCase: GetMarketInventoryUseCase,
     private val addMarketInventoryItemUseCase: AddMarketInventoryItemUseCase,
+    private val updateMarketInventoryItemUseCase: UpdateMarketInventoryItemUseCase,
     private val importMarketInventoryUseCase: ImportMarketInventoryUseCase,
     private val getDrugsUseCase: GetDrugsUseCase
 ) : ViewModel() {
@@ -238,6 +248,19 @@ class MarketInventoryViewModel(
     }
 
     fun openAdd() = _uiState.update { it.copy(addForm = AddInventoryForm()) }
+
+    fun openEdit(item: MarketInventoryItem) = _uiState.update {
+        it.copy(
+            addForm = AddInventoryForm(
+                drugQuery = item.drugName,
+                quantity = item.quantityAvailable.toString(),
+                unitPrice = formatPriceInput(item.unitPrice),
+                expiryDate = item.expiryDate,
+                batchNumber = item.batchNumber.orEmpty(),
+                editingItem = item
+            )
+        )
+    }
 
     fun dismissAdd() {
         if (_uiState.value.addForm?.isSaving == true) return
@@ -275,17 +298,35 @@ class MarketInventoryViewModel(
         if (form.isSaving) return
         viewModelScope.launch {
             _uiState.update { it.copy(addForm = form.copy(isSaving = true, error = null)) }
-            val result = addMarketInventoryItemUseCase(
-                drugId = form.selectedDrug?.id.orEmpty(),
-                quantity = form.quantity.trim().toIntOrNull() ?: 0,
-                unitPrice = form.unitPrice.trim().toDoubleOrNull() ?: 0.0,
-                expiryDate = form.expiryDate,
-                batchNumber = form.batchNumber
-            )
+            val quantity = form.quantity.trim().toIntOrNull() ?: 0
+            val unitPrice = form.unitPrice.trim().toDoubleOrNull() ?: 0.0
+            val editing = form.editingItem
+            val result = if (editing != null) {
+                updateMarketInventoryItemUseCase(
+                    inventoryId = editing.id,
+                    drugId = editing.drugId,
+                    quantity = quantity,
+                    unitPrice = unitPrice,
+                    expiryDate = form.expiryDate,
+                    batchNumber = form.batchNumber
+                )
+            } else {
+                addMarketInventoryItemUseCase(
+                    drugId = form.selectedDrug?.id.orEmpty(),
+                    quantity = quantity,
+                    unitPrice = unitPrice,
+                    expiryDate = form.expiryDate,
+                    batchNumber = form.batchNumber
+                )
+            }
             when (result) {
                 is Result.Success -> {
+                    val strings = LanguageManager.strings
                     _uiState.update {
-                        it.copy(addForm = null, message = LanguageManager.strings.mkDrugAddedToast)
+                        it.copy(
+                            addForm = null,
+                            message = if (editing != null) strings.mkDrugUpdatedToast else strings.mkDrugAddedToast
+                        )
                     }
                     // The endpoint upserts per drug, so reload rather than splice the row in.
                     refresh()

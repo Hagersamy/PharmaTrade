@@ -361,7 +361,7 @@ private fun InventoryTab(viewModel: MarketInventoryViewModel) {
             }
         },
         content = {
-            items(state.items, key = { it.id }) { item -> InventoryRow(item) }
+            items(state.items, key = { it.id }) { item -> InventoryRow(item, onEdit = { viewModel.openEdit(item) }) }
         }
     )
 

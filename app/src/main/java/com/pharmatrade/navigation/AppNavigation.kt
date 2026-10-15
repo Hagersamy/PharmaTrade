@@ -456,6 +456,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                                 MarketInventoryViewModel(
                                     getMarketInventoryUseCase = container.getMarketInventoryUseCase,
                                     addMarketInventoryItemUseCase = container.addMarketInventoryItemUseCase,
+                                    updateMarketInventoryItemUseCase = container.updateMarketInventoryItemUseCase,
                                     importMarketInventoryUseCase = container.importMarketInventoryUseCase,
                                     getDrugsUseCase = container.getDrugsUseCase
                                 )

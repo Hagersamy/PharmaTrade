@@ -161,6 +161,7 @@ class AppContainer(context: Context) {
     // Pharmacy marketplace (P2P) use cases — selling
     val getMarketInventoryUseCase by lazy { GetMarketInventoryUseCase(marketplaceRepository) }
     val addMarketInventoryItemUseCase by lazy { AddMarketInventoryItemUseCase(marketplaceRepository) }
+    val updateMarketInventoryItemUseCase by lazy { UpdateMarketInventoryItemUseCase(marketplaceRepository) }
     val importMarketInventoryUseCase by lazy { ImportMarketInventoryUseCase(marketplaceRepository) }
     val getMyCollectionsUseCase by lazy { GetMyCollectionsUseCase(marketplaceRepository) }
     val getMyCollectionUseCase by lazy { GetMyCollectionUseCase(marketplaceRepository) }

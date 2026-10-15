@@ -65,6 +65,31 @@ class MarketplaceRepositoryImpl(
         decodeObject(api.addInventory(request), MarketInventoryDto.serializer()).toDomain()
     }
 
+    override suspend fun updateInventoryItem(
+        inventoryId: String,
+        drugId: String,
+        quantity: Int,
+        unitPrice: Double,
+        expiryDate: String,
+        batchNumber: String?
+    ): Result<MarketInventoryItem> = call("Failed to update drug") {
+        val request = AddInventoryRequest(
+            drugId = drugId.toInt(),
+            quantityAvailable = quantity,
+            unitPrice = unitPrice,
+            expiryDate = expiryDate,
+            batchNumber = batchNumber
+        )
+        val body = try {
+            api.updateInventory(inventoryId, request)
+        } catch (e: ResponseException) {
+            // PUT isn't documented; POST inventory upserts per drug, so it updates the same row.
+            if (e.response.status.value !in NOT_ROUTED) throw e
+            api.addInventory(request)
+        }
+        decodeObject(body, MarketInventoryDto.serializer()).toDomain()
+    }
+
     override suspend fun importInventory(fileUri: String, fileName: String): Result<Unit> = call("Upload failed") {
         val info = fileReader.read(fileUri) ?: return Result.Error("Could not read the selected file.")
         val resolvedName = info.displayName.ifBlank { fileName }

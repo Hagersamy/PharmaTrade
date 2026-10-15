@@ -14,6 +14,7 @@ import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
@@ -33,6 +34,14 @@ class MarketplaceApi(private val client: HttpClient = ApiClient.httpClient) {
 
     suspend fun addInventory(request: AddInventoryRequest): JsonElement =
         client.post("$BASE/inventory") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
+
+    // NOTE: assumed — not in the backend docs; mirrors the supplier's PUT supplier/inventory/{id}.
+    // The repository falls back to the (upserting) POST if this route doesn't exist.
+    suspend fun updateInventory(id: String, request: AddInventoryRequest): JsonElement =
+        client.put("$BASE/inventory/$id") {
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
