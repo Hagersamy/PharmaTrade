@@ -22,16 +22,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.hints.DismissedHintsStore
 import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.model.User
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.session.SessionManager
+import com.pharmatrade.core.ui.components.CoachMarkOverlay
+import com.pharmatrade.core.ui.components.CoachMarkState
+import com.pharmatrade.core.ui.components.CoachMarkStep
+import com.pharmatrade.core.ui.components.coachMarkTarget
+import com.pharmatrade.core.ui.components.rememberCoachMarkState
 import com.pharmatrade.core.ui.components.GlassBarItem
 import com.pharmatrade.core.ui.components.LiquidGlassBottomBar
 import com.pharmatrade.core.ui.components.LocalBottomBarInset
 import com.pharmatrade.core.ui.theme.*
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
+import kotlinx.coroutines.delay
 import com.pharmatrade.feature.pharmacyorder.domain.model.DraftOrderItem
 import com.pharmatrade.feature.pharmacyorder.presentation.cart.PharmacyCartScreen
 import com.pharmatrade.feature.pharmacyorder.presentation.home.PharmacyHomeScreen
@@ -100,77 +107,135 @@ fun HomeScreen(
         return
     }
 
-    Scaffold(
-        topBar = {
-            HomeTopBar(
-                isSeller = isSeller,
-                userName = currentUser?.name.orEmpty(),
-                unreadNotificationCount = unreadNotificationCount,
-                onNotificationsClick = onNavigateToNotifications,
-                onCreateOrder = onNavigateToOrderMode,
-                onProfileClick = { onTabSelected(HomeTab.PROFILE) },
-                onSearchClick = { onPharmacySearchOpenChange(true) }
-            )
-        },
-        // Matches the tab screens so the top bar's rounded corners sit on the same backdrop.
-        containerColor = BackgroundGray,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
-    ) { padding ->
-        // The glass bar floats over the tab content (rather than sitting in Scaffold's bottomBar
-        // slot) so content scrolls behind it and shows through the blur. Its measured height is
-        // published as LocalBottomBarInset so lists can pad their last item clear of it.
-        val hazeState = remember { HazeState() }
-        val density = LocalDensity.current
-        var bottomBarHeight by remember { mutableStateOf(0.dp) }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            CompositionLocalProvider(LocalBottomBarInset provides bottomBarHeight) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .haze(hazeState)
-                ) {
-                    HomeTabContent(
-                        selectedTab = selectedTab,
-                        sellerDashboardViewModel = sellerDashboardViewModel,
-                        pharmacyHomeViewModel = pharmacyHomeViewModel,
-                        orderListViewModel = orderListViewModel,
-                        sellerOrdersViewModel = sellerOrdersViewModel,
-                        profileViewModel = profileViewModel,
-                        currentUser = currentUser,
-                        unreadPharmacyOrderIds = unreadPharmacyOrderIds,
-                        unreadSupplierOrderIds = unreadSupplierOrderIds,
-                        onNavigateToSettings = onNavigateToSettings,
-                        onNavigateToSearch = onNavigateToSearch,
-                        onNavigateToUploadInventory = onNavigateToUploadInventory,
-                        onNavigateToAddListing = onNavigateToAddListing,
-                        onNavigateToEditListing = onNavigateToEditListing,
-                        onNavigateToOrderDetail = onNavigateToOrderDetail,
-                        onNavigateToSupplierOrderDetail = onNavigateToSupplierOrderDetail,
-                        onCheckoutAll = onCheckoutAll,
-                        onOpenSupplierOrder = onOpenSupplierOrder,
-                        onLogout = onLogout,
-                        marketplaceContent = marketplaceContent
-                    )
-                }
-            }
-            HomeBottomBar(
-                selectedTab = selectedTab,
-                onTabSelected = onTabSelected,
-                isSeller = isSeller,
-                hasMarketplace = marketplaceContent != null,
-                ordersBadgeCount = pharmacyHomeState?.activeOrdersTotal ?: 0,
-                cartBadgeCount = pharmacyHomeState?.totalCartItems ?: 0,
-                hazeState = hazeState,
+    // First visit per role: a guided tour over the top-bar buttons and bottom tabs.
+    val tourState = rememberCoachMarkState()
+    val tourHint = if (isSeller) DismissedHintsStore.HOME_TOUR_SUPPLIER else DismissedHintsStore.HOME_TOUR_PHARMACY
+    val tourSeen by remember(tourHint) { DismissedHintsStore.observe(tourHint) }.collectAsState(initial = true)
+    // Short wait so every target has been laid out (and the screen has settled) before dimming it.
+    var tourReady by remember { mutableStateOf(false) }
+    LaunchedEffect(tourSeen) {
+        tourReady = false
+        if (!tourSeen) {
+            delay(700)
+            tourReady = true
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                HomeTopBar(
+                    tourState = tourState,
+                    isSeller = isSeller,
+                    userName = currentUser?.name.orEmpty(),
+                    unreadNotificationCount = unreadNotificationCount,
+                    onNotificationsClick = onNavigateToNotifications,
+                    onCreateOrder = onNavigateToOrderMode,
+                    onProfileClick = { onTabSelected(HomeTab.PROFILE) },
+                    onSearchClick = { onPharmacySearchOpenChange(true) }
+                )
+            },
+            // Matches the tab screens so the top bar's rounded corners sit on the same backdrop.
+            containerColor = BackgroundGray,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0)
+        ) { padding ->
+            // The glass bar floats over the tab content (rather than sitting in Scaffold's bottomBar
+            // slot) so content scrolls behind it and shows through the blur. Its measured height is
+            // published as LocalBottomBarInset so lists can pad their last item clear of it.
+            val hazeState = remember { HazeState() }
+            val density = LocalDensity.current
+            var bottomBarHeight by remember { mutableStateOf(0.dp) }
+            Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .onSizeChanged { bottomBarHeight = with(density) { it.height.toDp() } }
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                CompositionLocalProvider(LocalBottomBarInset provides bottomBarHeight) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .haze(hazeState)
+                    ) {
+                        HomeTabContent(
+                            selectedTab = selectedTab,
+                            sellerDashboardViewModel = sellerDashboardViewModel,
+                            pharmacyHomeViewModel = pharmacyHomeViewModel,
+                            orderListViewModel = orderListViewModel,
+                            sellerOrdersViewModel = sellerOrdersViewModel,
+                            profileViewModel = profileViewModel,
+                            currentUser = currentUser,
+                            unreadPharmacyOrderIds = unreadPharmacyOrderIds,
+                            unreadSupplierOrderIds = unreadSupplierOrderIds,
+                            onNavigateToSettings = onNavigateToSettings,
+                            onNavigateToSearch = onNavigateToSearch,
+                            onNavigateToUploadInventory = onNavigateToUploadInventory,
+                            onNavigateToAddListing = onNavigateToAddListing,
+                            onNavigateToEditListing = onNavigateToEditListing,
+                            onNavigateToOrderDetail = onNavigateToOrderDetail,
+                            onNavigateToSupplierOrderDetail = onNavigateToSupplierOrderDetail,
+                            onCheckoutAll = onCheckoutAll,
+                            onOpenSupplierOrder = onOpenSupplierOrder,
+                            onLogout = onLogout,
+                            marketplaceContent = marketplaceContent
+                        )
+                    }
+                }
+                HomeBottomBar(
+                    tourState = tourState,
+                    selectedTab = selectedTab,
+                    onTabSelected = onTabSelected,
+                    isSeller = isSeller,
+                    hasMarketplace = marketplaceContent != null,
+                    ordersBadgeCount = pharmacyHomeState?.activeOrdersTotal ?: 0,
+                    cartBadgeCount = pharmacyHomeState?.totalCartItems ?: 0,
+                    hazeState = hazeState,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .onSizeChanged { bottomBarHeight = with(density) { it.height.toDp() } }
+                )
+            }
+        }
+
+        if (tourReady && currentUser != null) {
+            val strings = LocalStrings.current
+            CoachMarkOverlay(
+                state = tourState,
+                steps = homeTourSteps(isSeller, hasMarketplace = marketplaceContent != null),
+                skipLabel = strings.introSkip,
+                nextLabel = strings.introNext,
+                doneLabel = strings.tourDone,
+                onFinish = { DismissedHintsStore.dismiss(tourHint) }
             )
         }
     }
+}
+
+private object TourTarget {
+    const val PROFILE = "profile"
+    const val SEARCH = "search"
+    const val CREATE_ORDER = "create_order"
+    const val NOTIFICATIONS = "notifications"
+    fun tab(tab: HomeTab) = "tab_${tab.name}"
+}
+
+@Composable
+private fun homeTourSteps(isSeller: Boolean, hasMarketplace: Boolean): List<CoachMarkStep> {
+    val s = LocalStrings.current
+    return if (isSeller) listOf(
+        CoachMarkStep(TourTarget.NOTIFICATIONS, s.tourNotificationsTitle, s.tourNotificationsBody),
+        CoachMarkStep(TourTarget.tab(HomeTab.HOME), s.tourHomeTitle, s.tourHomeBodySupplier),
+        CoachMarkStep(TourTarget.tab(HomeTab.ORDERS), s.tourOrdersTitle, s.tourOrdersBodySupplier),
+        CoachMarkStep(TourTarget.tab(HomeTab.PROFILE), s.tourProfileTitle, s.tourProfileBodySupplier)
+    ) else listOfNotNull(
+        CoachMarkStep(TourTarget.PROFILE, s.tourProfileTitle, s.tourProfileBodyPharmacy),
+        CoachMarkStep(TourTarget.SEARCH, s.tourSearchTitle, s.tourSearchBody),
+        CoachMarkStep(TourTarget.CREATE_ORDER, s.tourCreateOrderTitle, s.tourCreateOrderBody),
+        CoachMarkStep(TourTarget.NOTIFICATIONS, s.tourNotificationsTitle, s.tourNotificationsBody),
+        CoachMarkStep(TourTarget.tab(HomeTab.HOME), s.tourHomeTitle, s.tourHomeBodyPharmacy),
+        CoachMarkStep(TourTarget.tab(HomeTab.CART), s.tourCartTitle, s.tourCartBody),
+        CoachMarkStep(TourTarget.tab(HomeTab.ORDERS), s.tourOrdersTitle, s.tourOrdersBodyPharmacy),
+        if (hasMarketplace) CoachMarkStep(TourTarget.tab(HomeTab.MARKET), s.tourMarketTitle, s.tourMarketBody) else null
+    )
 }
 
 @Composable
@@ -244,6 +309,7 @@ private fun HomeTabContent(
 
 @Composable
 private fun HomeTopBar(
+    tourState: CoachMarkState,
     isSeller: Boolean,
     userName: String,
     unreadNotificationCount: Int,
@@ -266,7 +332,11 @@ private fun HomeTopBar(
                 .padding(start = 16.dp, end = 12.dp, top = 10.dp, bottom = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            UserAvatar(name = name, onClick = onProfileClick)
+            UserAvatar(
+                name = name,
+                onClick = onProfileClick,
+                modifier = Modifier.coachMarkTarget(tourState, TourTarget.PROFILE)
+            )
             Spacer(Modifier.width(12.dp))
             // Greeting on a quiet first line, the name as the strong second line: the eye lands
             // on the name, and a long name gets the whole row width instead of sharing it.
@@ -297,19 +367,22 @@ private fun HomeTopBar(
                     TopBarAction(
                         icon = Icons.Filled.Search,
                         contentDescription = strings.pharmacySearchDrugName,
-                        onClick = onSearchClick
+                        onClick = onSearchClick,
+                        modifier = Modifier.coachMarkTarget(tourState, TourTarget.SEARCH)
                     )
                     TopBarAction(
                         icon = Icons.Filled.AddShoppingCart,
                         contentDescription = strings.homeCreateOrderContentDescription,
-                        onClick = onCreateOrder
+                        onClick = onCreateOrder,
+                        modifier = Modifier.coachMarkTarget(tourState, TourTarget.CREATE_ORDER)
                     )
                 }
                 TopBarAction(
                     icon = if (unreadNotificationCount > 0) Icons.Filled.NotificationsActive else Icons.Filled.Notifications,
                     contentDescription = strings.notificationsTitle,
                     badgeCount = unreadNotificationCount,
-                    onClick = onNotificationsClick
+                    onClick = onNotificationsClick,
+                    modifier = Modifier.coachMarkTarget(tourState, TourTarget.NOTIFICATIONS)
                 )
             }
         }
@@ -317,14 +390,14 @@ private fun HomeTopBar(
 }
 
 @Composable
-private fun UserAvatar(name: String, onClick: () -> Unit) {
+private fun UserAvatar(name: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val strings = LocalStrings.current
     val initials = name.split(' ')
         .filter { it.isNotBlank() }
         .take(2)
         .joinToString("") { it.first().uppercase() }
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(46.dp)
             .clip(CircleShape)
             .background(TopBarContent.copy(alpha = 0.16f))
@@ -354,10 +427,12 @@ private fun TopBarAction(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
-    badgeCount: Int = 0
+    badgeCount: Int = 0,
+    modifier: Modifier = Modifier
 ) {
     // The badge sits outside the button so the circular clip doesn't cut it off.
     BadgedBox(
+        modifier = modifier,
         badge = {
             if (badgeCount > 0) {
                 Badge(
@@ -389,6 +464,7 @@ private fun TopBarAction(
 
 @Composable
 private fun HomeBottomBar(
+    tourState: CoachMarkState,
     selectedTab: HomeTab,
     onTabSelected: (HomeTab) -> Unit,
     isSeller: Boolean,
@@ -415,6 +491,7 @@ private fun HomeBottomBar(
         selectedIndex = tabs.indexOfFirst { it.first == selectedTab },
         onItemSelected = { onTabSelected(tabs[it].first) },
         hazeState = hazeState,
-        modifier = modifier
+        modifier = modifier,
+        itemModifier = { Modifier.coachMarkTarget(tourState, TourTarget.tab(tabs[it].first)) }
     )
 }

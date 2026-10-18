@@ -61,7 +61,9 @@ fun LiquidGlassBottomBar(
     selectedIndex: Int,
     onItemSelected: (Int) -> Unit,
     hazeState: HazeState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // Extra modifier per tab, e.g. to tag it as a guided-tour target.
+    itemModifier: (index: Int) -> Modifier = { Modifier }
 ) {
     val isDark = LocalAppColors.current == DarkAppColors
     // Specular highlight strength: bright edge on light glass, a faint rim on dark glass.
@@ -120,7 +122,7 @@ fun LiquidGlassBottomBar(
                             selected = index == selectedIndex,
                             isDark = isDark,
                             onClick = { onItemSelected(index) },
-                            modifier = Modifier.weight(1f).fillMaxHeight()
+                            modifier = Modifier.weight(1f).fillMaxHeight().then(itemModifier(index))
                         )
                     }
                 }

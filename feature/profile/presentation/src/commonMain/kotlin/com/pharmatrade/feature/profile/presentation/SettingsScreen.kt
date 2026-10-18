@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pharmatrade.core.common.hints.DismissedHintsStore
 import com.pharmatrade.core.common.i18n.AppLanguage
 import com.pharmatrade.core.common.i18n.LanguageManager
 import com.pharmatrade.core.common.i18n.LocalStrings
@@ -95,6 +96,28 @@ fun SettingsScreen(
                         onClick = { ThemeManager.setMode(ThemeMode.DARK) },
                         modifier = Modifier.weight(1f)
                     )
+                }
+            }
+
+            // The Home tour exists for pharmacies and suppliers only (admins have their own dashboard).
+            if (currentUser != null && currentUser?.userType != UserType.ADMIN) {
+                SettingsCard(icon = Icons.Filled.TipsAndUpdates, title = strings.settingsAppTour) {
+                    OutlinedButton(
+                        onClick = {
+                            DismissedHintsStore.reset(
+                                DismissedHintsStore.HOME_TOUR_PHARMACY,
+                                DismissedHintsStore.HOME_TOUR_SUPPLIER
+                            )
+                            // Back on Home, where the tour starts again.
+                            onNavigateBack()
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.Replay, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(strings.settingsShowTourAgain, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
 

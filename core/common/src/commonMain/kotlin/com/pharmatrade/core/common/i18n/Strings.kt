@@ -696,4 +696,41 @@ interface Strings {
     val mkStepAccepted: String
     val mkStepReady: String
     val mkStepCompleted: String
+
+    // Intro slides (first launch, before Welcome)
+    val introSkip: String
+    val introNext: String
+    val introGetStarted: String
+    val introTitle1: String
+    val introBody1: String
+    val introTitle2: String
+    val introBody2: String
+    val introTitle3: String
+    val introBody3: String
+    val introTitle4: String
+    val introBody4: String
+
+    // Home guided tour (first visit to Home, per role)
+    val tourDone: String
+    val tourProfileTitle: String
+    val tourProfileBodyPharmacy: String
+    val tourProfileBodySupplier: String
+    val tourSearchTitle: String
+    val tourSearchBody: String
+    val tourCreateOrderTitle: String
+    val tourCreateOrderBody: String
+    val tourNotificationsTitle: String
+    val tourNotificationsBody: String
+    val tourHomeTitle: String
+    val tourHomeBodyPharmacy: String
+    val tourHomeBodySupplier: String
+    val tourCartTitle: String
+    val tourCartBody: String
+    val tourOrdersTitle: String
+    val tourOrdersBodyPharmacy: String
+    val tourOrdersBodySupplier: String
+    val tourMarketTitle: String
+    val tourMarketBody: String
+    val settingsAppTour: String
+    val settingsShowTourAgain: String
 }

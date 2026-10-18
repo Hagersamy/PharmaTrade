@@ -26,6 +26,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import com.pharmatrade.core.common.hints.DismissedHintsStore
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.core.ui.components.PharmaButton
@@ -34,6 +35,7 @@ import com.pharmatrade.di.AppContainer
 import com.pharmatrade.feature.admin.presentation.AdminDashboardScreen
 import com.pharmatrade.feature.admin.presentation.AdminDashboardViewModel
 import com.pharmatrade.feature.admin.presentation.AnalyticsViewModel
+import com.pharmatrade.feature.auth.presentation.intro.IntroScreen
 import com.pharmatrade.feature.auth.presentation.login.LoginScreen
 import com.pharmatrade.feature.auth.presentation.welcome.WelcomeScreen
 import com.pharmatrade.feature.auth.presentation.login.LoginViewModel
@@ -104,6 +106,7 @@ import kotlinx.coroutines.launch
 fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<NotificationDeepLink?>) {
     val startKey = remember {
         when {
+            !SessionManager.isLoggedIn && !DismissedHintsStore.isDismissed(DismissedHintsStore.INTRO_SLIDES) -> NavKeys.Intro
             !SessionManager.isLoggedIn -> NavKeys.Welcome
             SessionManager.user?.isPending == true -> NavKeys.PendingApproval
             SessionManager.user?.isDeclined == true -> NavKeys.RegistrationDeclined
@@ -199,7 +202,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
         // Session lost (logout, expired token) while inside the app → back to Welcome. Already on
         // one of the logged-out screens means there's nothing to redirect.
         val onAuthScreen = backStack.lastOrNull().let {
-            it == NavKeys.Welcome || it == NavKeys.Login || it == NavKeys.Register
+            it == NavKeys.Intro || it == NavKeys.Welcome || it == NavKeys.Login || it == NavKeys.Register
         }
         if (sessionUser == null && !onAuthScreen) {
             selectHomeTab(HomeTab.HOME)
@@ -215,6 +218,16 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
             rememberViewModelStoreNavEntryDecorator()
         ),
         entryProvider = entryProvider {
+
+            entry<NavKeys.Intro> {
+                IntroScreen(
+                    onFinish = {
+                        DismissedHintsStore.dismiss(DismissedHintsStore.INTRO_SLIDES)
+                        // Replace Intro so Back from Welcome exits instead of reopening the slides.
+                        navigator.navigate(NavKeys.Welcome, popUpTo = Navigator.PopUpTo(target = null))
+                    }
+                )
+            }
 
             entry<NavKeys.Welcome> {
                 WelcomeScreen(
