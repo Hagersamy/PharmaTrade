@@ -42,8 +42,9 @@ fun OrderListScreen(
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
         ScrollableTabRow(
             selectedTabIndex = OrderListTab.entries.indexOf(uiState.selectedTab),
-            containerColor = SurfaceWhite,
-            edgePadding = 12.dp
+            containerColor = BackgroundGray,
+            edgePadding = 8.dp,
+            divider = {}
         ) {
             OrderListTab.entries.forEach { tab ->
                 Tab(

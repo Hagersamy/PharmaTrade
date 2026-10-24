@@ -42,8 +42,9 @@ fun SellerOrdersScreen(
     Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
         ScrollableTabRow(
             selectedTabIndex = SupplierOrderTab.entries.indexOf(uiState.selectedTab),
-            containerColor = SurfaceWhite,
-            edgePadding = 12.dp
+            containerColor = BackgroundGray,
+            edgePadding = 8.dp,
+            divider = {}
         ) {
             SupplierOrderTab.entries.forEach { tab ->
                 Tab(
