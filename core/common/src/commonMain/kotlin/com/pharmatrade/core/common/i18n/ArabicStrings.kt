@@ -414,7 +414,7 @@ object ArabicStrings : Strings {
     override val iuUploadInventoryTitle = "رفع المخزون"
     override val iuFileTypesBadge = ".xlsx / .csv"
     override val iuImportDrugCatalogue = "استورد كتالوج أدويتك"
-    override val iuImportBannerDesc = "ارفع ملف Excel أو CSV لإضافة عدة إعلانات دفعة واحدة — بدون إدخال يدوي."
+    override val iuImportBannerDesc = "ارفع ملف Excel أو CSV لإضافة عدة إعلانات دفعة واحدة، بدون إدخال يدوي."
     override val iuTapToChangeFile = "اضغط لتغيير الملف"
     override val iuTapToSelectFile = "اضغط لاختيار ملف"
     override val iuFileTypesHint = ".xlsx  •  .xls  •  .csv"

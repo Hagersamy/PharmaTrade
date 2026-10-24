@@ -411,7 +411,7 @@ object EnglishStrings : Strings {
     override val iuUploadInventoryTitle = "Upload Inventory"
     override val iuFileTypesBadge = ".xlsx / .csv"
     override val iuImportDrugCatalogue = "Import your drug catalogue"
-    override val iuImportBannerDesc = "Upload an Excel or CSV file to add multiple listings at once — no manual entry needed."
+    override val iuImportBannerDesc = "Upload an Excel or CSV file to add multiple listings at once. No manual entry needed."
     override val iuTapToChangeFile = "Tap to change file"
     override val iuTapToSelectFile = "Tap to select file"
     override val iuFileTypesHint = ".xlsx  •  .xls  •  .csv"

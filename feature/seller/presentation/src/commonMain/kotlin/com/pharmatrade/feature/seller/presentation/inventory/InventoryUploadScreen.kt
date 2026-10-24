@@ -62,14 +62,15 @@ fun InventoryUploadScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 32.dp)
         ) {
-            UploadBanner()
-
-            UploadZoneCard(
-                uiState = uiState,
-                onPickFile = launchFilePicker,
-                onUpload = viewModel::upload,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+            UploadHeader {
+                UploadZoneCard(
+                    uiState = uiState,
+                    onPickFile = launchFilePicker,
+                    onUpload = viewModel::upload,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+            Spacer(Modifier.height(12.dp))
 
             UploadStatusSection(
                 uiState = uiState,
@@ -89,7 +90,6 @@ fun InventoryUploadScreen(
             }
 
             FormatGuideCard(
-                initiallyExpanded = uiState.lastUpload == null,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
         }
@@ -101,7 +101,8 @@ fun InventoryUploadScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun UploadTopBar(onNavigateBack: () -> Unit) {
-    Surface(shadowElevation = 4.dp, color = TopBarContainer) {
+    // No shadow: the header below continues this color, so a shadow would split them.
+    Surface(color = TopBarContainer) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -114,81 +115,48 @@ private fun UploadTopBar(onNavigateBack: () -> Unit) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = TopBarContent)
             }
             Spacer(Modifier.width(4.dp))
-            val strings = LocalStrings.current
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = strings.iuBulkImport,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TopBarContent.copy(alpha = 0.75f)
-                )
-                Text(
-                    text = strings.iuUploadInventoryTitle,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = TopBarContent
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .padding(end = 12.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(TopBarContent.copy(alpha = 0.15f))
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = strings.iuFileTypesBadge,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TopBarContent,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+            Text(
+                text = LocalStrings.current.iuUploadInventoryTitle,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = TopBarContent,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
 
-// ── Gradient banner ───────────────────────────────────────────────────────────
+// ── Header ────────────────────────────────────────────────────────────────────
+// Continues the top bar's color down behind the intro text; the upload card sits below it.
 
 @Composable
-private fun UploadBanner() {
+private fun UploadHeader(card: @Composable () -> Unit) {
     val strings = LocalStrings.current
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(PrimaryBlue, PrimaryBlueDark)))
-            .padding(horizontal = 20.dp, vertical = 20.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = strings.iuImportDrugCatalogue,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = strings.iuImportBannerDesc,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.8f),
-                    lineHeight = MaterialTheme.typography.bodySmall.fontSize * 1.5
-                )
-            }
-            Spacer(Modifier.width(16.dp))
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Filled.TableChart,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
+    val contentColor = TopBarContent
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+                .background(TopBarContainer)
+                .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp)
+        ) {
+            Text(
+                text = strings.iuImportDrugCatalogue,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = strings.iuImportBannerDesc,
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor.copy(alpha = 0.8f),
+                lineHeight = MaterialTheme.typography.bodySmall.fontSize * 1.5
+            )
         }
+        Spacer(Modifier.height(16.dp))
+        card()
     }
 }
 
@@ -532,9 +500,10 @@ private fun optionalColumns(strings: com.pharmatrade.core.common.i18n.Strings) =
     "limit" to strings.iuColLimit
 )
 
+// Collapsed by default; the user taps the header to see the column list.
 @Composable
-private fun FormatGuideCard(initiallyExpanded: Boolean, modifier: Modifier = Modifier) {
-    var expanded by remember { mutableStateOf(initiallyExpanded) }
+private fun FormatGuideCard(modifier: Modifier = Modifier) {
+    var expanded by remember { mutableStateOf(false) }
     val strings = LocalStrings.current
     Card(
         modifier = modifier.fillMaxWidth(),

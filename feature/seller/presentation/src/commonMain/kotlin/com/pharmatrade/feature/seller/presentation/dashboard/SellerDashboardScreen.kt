@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -166,25 +168,9 @@ fun SellerDashboardScreen(
                     message = uiState.error!!,
                     onRetry = viewModel::loadData
                 )
-                uiState.inventoryItems.isEmpty() -> EmptyState(
-                    title = strings.sdNoListingsYetTitle,
-                    message = strings.sdNoListingsYetMessage,
-                    icon = Icons.Filled.Inventory,
-                    action = {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            PharmaButton(text = strings.sdAddListingContentDescription, onClick = onNavigateToAddListing)
-                            OutlinedButton(
-                                onClick = onNavigateToUploadInventory,
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth(),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryBlue)
-                            ) {
-                                Icon(Icons.Filled.UploadFile, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text(strings.sdUploadExcelSheet, color = PrimaryBlue)
-                            }
-                        }
-                    }
+                uiState.inventoryItems.isEmpty() -> EmptyInventoryContent(
+                    onUpload = onNavigateToUploadInventory,
+                    onAddListing = onNavigateToAddListing
                 )
                 else -> {
                     val listState = rememberLazyListState()
@@ -359,6 +345,94 @@ private fun EditInventoryItemDialog(uiState: SellerDashboardUiState, viewModel: 
             }
         }
     )
+}
+
+// No listings yet: a top-aligned card that leads with the Excel upload (the usual way a
+// seller fills their inventory), with adding a single listing by hand as the secondary action.
+@Composable
+private fun EmptyInventoryContent(onUpload: () -> Unit, onAddListing: () -> Unit) {
+    val strings = LocalStrings.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp + LocalBottomBarInset.current)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
+            elevation = CardDefaults.cardElevation(2.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(PrimaryBlueContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.Inventory, null, tint = PrimaryBlue, modifier = Modifier.size(28.dp))
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            strings.sdNoListingsYetTitle,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            strings.sdNoListingsYetMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(PrimaryBlueContainer)
+                        .clickable(onClick = onUpload)
+                        .padding(vertical = 20.dp, horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(Icons.Filled.CloudUpload, null, tint = PrimaryBlue, modifier = Modifier.size(36.dp))
+                    Text(
+                        strings.sdUploadExcelSheet,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = PrimaryBlue
+                    )
+                    Text(
+                        strings.iuFileTypesHint,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = onAddListing,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryBlue)
+                ) {
+                    Icon(Icons.Filled.Add, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(strings.sdAddListingContentDescription, color = PrimaryBlue, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
 }
 
 @Composable

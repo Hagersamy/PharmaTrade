@@ -52,7 +52,7 @@ fun DrugFormScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(BackgroundGray)) {
+    Column(modifier = Modifier.fillMaxSize().background(BackgroundGray).imePadding()) {
         PharmaTopBar(
             title = if (editingListingId != null) strings.dfEditListingTitle else strings.dfAddDrugListingTitle,
             onNavigateBack = onNavigateBack
@@ -60,94 +60,70 @@ fun DrugFormScreen(
 
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .weight(1f)
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Drug selector
-            if (editingListingId == null) {
-                SectionHeader(strings.dfSelectDrug)
-                DrugSingleSelectDropdown(
-                    drugs = uiState.availableDrugs,
-                    selectedDrug = viewModel.selectedDrug,
-                    searchQuery = uiState.drugSearchQuery,
-                    onSearchQueryChange = viewModel::onDrugSearchQueryChange,
-                    isLoading = uiState.isLoadingDrugs || uiState.isSearchingDrugs,
-                    hasError = uiState.drugsError != null,
-                    onSelect = { viewModel.onDrugSelected(it.id) },
-                    onAddNewDrug = viewModel::openAddDrugDialog,
-                    onRetry = viewModel::loadDrugs
-                )
-            } else {
-                // Show drug name when editing
-                val listing = viewModel.selectedDrug
-                if (listing != null) {
-                    PharmaCard {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Filled.Medication, null, tint = PrimaryBlue, modifier = Modifier.size(24.dp))
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(listing.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                                Text(listing.genericName, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                            }
-                        }
-                    }
+            val selectedDrug = viewModel.selectedDrug
+            FormSection(icon = Icons.Filled.Medication, title = strings.dfSelectDrug) {
+                if (editingListingId == null) {
+                    DrugSingleSelectDropdown(
+                        drugs = uiState.availableDrugs,
+                        selectedDrug = selectedDrug,
+                        searchQuery = uiState.drugSearchQuery,
+                        onSearchQueryChange = viewModel::onDrugSearchQueryChange,
+                        isLoading = uiState.isLoadingDrugs || uiState.isSearchingDrugs,
+                        hasError = uiState.drugsError != null,
+                        onSelect = { viewModel.onDrugSelected(it.id) },
+                        onAddNewDrug = viewModel::openAddDrugDialog,
+                        onRetry = viewModel::loadDrugs
+                    )
+                }
+                if (selectedDrug != null) {
+                    SelectedDrugChip(selectedDrug)
                 }
             }
 
-            Divider(color = DividerGray)
-            SectionHeader(strings.dfPricingAvailability)
-
-            OutlinedTextField(
-                value = uiState.priceInput,
-                onValueChange = viewModel::onPriceChange,
-                label = { Text(strings.dfPricePerUnit) },
-                leadingIcon = { Icon(Icons.Filled.AttachMoney, null, tint = TextSecondary) },
-                prefix = { Text("EGP ") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, unfocusedBorderColor = DividerGray)
-            )
-
-            OutlinedTextField(
-                value = uiState.discountInput,
-                onValueChange = viewModel::onDiscountChange,
-                label = { Text(strings.dfDiscountPercentage) },
-                leadingIcon = { Icon(Icons.Filled.Discount, null, tint = TextSecondary) },
-                suffix = { Text("%") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, unfocusedBorderColor = DividerGray)
-            )
-
             // No "customer pays" preview: the pharmacy price is calculated by the backend only.
-
             // Unit and expiry-date inputs were removed: POST/PUT supplier/inventory has no field
             // for either, so whatever the supplier entered was silently discarded.
-            OutlinedTextField(
-                value = uiState.quantityInput,
-                onValueChange = viewModel::onQuantityChange,
-                label = { Text(strings.dfQuantityAvailable) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, unfocusedBorderColor = DividerGray)
-            )
+            FormSection(icon = Icons.Filled.Sell, title = strings.dfPricingAvailability) {
+                FormField(
+                    value = uiState.priceInput,
+                    onValueChange = viewModel::onPriceChange,
+                    label = strings.dfPricePerUnit,
+                    keyboardType = KeyboardType.Decimal,
+                    leadingIcon = Icons.Filled.Payments,
+                    suffix = "EGP"
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FormField(
+                        value = uiState.discountInput,
+                        onValueChange = viewModel::onDiscountChange,
+                        label = strings.dfDiscountPercentage,
+                        keyboardType = KeyboardType.Decimal,
+                        leadingIcon = Icons.Filled.Discount,
+                        suffix = "%",
+                        modifier = Modifier.weight(1f)
+                    )
+                    FormField(
+                        value = uiState.quantityInput,
+                        onValueChange = viewModel::onQuantityChange,
+                        label = strings.dfQuantityAvailable,
+                        keyboardType = KeyboardType.Number,
+                        leadingIcon = Icons.Filled.Inventory2,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
 
             if (uiState.error != null) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(ErrorRedContainer)
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -157,20 +133,103 @@ fun DrugFormScreen(
                     Text(uiState.error!!, style = MaterialTheme.typography.bodySmall, color = ErrorRed)
                 }
             }
+        }
 
+        // Save action pinned to the bottom so it stays reachable above the keyboard.
+        Surface(color = SurfaceWhite, shadowElevation = 8.dp) {
             PharmaButton(
                 text = if (editingListingId != null) strings.dfUpdateListing else strings.dfAddListing,
                 onClick = viewModel::save,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 isLoading = uiState.isLoading
             )
-
-            Spacer(Modifier.height(16.dp))
         }
     }
 
     if (uiState.showAddDrugDialog) {
         AddDrugDialog(uiState = uiState, viewModel = viewModel)
+    }
+}
+
+@Composable
+private fun FormSection(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
+        elevation = CardDefaults.cardElevation(1.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(PrimaryBlueContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                }
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = TextPrimary)
+            }
+            content()
+        }
+    }
+}
+
+@Composable
+private fun FormField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    keyboardType: KeyboardType,
+    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier.fillMaxWidth(),
+    suffix: String? = null
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, maxLines = 1) },
+        leadingIcon = { Icon(leadingIcon, null, tint = TextSecondary, modifier = Modifier.size(20.dp)) },
+        suffix = suffix?.let { { Text(it, color = TextSecondary) } },
+        singleLine = true,
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = PrimaryBlue,
+            unfocusedBorderColor = DividerGray,
+            focusedLabelColor = PrimaryBlue
+        )
+    )
+}
+
+@Composable
+private fun SelectedDrugChip(drug: Drug) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(SecondaryGreenContainer)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Icon(Icons.Filled.CheckCircle, null, tint = SecondaryGreenDark, modifier = Modifier.size(20.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(drug.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary, maxLines = 1)
+            if (drug.genericName.isNotBlank()) {
+                Text(drug.genericName, style = MaterialTheme.typography.labelSmall, color = TextSecondary, maxLines = 1)
+            }
+        }
     }
 }
 
