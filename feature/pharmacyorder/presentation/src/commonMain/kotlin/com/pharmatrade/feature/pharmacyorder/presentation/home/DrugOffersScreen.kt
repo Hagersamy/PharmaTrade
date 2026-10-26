@@ -113,17 +113,24 @@ internal fun DrugGroupCard(
     }
 }
 
-// The first two suppliers' avatars overlapping, in the same 42dp slot a single avatar takes.
+// Up to three suppliers' avatars overlapping, in the same 42dp slot a single avatar takes: two on
+// a diagonal, or three in a triangle.
 @Composable
 private fun StackedSupplierAvatars(offers: List<SupplierCatalogItem>) {
+    val shown = offers.take(3)
+    val (avatarSize, positions) = if (shown.size >= 3) {
+        24.dp to listOf(Alignment.TopCenter, Alignment.BottomStart, Alignment.BottomEnd)
+    } else {
+        30.dp to listOf(Alignment.TopStart, Alignment.BottomEnd)
+    }
     Box(modifier = Modifier.size(42.dp)) {
-        offers.take(2).forEachIndexed { index, offer ->
+        shown.forEachIndexed { index, offer ->
             SupplierAvatar(
                 name = offer.supplierName,
                 logoUrl = offer.supplierLogoUrl,
-                size = 30.dp,
+                size = avatarSize,
                 modifier = Modifier
-                    .align(if (index == 0) Alignment.TopStart else Alignment.BottomEnd)
+                    .align(positions[index])
                     .border(2.dp, SurfaceWhite, CircleShape)
             )
         }
