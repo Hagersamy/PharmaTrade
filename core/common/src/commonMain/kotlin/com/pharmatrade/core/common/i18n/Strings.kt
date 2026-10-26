@@ -33,6 +33,7 @@ interface Strings {
     val errorAddressRequired: String
     val errorLicenceFrontRequired: String
     val errorLicenceBackRequired: String
+    val errorLogoRequired: String
     val errorNoFileSelected: String
     val errorDrugNameRequired: String
     val errorTradeNameRequired: String
@@ -211,6 +212,7 @@ interface Strings {
     val pharmacyOutOfStock: String
     fun pharmacyOnlyLeft(quantity: Int): String
     fun pharmacyInStock(quantity: Int): String
+    fun pharmacySuppliersCount(count: Int): String
     val commonAddToCart: String
     val commonDecreaseQuantity: String
     val commonIncreaseQuantity: String
@@ -345,6 +347,7 @@ interface Strings {
     val regLicenceImages: String
     val regFrontOfLicence: String
     val regBackOfLicence: String
+    val regCompanyLogo: String
     val regOrderSettings: String
     val regPharmacyLicenseContentDescription: String
     val regRemoveImageContentDescription: String

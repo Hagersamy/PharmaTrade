@@ -39,6 +39,7 @@ data class RegisterUiState(
     // Supplier (SELLER) only
     val minOrderValue: String = "",
     val minOrderQty: String = "",
+    val logoUri: String? = null,
     // Daily "upload your data" reminder times — saved on-device for this account after sign-up
     val reminderTimes: List<ReminderTime> = emptyList(),
     val isPasswordVisible: Boolean = false,
@@ -87,7 +88,7 @@ class RegisterViewModel(
     fun onPasswordChange(v: String) = update { copy(password = v, error = null).clearing(RegisterField.PASSWORD, RegisterField.CONFIRM_PASSWORD) }
     fun onConfirmPasswordChange(v: String) = update { copy(confirmPassword = v, error = null).clearing(RegisterField.CONFIRM_PASSWORD) }
     fun onBusinessNameChange(v: String) = update { copy(businessName = v, error = null).clearing(RegisterField.BUSINESS_NAME) }
-    fun onUserTypeChange(type: UserType) = update { copy(userType = type, error = null).clearing(RegisterField.MIN_ORDER_VALUE, RegisterField.MIN_ORDER_QTY) }
+    fun onUserTypeChange(type: UserType) = update { copy(userType = type, error = null).clearing(RegisterField.MIN_ORDER_VALUE, RegisterField.MIN_ORDER_QTY, RegisterField.LOGO) }
     fun togglePasswordVisibility() = update { copy(isPasswordVisible = !isPasswordVisible) }
     fun toggleConfirmPasswordVisibility() = update { copy(isConfirmPasswordVisible = !isConfirmPasswordVisible) }
     fun onLicenceNumberChange(v: String) = update { copy(licenceNumber = v, error = null).clearing(RegisterField.LICENCE_NUMBER) }
@@ -104,6 +105,7 @@ class RegisterViewModel(
     fun onLicenceBackSelected(uri: String?) = update { copy(licenceBackUri = uri, error = null).clearing(RegisterField.LICENCE_BACK) }
     fun onMinOrderValueChange(v: String) = update { copy(minOrderValue = v, error = null).clearing(RegisterField.MIN_ORDER_VALUE) }
     fun onMinOrderQtyChange(v: String) = update { copy(minOrderQty = v, error = null).clearing(RegisterField.MIN_ORDER_QTY) }
+    fun onLogoSelected(uri: String?) = update { copy(logoUri = uri, error = null).clearing(RegisterField.LOGO) }
     fun onReminderAdded(time: ReminderTime) = update {
         if (time in reminderTimes || reminderTimes.size >= ReminderTime.MAX_PER_DAY) this
         else copy(reminderTimes = (reminderTimes + time).sorted())
@@ -149,7 +151,8 @@ class RegisterViewModel(
                 licenceFrontUri  = state.licenceFrontUri,
                 licenceBackUri   = state.licenceBackUri,
                 minOrderValue = state.minOrderValue.takeIf { it.isNotBlank() },
-                minOrderQty = state.minOrderQty.takeIf { it.isNotBlank() }
+                minOrderQty = state.minOrderQty.takeIf { it.isNotBlank() },
+                logoUri = state.logoUri
             )
             when (result) {
                 is Result.Success -> {

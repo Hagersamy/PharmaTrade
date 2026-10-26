@@ -19,7 +19,8 @@ interface AuthRepository {
         licenceFrontUri: String? = null,
         licenceBackUri: String? = null,
         minOrderValue: String? = null,
-        minOrderQty: String? = null
+        minOrderQty: String? = null,
+        logoUri: String? = null
     ): Result<User>
     suspend fun logout(): Result<Unit>
 }

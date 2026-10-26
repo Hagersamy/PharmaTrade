@@ -5,7 +5,7 @@ package com.pharmatrade.feature.auth.domain.model
 enum class RegisterField {
     NAME, BUSINESS_NAME, EMAIL, PHONE, PASSWORD, CONFIRM_PASSWORD,
     LICENCE_NUMBER, ZONES, ADDRESS, LICENCE_FRONT, LICENCE_BACK,
-    MIN_ORDER_VALUE, MIN_ORDER_QTY
+    MIN_ORDER_VALUE, MIN_ORDER_QTY, LOGO
 }
 
 enum class RegisterFieldError {

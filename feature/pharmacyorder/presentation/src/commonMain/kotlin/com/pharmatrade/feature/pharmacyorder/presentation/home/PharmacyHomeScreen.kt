@@ -34,6 +34,7 @@ import com.pharmatrade.core.ui.components.ErrorScreen
 import com.pharmatrade.core.ui.components.LoadingScreen
 import com.pharmatrade.core.ui.components.PharmaCard
 import com.pharmatrade.core.ui.components.LocalBottomBarInset
+import com.pharmatrade.core.ui.components.SupplierAvatar
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.feature.pharmacyorder.domain.model.SupplierCatalogItem
 
@@ -65,6 +66,8 @@ internal fun CatalogList(
 
     // catalogItems already holds exactly the server's results (full catalog or ?search= matches).
     val catalogItems = uiState.catalogItems
+    // One row per drug: a drug several suppliers offer shows once and opens its suppliers screen.
+    val catalogGroups = remember(catalogItems) { catalogItems.groupByDrug() }
 
     // Infinite scroll: next page of the current list (catalog or search) while has_next_page.
     LaunchedEffect(listState, catalogItems.size, uiState.canLoadMoreCatalog) {
@@ -79,7 +82,8 @@ internal fun CatalogList(
     // A new search result set starts at the top rather than wherever the old list was scrolled.
     LaunchedEffect(uiState.catalogQuery) { listState.scrollToItem(0) }
 
-    if (uiState.pendingCatalogItem != null) {
+    // While the suppliers screen is open on top, it shows the quantity dialog itself.
+    if (uiState.pendingCatalogItem != null && uiState.openedDrugId == null) {
         val pending = uiState.pendingCatalogItem!!
         CatalogQuantityDialog(
             item = pending,
@@ -137,21 +141,29 @@ internal fun CatalogList(
             }
             else -> {
                 items(
-                    catalogItems,
-                    // catalogItem.id is a stable supplierId_drugId pair (never the list
-                    // position/index) — an index-based key made pagination reassign a
-                    // row's composable to whatever item now sits at that position,
-                    // showing a stale drug name / added-to-cart state.
-                    key = { catalogItem -> catalogItem.id }
-                ) { catalogItem ->
-                    CatalogDrugCard(
-                        item = catalogItem,
-                        addedQuantity = uiState.cartQuantities[catalogItem.id] ?: 0,
-                        onQuickAdd = { viewModel.quickAddCatalogItem(catalogItem) },
-                        onIncrease = { viewModel.incrementCartItem(catalogItem) },
-                        onDecrease = { viewModel.decrementCartItem(catalogItem) },
-                        onOpenDialog = { viewModel.onCatalogItemTapped(catalogItem) }
-                    )
+                    catalogGroups,
+                    // A stable drug (or supplierId_drugId) key, never the list position/index —
+                    // an index-based key made pagination reassign a row's composable to whatever
+                    // item now sits at that position, showing a stale drug name / cart state.
+                    key = { group -> group.key }
+                ) { group ->
+                    if (group.offers.size > 1) {
+                        DrugGroupCard(
+                            group = group,
+                            addedQuantity = group.offers.sumOf { uiState.cartQuantities[it.id] ?: 0 },
+                            onClick = { viewModel.openDrugOffers(group) }
+                        )
+                    } else {
+                        val catalogItem = group.first
+                        CatalogDrugCard(
+                            item = catalogItem,
+                            addedQuantity = uiState.cartQuantities[catalogItem.id] ?: 0,
+                            onQuickAdd = { viewModel.quickAddCatalogItem(catalogItem) },
+                            onIncrease = { viewModel.incrementCartItem(catalogItem) },
+                            onDecrease = { viewModel.decrementCartItem(catalogItem) },
+                            onOpenDialog = { viewModel.onCatalogItemTapped(catalogItem) }
+                        )
+                    }
                 }
                 if (uiState.isLoadingCatalogMore) {
                     item {
@@ -189,20 +201,7 @@ internal fun CatalogDrugCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (item.discountPct > 0) DiscountBadgeContainer else CardGray),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Filled.Medication,
-                    contentDescription = null,
-                    tint = if (item.discountPct > 0) DiscountBadge else TextSecondary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            SupplierAvatar(name = item.supplierName, logoUrl = item.supplierLogoUrl)
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.drugName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary, maxLines = 1)
@@ -297,7 +296,7 @@ fun CartQuantityStepper(
 }
 
 @Composable
-private fun StockChip(outOfStock: Boolean, lowStock: Boolean, quantity: Int) {
+internal fun StockChip(outOfStock: Boolean, lowStock: Boolean, quantity: Int) {
     val strings = LocalStrings.current
     val (label, color, bg) = when {
         outOfStock -> Triple(strings.pharmacyOutOfStock, ErrorRed, ErrorRedContainer)

@@ -30,6 +30,7 @@ object ArabicStrings : Strings {
     override val errorAddressRequired = "العنوان مطلوب."
     override val errorLicenceFrontRequired = "يرجى رفع الوجه الأمامي للترخيص."
     override val errorLicenceBackRequired = "يرجى رفع الوجه الخلفي للترخيص."
+    override val errorLogoRequired = "يرجى رفع شعار الشركة."
     override val errorNoFileSelected = "لم يتم اختيار ملف."
     override val errorDrugNameRequired = "اسم الدواء مطلوب."
     override val errorTradeNameRequired = "الاسم التجاري مطلوب."
@@ -201,6 +202,12 @@ object ArabicStrings : Strings {
     override val pharmacyOutOfStock = "غير متوفر"
     override fun pharmacyOnlyLeft(quantity: Int) = "متبقي $quantity فقط"
     override fun pharmacyInStock(quantity: Int) = "$quantity متوفر"
+    override fun pharmacySuppliersCount(count: Int) = when (count) {
+        1 -> "مورد واحد"
+        2 -> "موردان"
+        in 3..10 -> "$count موردين"
+        else -> "$count مورد"
+    }
     override val commonAddToCart = "إضافة إلى السلة"
     override val commonDecreaseQuantity = "تقليل الكمية"
     override val commonIncreaseQuantity = "زيادة الكمية"
@@ -330,6 +337,7 @@ object ArabicStrings : Strings {
     override val regLicenceImages = "صور الترخيص"
     override val regFrontOfLicence = "الوجه الأمامي للترخيص"
     override val regBackOfLicence = "الوجه الخلفي للترخيص"
+    override val regCompanyLogo = "شعار الشركة (اختياري)"
     override val regOrderSettings = "إعدادات الطلب"
     override val regPharmacyLicenseContentDescription = "ترخيص الصيدلية"
     override val regRemoveImageContentDescription = "إزالة الصورة"

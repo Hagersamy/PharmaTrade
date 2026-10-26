@@ -92,7 +92,9 @@ class RegisterUseCase(private val repository: AuthRepository) {
         licenceFrontUri: String? = null,
         licenceBackUri: String? = null,
         minOrderValue: String? = null,
-        minOrderQty: String? = null
+        minOrderQty: String? = null,
+        // Supplier (SELLER) only, optional — ignored for pharmacies.
+        logoUri: String? = null
     ): Result<User> {
         val errors = validate(
             name, email, phone, password, confirmPassword, userType, businessName, licenceNumber,
@@ -105,7 +107,8 @@ class RegisterUseCase(private val repository: AuthRepository) {
             name.trim(), email.trim(), normalizePhone(phone), password, userType, businessName.trim(),
             licenceNumber!!.trim(), zoneIds.map { it.trim() }, address!!.trim(),
             licenceFrontUri, licenceBackUri,
-            minOrderValue?.trim(), minOrderQty?.trim()
+            minOrderValue?.trim(), minOrderQty?.trim(),
+            logoUri.takeIf { userType == UserType.SELLER }
         )
     }
 }

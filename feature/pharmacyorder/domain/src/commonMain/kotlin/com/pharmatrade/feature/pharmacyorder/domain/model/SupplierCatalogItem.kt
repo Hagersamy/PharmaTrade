@@ -17,5 +17,7 @@ data class SupplierCatalogItem(
     // The backend row behind this item. [id] is supplierId_drugId (the UI/cart key), so two
     // inventory rows for the same supplier+drug share an id — these tell them apart in diagnostics.
     val inventoryId: String = "",
-    val lastUpdated: String = ""
+    val lastUpdated: String = "",
+    // Null when the supplier has no logo — the UI shows an initial-letter avatar instead.
+    val supplierLogoUrl: String? = null
 )

@@ -72,17 +72,21 @@ class AuthRepositoryImpl(
         licenceFrontUri: String?,
         licenceBackUri: String?,
         minOrderValue: String?,
-        minOrderQty: String?
+        minOrderQty: String?,
+        logoUri: String?
     ): Result<User> {
         return try {
             // Convert images first so we can surface an error before hitting the network
             val frontPart = licenceFrontUri?.uriToFormFile("licence_image")
             val backPart = licenceBackUri?.uriToFormFile("licence_image_back")
-            println("AuthRepo: REGISTER (${userType.name}) front=${frontPart != null} back=${backPart != null} zones=$zoneIds")
+            val logoPart = logoUri?.uriToFormFile("logo")
+            println("AuthRepo: REGISTER (${userType.name}) front=${frontPart != null} back=${backPart != null} logo=${logoPart != null} zones=$zoneIds")
             if (licenceFrontUri != null && frontPart == null)
                 return Result.Error("Could not read licence front image. Please pick it again.")
             if (licenceBackUri != null && backPart == null)
                 return Result.Error("Could not read licence back image. Please pick it again.")
+            if (logoUri != null && logoPart == null)
+                return Result.Error("Could not read logo image. Please pick it again.")
 
             // Bounded so a stalled Firebase token fetch (e.g. no connectivity) can never hang
             // registration itself — the account is just created without a push target this time.
@@ -126,7 +130,8 @@ class AuthRepositoryImpl(
                             "\n  min_order_value=$minOrderValue" +
                             "\n  min_order_qty=$minOrderQty" +
                             "\n  device_token=${deviceToken.ifEmpty { "<empty — FCM token not available>" }}" +
-                            "\n  zones=$zoneIds"
+                            "\n  zones=$zoneIds" +
+                            "\n  logo=${logoPart != null}"
                 )
                 api.registerSupplier(
                     name = name,
@@ -142,7 +147,8 @@ class AuthRepositoryImpl(
                     deviceToken = deviceToken,
                     zoneIds = zoneIds,
                     licenceImage = frontPart,
-                    licenceImageBack = backPart
+                    licenceImageBack = backPart,
+                    logo = logoPart
                 )
             }
 
@@ -198,6 +204,7 @@ class AuthRepositoryImpl(
                     "licence_image_back" -> RegisterField.LICENCE_BACK
                     "min_order_value" -> RegisterField.MIN_ORDER_VALUE
                     "min_order_qty" -> RegisterField.MIN_ORDER_QTY
+                    "logo", "logo_url" -> RegisterField.LOGO
                     else -> null
                 } ?: return@forEach
                 val text = runCatching { messages.jsonArray.firstOrNull()?.jsonPrimitive?.contentOrNull }

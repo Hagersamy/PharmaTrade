@@ -80,6 +80,7 @@ import com.pharmatrade.feature.pharmacyorder.presentation.allocation.AllocationS
 import com.pharmatrade.feature.pharmacyorder.presentation.allocation.AllocationViewModel
 import com.pharmatrade.feature.pharmacyorder.presentation.checkout.CheckoutScreen
 import com.pharmatrade.feature.pharmacyorder.presentation.checkout.CheckoutViewModel
+import com.pharmatrade.feature.pharmacyorder.presentation.home.DrugOffersScreen
 import com.pharmatrade.feature.pharmacyorder.presentation.home.PharmacyHomeViewModel
 import com.pharmatrade.feature.pharmacyorder.presentation.orderdetail.OrderDetailScreen
 import com.pharmatrade.feature.pharmacyorder.presentation.orderdetail.OrderDetailViewModel
@@ -519,6 +520,11 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                     }
                     if (homeSelectedTab == HomeTab.MARKET) marketplaceVms?.refresh(marketTab)
                 }
+                // A drug's suppliers screen is drawn over Home (it shares Home's ViewModel and cart),
+                // so back has to close it here — composed after the app-level handlers, it wins.
+                val openedDrugId = pharmacyHomeVm?.uiState?.collectAsState()?.value?.openedDrugId
+                BackHandler(enabled = openedDrugId != null) { pharmacyHomeVm?.closeDrugOffers() }
+                Box(Modifier.fillMaxSize()) {
                 HomeScreen(
                     sellerDashboardViewModel = sellerVm,
                     pharmacyHomeViewModel = pharmacyHomeVm,
@@ -601,6 +607,8 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         }
                     }
                 )
+                pharmacyHomeVm?.let { DrugOffersScreen(viewModel = it) }
+                }
             }
 
             entry<NavKeys.Checkout> { key ->

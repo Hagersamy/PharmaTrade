@@ -134,11 +134,14 @@ class PharmaTradeApp : Application() {
     private fun setupCoil() {
         val client = OkHttpClient.Builder()
             .addInterceptor { chain ->
+                // Only our own backend gets the session token — images also come from third-party
+                // hosts (e.g. supplier logos on Cloudinary), which must never see it.
+                val isApiHost = chain.request().url.host == ApiClient.baseUrl.toHttpUrlOrNull()?.host
                 val req = chain.request().newBuilder()
-                    .addHeader("ngrok-skip-browser-warning", "true")
                     .apply {
-                        SessionManager.authToken?.let {
-                            addHeader("Authorization", "Bearer $it")
+                        if (isApiHost) {
+                            addHeader("ngrok-skip-browser-warning", "true")
+                            SessionManager.authToken?.let { addHeader("Authorization", "Bearer $it") }
                         }
                     }
                     .build()

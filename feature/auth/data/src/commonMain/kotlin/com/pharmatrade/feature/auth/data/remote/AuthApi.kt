@@ -74,7 +74,8 @@ class AuthApi(private val client: HttpClient = ApiClient.httpClient) {
         deviceToken: String,
         zoneIds: List<String>,
         licenceImage: FormFile?,
-        licenceImageBack: FormFile?
+        licenceImageBack: FormFile?,
+        logo: FormFile?
     ): ApiResponse<AuthData> = client.submitFormWithBinaryData(
         url = "register/supplier",
         formData = formData {
@@ -92,6 +93,8 @@ class AuthApi(private val client: HttpClient = ApiClient.httpClient) {
             zoneIds.forEachIndexed { index, id -> append("zones[$index]", id) }
             appendFile("licence_image", licenceImage)
             appendFile("licence_image_back", licenceImageBack)
+            // Request key assumed from the response's "logo_url" — confirm with the backend.
+            appendFile("logo", logo)
         }
     ).body()
 }

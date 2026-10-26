@@ -191,6 +191,7 @@ data class SupplierCatalogItemDto(
             id = inventoryId.rawIntOrZero().toString(),
             supplierId = supplier?.id.rawIntOrZero().toString(),
             supplierName = supplier?.name ?: "",
+            supplierLogoUrl = supplier?.logoUrl?.takeIf { it.isNotBlank() },
             drugId = (drugId ?: drug?.id).rawIntOrZero().toString(),
             drugName = drugName ?: "",
             dosageForm = dosageForm ?: drug?.dosageForm ?: "",
@@ -292,7 +293,9 @@ data class OrderItemDto(
 @Serializable
 data class SupplierRefDto(
     @SerialName("id") val id: JsonElement? = null,
-    @SerialName("name") val name: String? = null
+    @SerialName("name") val name: String? = null,
+    // Sent on GET pharmacy/suppliers/drugs (null when the supplier registered without a logo).
+    @SerialName("logo_url") val logoUrl: String? = null
 )
 
 @Serializable

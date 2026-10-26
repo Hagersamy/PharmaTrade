@@ -83,7 +83,12 @@ data class PharmacyHomeUiState(
     // (increment/decrement/dialog re-entry) can remove the old line and re-add the new amount
     // — the backend only exposes add (additive) and remove (whole line), no update-quantity call.
     val cartItemIds: Map<String, String> = emptyMap(),
-    val supplierCarts: Map<String, SupplierCartOrder> = emptyMap()
+    val supplierCarts: Map<String, SupplierCartOrder> = emptyMap(),
+    // The drug whose suppliers screen is open (a Home row grouping several suppliers was tapped),
+    // or null. drugOffers holds every supplier offering it, cheapest first.
+    val openedDrugId: String? = null,
+    val drugOffers: List<SupplierCatalogItem> = emptyList(),
+    val isLoadingDrugOffers: Boolean = false
 ) {
     val totalCartItems: Int get() = supplierCarts.values.sumOf { it.itemCount }
     val canLoadMoreCatalog: Boolean
@@ -92,6 +97,8 @@ data class PharmacyHomeUiState(
 }
 
 private const val CATALOG_PAGE_SIZE = 20
+// One drug's name search on the suppliers screen — big enough to hold every supplier offering it.
+private const val DRUG_OFFERS_PAGE_SIZE = 50
 private const val SEARCH_DEBOUNCE_MS = 500L
 // How long the buyer must stop tapping +/- on an item before its quantity is sent to the backend.
 private const val CART_SYNC_DEBOUNCE_MS = 700L
@@ -496,6 +503,40 @@ class PharmacyHomeViewModel(
             }
             is Result.Loading -> Unit
         }
+    }
+
+    // ── One drug, every supplier ──────────────────────────────────────────────
+
+    private var drugOffersJob: Job? = null
+
+    // Opens the suppliers screen for this drug. Shows the offers already loaded on Home right
+    // away, then searches the drug's name to pick up suppliers on pages Home hasn't reached yet.
+    fun openDrugOffers(group: CatalogDrugGroup) {
+        rememberActiveSearch()
+        val drugId = group.first.drugId
+        update {
+            copy(openedDrugId = drugId, drugOffers = group.offers, isLoadingDrugOffers = true, catalogActionError = null)
+        }
+        drugOffersJob?.cancel()
+        drugOffersJob = viewModelScope.launch {
+            val result = getAllSuppliersDrugsUseCase(page = 1, search = group.first.drugName.trim(), perPage = DRUG_OFFERS_PAGE_SIZE)
+            if (_uiState.value.openedDrugId != drugId) return@launch
+            val found = (result as? Result.Success)?.data?.items
+                ?.filter { it.drugId == drugId && it.effectivePrice > 0 }
+                .orEmpty()
+            update {
+                copy(
+                    drugOffers = (drugOffers + found).distinctBy { it.id }.sortedBy { it.pharmacistPrice },
+                    isLoadingDrugOffers = false,
+                    knownCatalogItems = knownCatalogItems + found.associateBy { it.id }
+                )
+            }
+        }
+    }
+
+    fun closeDrugOffers() {
+        drugOffersJob?.cancel()
+        update { copy(openedDrugId = null, drugOffers = emptyList(), isLoadingDrugOffers = false) }
     }
 
     fun onCatalogItemTapped(item: SupplierCatalogItem) {

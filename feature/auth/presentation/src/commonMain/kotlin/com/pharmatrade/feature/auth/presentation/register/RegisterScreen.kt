@@ -62,6 +62,10 @@ fun RegisterScreen(
         mimeTypes = listOf("image/*")
     ) { uri, _ -> viewModel.onLicenceBackSelected(uri) }
 
+    val launchLogoPicker = rememberFilePickerLauncher(
+        mimeTypes = listOf("image/*")
+    ) { uri, _ -> viewModel.onLogoSelected(uri) }
+
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) onNavigateToPendingApproval()
     }
@@ -293,6 +297,19 @@ fun RegisterScreen(
 
             // ── Supplier-only fields ──────────────────────────────────────────
             if (uiState.userType == UserType.SELLER) {
+                Text(
+                    text = strings.regCompanyLogo,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TextSecondary,
+                    modifier = Modifier.trackField(RegisterField.LOGO)
+                )
+                LicenseImagePicker(
+                    selectedUri = uiState.logoUri,
+                    onPickImage = launchLogoPicker,
+                    onRemoveImage = { viewModel.onLogoSelected(null) },
+                    errorMessage = errorFor(RegisterField.LOGO)
+                )
+
                 Divider(color = DividerGray)
                 Text(text = strings.regOrderSettings, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = TextPrimary)
 
@@ -406,6 +423,7 @@ private fun Strings.registerErrorText(field: RegisterField, error: RegisterField
         RegisterField.LICENCE_BACK -> regBackOfLicence
         RegisterField.MIN_ORDER_VALUE -> profileDialogMinOrderValueEgp
         RegisterField.MIN_ORDER_QTY -> profileDialogMinOrderQty
+        RegisterField.LOGO -> regCompanyLogo
     }
     return when (error) {
         RegisterFieldError.REQUIRED -> when (field) {
@@ -422,11 +440,12 @@ private fun Strings.registerErrorText(field: RegisterField, error: RegisterField
             RegisterField.LICENCE_BACK -> errorLicenceBackRequired
             RegisterField.MIN_ORDER_VALUE -> errorInvalidMinOrderValue
             RegisterField.MIN_ORDER_QTY -> errorInvalidMinOrderQty
+            RegisterField.LOGO -> errorLogoRequired
         }
         RegisterFieldError.INVALID_FORMAT -> when (field) {
             RegisterField.PHONE -> errorPhoneFormat
             RegisterField.EMAIL -> errorInvalidEmail
-            RegisterField.LICENCE_FRONT, RegisterField.LICENCE_BACK -> errorLicenceImageInvalid
+            RegisterField.LICENCE_FRONT, RegisterField.LICENCE_BACK, RegisterField.LOGO -> errorLicenceImageInvalid
             else -> errorFieldInvalid(label)
         }
         RegisterFieldError.TOO_SHORT ->
@@ -438,7 +457,7 @@ private fun Strings.registerErrorText(field: RegisterField, error: RegisterField
             else -> errorFieldTaken(label)
         }
         RegisterFieldError.INVALID -> when (field) {
-            RegisterField.LICENCE_FRONT, RegisterField.LICENCE_BACK -> errorLicenceImageInvalid
+            RegisterField.LICENCE_FRONT, RegisterField.LICENCE_BACK, RegisterField.LOGO -> errorLicenceImageInvalid
             RegisterField.MIN_ORDER_VALUE -> errorInvalidMinOrderValue
             RegisterField.MIN_ORDER_QTY -> errorInvalidMinOrderQty
             RegisterField.PHONE -> errorPhoneFormat
