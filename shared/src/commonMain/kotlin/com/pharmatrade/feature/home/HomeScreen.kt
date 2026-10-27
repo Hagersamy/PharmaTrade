@@ -16,12 +16,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import com.pharmatrade.core.common.hints.DismissedHintsStore
 import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.model.User
@@ -97,6 +99,12 @@ fun HomeScreen(
     val pharmacyHomeState = pharmacyHomeViewModel?.uiState?.collectAsStateWithLifecycle()?.value
     val isSeller = currentUser?.userType == UserType.SELLER
 
+    // A supplier's top bar shows their logo, which comes from GET /profile — so load the profile
+    // with Home for suppliers instead of waiting for the Profile tab to be opened.
+    LaunchedEffect(isSeller) {
+        if (isSeller) profileViewModel.onScreenShown()
+    }
+
     // The pharmacy drug search covers the whole of Home (top bar and bottom bar included) — see
     // PharmacySearchScreen for why it isn't a separate nav destination.
     if (isPharmacySearchOpen && pharmacyHomeViewModel != null) {
@@ -128,6 +136,7 @@ fun HomeScreen(
                     tourState = tourState,
                     isSeller = isSeller,
                     userName = currentUser?.name.orEmpty(),
+                    logoUrl = currentUser?.logoUrl?.takeIf { isSeller },
                     unreadNotificationCount = unreadNotificationCount,
                     onNotificationsClick = onNavigateToNotifications,
                     onCreateOrder = onNavigateToOrderMode,
@@ -312,6 +321,7 @@ private fun HomeTopBar(
     tourState: CoachMarkState,
     isSeller: Boolean,
     userName: String,
+    logoUrl: String?,
     unreadNotificationCount: Int,
     onNotificationsClick: () -> Unit,
     onCreateOrder: () -> Unit,
@@ -334,6 +344,7 @@ private fun HomeTopBar(
         ) {
             UserAvatar(
                 name = name,
+                logoUrl = logoUrl,
                 onClick = onProfileClick,
                 modifier = Modifier.coachMarkTarget(tourState, TourTarget.PROFILE)
             )
@@ -390,12 +401,14 @@ private fun HomeTopBar(
 }
 
 @Composable
-private fun UserAvatar(name: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun UserAvatar(name: String, logoUrl: String?, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val strings = LocalStrings.current
     val initials = name.split(' ')
         .filter { it.isNotBlank() }
         .take(2)
         .joinToString("") { it.first().uppercase() }
+    // Initials show until the logo has loaded (and stay if it fails), so the circle is never empty.
+    var logoLoaded by remember(logoUrl) { mutableStateOf(false) }
     Box(
         modifier = modifier
             .size(46.dp)
@@ -405,7 +418,9 @@ private fun UserAvatar(name: String, onClick: () -> Unit, modifier: Modifier = M
             .clickable(onClickLabel = strings.navProfile, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        if (initials.isNotEmpty()) {
+        if (logoLoaded) {
+            // The logo below covers the circle.
+        } else if (initials.isNotEmpty()) {
             Text(
                 text = initials,
                 style = MaterialTheme.typography.titleMedium,
@@ -417,6 +432,16 @@ private fun UserAvatar(name: String, onClick: () -> Unit, modifier: Modifier = M
                 imageVector = Icons.Filled.Person,
                 contentDescription = null,
                 tint = TopBarContent
+            )
+        }
+        if (logoUrl != null) {
+            AsyncImage(
+                model = logoUrl,
+                contentDescription = name,
+                contentScale = ContentScale.Crop,
+                onSuccess = { logoLoaded = true },
+                onError = { logoLoaded = false },
+                modifier = Modifier.fillMaxSize().clip(CircleShape)
             )
         }
     }

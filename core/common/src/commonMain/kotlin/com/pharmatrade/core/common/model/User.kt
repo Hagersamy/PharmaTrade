@@ -19,7 +19,9 @@ data class User(
     val licenceBackUri: String? = null,
     val additionalZoneIds: List<String> = emptyList(),
     val minOrderValue: String? = null,
-    val minOrderQty: String? = null
+    val minOrderQty: String? = null,
+    // Supplier's logo (from GET /profile or a logo upload); shown in the Home top bar and Profile.
+    val logoUrl: String? = null
 ) {
     val isPending: Boolean get() = status?.lowercase() == "pending"
     val isDeclined: Boolean get() = status?.lowercase() in setOf("rejected", "declined")

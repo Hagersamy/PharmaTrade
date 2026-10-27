@@ -62,6 +62,10 @@ class UpdateBranchProfileUseCase(private val repository: ProfileRepository) {
     }
 }
 
+class UploadSupplierLogoUseCase(private val repository: ProfileRepository) {
+    suspend operator fun invoke(imageUri: String): Result<String?> = repository.uploadLogo(imageUri)
+}
+
 class RequestZoneUpdateUseCase(private val repository: ProfileRepository) {
     suspend operator fun invoke(zoneIds: List<Int>, reason: String): Result<ZoneUpdateRequest> {
         if (zoneIds.isEmpty()) return Result.Error("Please select at least one zone")

@@ -369,6 +369,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                                 updateSupplierProfileUseCase = container.updateSupplierProfileUseCase,
                                 updateBranchProfileUseCase = container.updateBranchProfileUseCase,
                                 requestZoneUpdateUseCase = container.requestZoneUpdateUseCase,
+                                uploadSupplierLogoUseCase = container.uploadSupplierLogoUseCase,
                                 zoneRepository = container.zoneRepository
                             )
                         }
@@ -495,6 +496,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                                 updateSupplierProfileUseCase = container.updateSupplierProfileUseCase,
                                 updateBranchProfileUseCase = container.updateBranchProfileUseCase,
                                 requestZoneUpdateUseCase = container.requestZoneUpdateUseCase,
+                                uploadSupplierLogoUseCase = container.uploadSupplierLogoUseCase,
                                 zoneRepository = container.zoneRepository
                             )
                         }

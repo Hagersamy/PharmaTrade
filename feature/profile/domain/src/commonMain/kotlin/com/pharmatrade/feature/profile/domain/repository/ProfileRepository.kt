@@ -12,5 +12,7 @@ interface ProfileRepository {
     suspend fun changePassword(email: String, currentPassword: String, newPassword: String, confirmPassword: String): Result<Unit>
     suspend fun updateSupplier(name: String, minOrderValue: Double, minOrderQty: Int): Result<SupplierProfile>
     suspend fun updateBranch(name: String, address: String, phone: String, licenceNumber: String): Result<BranchProfile>
+    /** Uploads a new supplier logo from a picked image; returns its URL (null if the backend didn't send one back). */
+    suspend fun uploadLogo(imageUri: String): Result<String?>
     suspend fun requestZoneUpdate(zoneIds: List<Int>, reason: String): Result<ZoneUpdateRequest>
 }

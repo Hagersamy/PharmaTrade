@@ -44,7 +44,11 @@ data class SupplierProfileDto(
     @SerialName("licence_number") val licenceNumber: String? = null,
     @SerialName("min_order_value") val minOrderValue: String? = null,
     @SerialName("min_order_qty") val minOrderQty: JsonElement? = null,
-    @SerialName("zones") val zones: List<ZoneDto>? = null
+    @SerialName("zones") val zones: List<ZoneDto>? = null,
+    // Assumed to match the catalog's supplier.logo_url — not yet seen on a live GET /profile, so
+    // "logo" is read too; the repository also searches the whole reply as a last resort.
+    @SerialName("logo_url") val logoUrl: String? = null,
+    @SerialName("logo") val logo: String? = null
 ) {
     fun toDomain() = SupplierProfile(
         id = id.rawIntOrZero().toString(),
@@ -52,7 +56,8 @@ data class SupplierProfileDto(
         licenceNumber = licenceNumber,
         minOrderValue = minOrderValue ?: "0",
         minOrderQty = minOrderQty.rawIntOrZero(),
-        zones = zones?.map { it.toZone() } ?: emptyList()
+        zones = zones?.map { it.toZone() } ?: emptyList(),
+        logoUrl = listOf(logoUrl, logo).firstOrNull { !it.isNullOrBlank() }
     )
 }
 

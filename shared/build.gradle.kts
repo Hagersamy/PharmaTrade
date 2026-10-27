@@ -28,6 +28,7 @@ kotlin {
         commonMain.dependencies {
             exportedModules.forEach { api(project(it)) }
             implementation(libs.androidx.lifecycle.runtime.compose)
+            implementation(libs.coil.compose)
         }
     }
 }

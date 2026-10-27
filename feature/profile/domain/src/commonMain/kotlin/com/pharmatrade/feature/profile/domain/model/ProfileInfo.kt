@@ -19,7 +19,8 @@ data class SupplierProfile(
     val licenceNumber: String?,
     val minOrderValue: String,
     val minOrderQty: Int,
-    val zones: List<Zone> = emptyList()
+    val zones: List<Zone> = emptyList(),
+    val logoUrl: String? = null
 )
 
 data class BranchProfile(

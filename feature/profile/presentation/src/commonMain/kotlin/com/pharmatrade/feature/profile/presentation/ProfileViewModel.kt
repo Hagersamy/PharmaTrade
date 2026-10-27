@@ -19,6 +19,7 @@ import com.pharmatrade.feature.profile.domain.usecase.RequestZoneUpdateUseCase
 import com.pharmatrade.feature.profile.domain.usecase.UpdateBranchProfileUseCase
 import com.pharmatrade.feature.profile.domain.usecase.UpdateProfileUseCase
 import com.pharmatrade.feature.profile.domain.usecase.UpdateSupplierProfileUseCase
+import com.pharmatrade.feature.profile.domain.usecase.UploadSupplierLogoUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +29,12 @@ data class ProfileUiState(
     val user: User? = SessionManager.user,
     val supplierZones: List<Zone> = emptyList(),
     val isLoadingProfile: Boolean = false,
+
+    // Supplier logo: the saved URL, or the just-picked image while it uploads (and after, if the
+    // upload response didn't include the new URL).
+    val supplierLogoUrl: String? = SessionManager.user?.logoUrl,
+    val isUploadingLogo: Boolean = false,
+    val logoError: String? = null,
 
     val branch: Branch? = null,
     val isLoadingBranch: Boolean = false,
@@ -83,6 +90,7 @@ class ProfileViewModel(
     private val updateSupplierProfileUseCase: UpdateSupplierProfileUseCase,
     private val updateBranchProfileUseCase: UpdateBranchProfileUseCase,
     private val requestZoneUpdateUseCase: RequestZoneUpdateUseCase,
+    private val uploadSupplierLogoUseCase: UploadSupplierLogoUseCase,
     private val zoneRepository: ZoneRepository
 ) : ViewModel() {
 
@@ -111,7 +119,10 @@ class ProfileViewModel(
                     copy(
                         isLoadingProfile = false,
                         user = SessionManager.user,
-                        supplierZones = result.data.supplier?.zones ?: emptyList()
+                        supplierZones = result.data.supplier?.zones ?: emptyList(),
+                        // Don't overwrite a logo that's mid-upload with the old one.
+                        supplierLogoUrl = if (isUploadingLogo) supplierLogoUrl
+                        else result.data.supplier?.logoUrl ?: SessionManager.user?.logoUrl ?: supplierLogoUrl
                     )
                 }
                 is Result.Error -> update { copy(isLoadingProfile = false) }
@@ -293,6 +304,40 @@ class ProfileViewModel(
                 }
                 is Result.Error -> update {
                     copy(isSavingSupplier = false, supplierError = LanguageManager.strings.friendlyError(result.message))
+                }
+                is Result.Loading -> Unit
+            }
+        }
+    }
+
+    // --- Supplier logo ---
+
+    // A new image was picked: show it right away and upload it to POST profile/logo. On failure
+    // the previous logo comes back.
+    fun onLogoPicked(uri: String?) {
+        if (uri == null || _uiState.value.isUploadingLogo) return
+        val previous = _uiState.value.supplierLogoUrl
+        update { copy(supplierLogoUrl = uri, isUploadingLogo = true, logoError = null) }
+        viewModelScope.launch {
+            when (val result = uploadSupplierLogoUseCase(uri)) {
+                is Result.Success -> {
+                    update {
+                        copy(
+                            isUploadingLogo = false,
+                            supplierLogoUrl = result.data ?: uri,
+                            successMessage = "Logo updated"
+                        )
+                    }
+                    // No URL in the upload reply: re-read the profile so the saved logo (not the
+                    // locally picked file) reaches the session and the Home top bar.
+                    if (result.data == null) loadProfile()
+                }
+                is Result.Error -> update {
+                    copy(
+                        isUploadingLogo = false,
+                        supplierLogoUrl = previous,
+                        logoError = LanguageManager.strings.friendlyError(result.message)
+                    )
                 }
                 is Result.Loading -> Unit
             }

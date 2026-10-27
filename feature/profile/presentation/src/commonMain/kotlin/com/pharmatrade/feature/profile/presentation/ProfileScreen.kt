@@ -30,8 +30,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pharmatrade.core.common.i18n.LocalStrings
 import com.pharmatrade.core.common.model.User
 import com.pharmatrade.core.common.model.UserType
+import com.pharmatrade.core.io.rememberFilePickerLauncher
 import com.pharmatrade.core.ui.components.LocalBottomBarInset
 import com.pharmatrade.core.ui.components.PharmaTextField
+import com.pharmatrade.core.ui.components.SupplierAvatar
 import com.pharmatrade.core.ui.theme.*
 import com.pharmatrade.core.common.model.Zone
 import com.pharmatrade.feature.pharmacyorder.domain.model.Branch
@@ -48,6 +50,10 @@ fun ProfileScreen(
     val strings = LocalStrings.current
 
     LaunchedEffect(Unit) { viewModel.onScreenShown() }
+
+    val launchLogoPicker = rememberFilePickerLauncher(
+        mimeTypes = listOf("image/*")
+    ) { uri, _ -> viewModel.onLogoPicked(uri) }
 
     LaunchedEffect(uiState.successMessage) {
         if (uiState.successMessage != null) {
@@ -82,19 +88,32 @@ fun ProfileScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(PrimaryBlue),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = user?.name?.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                    style = MaterialTheme.typography.displaySmall,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
+            if (user?.userType == UserType.SELLER) {
+                EditableSupplierLogo(
+                    name = user.businessName?.takeIf { it.isNotBlank() } ?: user.name,
+                    logoUrl = uiState.supplierLogoUrl,
+                    isUploading = uiState.isUploadingLogo,
+                    onPick = launchLogoPicker
                 )
+                uiState.logoError?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = ErrorRed)
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(PrimaryBlue),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = user?.name?.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                        style = MaterialTheme.typography.displaySmall,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
             Spacer(Modifier.height(12.dp))
             Text(
@@ -252,6 +271,41 @@ fun ProfileScreen(
     }
     if (uiState.showRequestZoneDialog) {
         RequestZoneDialog(uiState, viewModel)
+    }
+}
+
+// The supplier's logo (or generic avatar) with a camera badge — tap to pick a new one, which
+// uploads right away. Dimmed with a spinner while the upload runs.
+@Composable
+private fun EditableSupplierLogo(
+    name: String,
+    logoUrl: String?,
+    isUploading: Boolean,
+    onPick: () -> Unit
+) {
+    Box(
+        modifier = Modifier.clickable(enabled = !isUploading, onClick = onPick),
+        contentAlignment = Alignment.Center
+    ) {
+        SupplierAvatar(name = name, logoUrl = logoUrl, size = 80.dp)
+        if (isUploading) {
+            Box(
+                modifier = Modifier.size(80.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.35f)),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.5.dp, color = Color.White)
+            }
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .size(26.dp)
+                .clip(CircleShape)
+                .background(PrimaryBlue),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+        }
     }
 }
 

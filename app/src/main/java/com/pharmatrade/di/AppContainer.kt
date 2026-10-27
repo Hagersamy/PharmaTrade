@@ -58,6 +58,7 @@ import com.pharmatrade.feature.profile.domain.usecase.RequestZoneUpdateUseCase
 import com.pharmatrade.feature.profile.domain.usecase.UpdateBranchProfileUseCase
 import com.pharmatrade.feature.profile.domain.usecase.UpdateProfileUseCase
 import com.pharmatrade.feature.profile.domain.usecase.UpdateSupplierProfileUseCase
+import com.pharmatrade.feature.profile.domain.usecase.UploadSupplierLogoUseCase
 import com.pharmatrade.feature.seller.data.repository.SellerRepositoryImpl
 import com.pharmatrade.feature.seller.domain.repository.SellerRepository
 import com.pharmatrade.feature.seller.domain.usecase.*
@@ -87,7 +88,7 @@ class AppContainer(context: Context) {
         PharmacyCartStoreImpl(SharedPreferencesSettings(prefs))
     }
     val supplierOrderRepository: SupplierOrderRepository by lazy { SupplierOrderRepositoryImpl() }
-    val profileRepository: ProfileRepository by lazy { ProfileRepositoryImpl() }
+    val profileRepository: ProfileRepository by lazy { ProfileRepositoryImpl(PlatformFileReader(appContext)) }
     val notificationRepository: NotificationRepository by lazy { NotificationRepositoryImpl() }
     val marketplaceRepository: MarketplaceRepository by lazy { MarketplaceRepositoryImpl(PlatformFileReader(appContext)) }
 
@@ -189,6 +190,7 @@ class AppContainer(context: Context) {
     val updateSupplierProfileUseCase by lazy { UpdateSupplierProfileUseCase(profileRepository) }
     val updateBranchProfileUseCase by lazy { UpdateBranchProfileUseCase(profileRepository) }
     val requestZoneUpdateUseCase by lazy { RequestZoneUpdateUseCase(profileRepository) }
+    val uploadSupplierLogoUseCase by lazy { UploadSupplierLogoUseCase(profileRepository) }
 
     // Notification use cases
     val getNotificationsUseCase by lazy { GetNotificationsUseCase(notificationRepository) }
