@@ -22,8 +22,8 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.pharmatrade.agleb" />
-                  <option name="mobileSdkAppId" value="1:1038178227337:android:b9672974616fc0265e6258" />
+                  <option name="appId" value="com.pharmatrade.dev.agleb" />
+                  <option name="mobileSdkAppId" value="1:1038178227337:android:f8b536e1abbcb9ee5e6258" />
                   <option name="projectId" value="pharmatrade-a214f" />
                   <option name="projectNumber" value="1038178227337" />
                 </ConnectionSetting>

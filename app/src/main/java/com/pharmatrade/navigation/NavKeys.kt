@@ -14,7 +14,6 @@ data class DraftOrderLine(val id: String, val drugId: String, val drugName: Stri
 @Serializable
 sealed class NavKeys : NavKey {
     // Auth
-    @Serializable data object Intro : NavKeys()
     @Serializable data object Welcome : NavKeys()
     @Serializable data object Login : NavKeys()
     @Serializable data object Register : NavKeys()
@@ -67,6 +66,7 @@ sealed class NavKeys : NavKey {
 
     // Admin
     @Serializable data object AdminDashboard : NavKeys()
+    @Serializable data object AdminMissingEnglishDrugs : NavKeys()
 
     // Post-registration
     @Serializable data object PendingApproval : NavKeys()

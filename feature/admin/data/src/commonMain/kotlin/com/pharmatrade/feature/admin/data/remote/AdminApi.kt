@@ -2,9 +2,11 @@ package com.pharmatrade.feature.admin.data.remote
 
 import com.pharmatrade.core.network.ApiClient
 import com.pharmatrade.core.network.dto.ApiResponse
+import com.pharmatrade.feature.admin.data.remote.dto.MissingEnglishDrugsPageDto
 import com.pharmatrade.feature.admin.data.remote.dto.PendingUserDto
 import com.pharmatrade.feature.admin.data.remote.dto.PendingUsersPageDto
 import com.pharmatrade.feature.admin.data.remote.dto.RegistrationStatsDto
+import com.pharmatrade.feature.admin.data.remote.dto.UpdateDrugEnglishNameRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.forms.formData
@@ -12,6 +14,10 @@ import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
+import io.ktor.client.request.put
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 
 class AdminApi(private val client: HttpClient = ApiClient.httpClient) {
 
@@ -63,5 +69,21 @@ class AdminApi(private val client: HttpClient = ApiClient.httpClient) {
             url = "admin/registration-requests/$id/decline",
             formData = formData { append("decline_reason", reason) }
         )
+    }
+
+    // ── Drugs missing English names ───────────────────────────────────────────
+
+    // Newest first.
+    suspend fun getDrugsMissingEnglish(page: Int, perPage: Int = 20): ApiResponse<MissingEnglishDrugsPageDto> =
+        client.get("admin/drugs/missing-english") {
+            parameter("page", page)
+            parameter("per_page", perPage)
+        }.body()
+
+    suspend fun updateDrug(id: String, request: UpdateDrugEnglishNameRequest) {
+        client.put("admin/drugs/$id") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
     }
 }

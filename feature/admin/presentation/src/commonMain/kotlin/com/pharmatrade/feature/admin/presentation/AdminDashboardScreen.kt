@@ -57,6 +57,9 @@ fun AdminDashboardScreen(
     analyticsViewModel: AnalyticsViewModel,
     unreadNotificationCount: Int,
     onNavigateToNotifications: () -> Unit,
+    // "total" from admin/drugs/missing-english, shown on the Home card that opens that screen.
+    missingEnglishCount: Int,
+    onOpenMissingEnglishDrugs: () -> Unit,
     // Supplied by the caller so this feature doesn't depend on :feature:profile.
     profileContent: @Composable () -> Unit
 ) {
@@ -147,6 +150,8 @@ fun AdminDashboardScreen(
                             requestsTab = tab
                             select(AdminDest.REQUESTS)
                         },
+                        missingEnglishCount = missingEnglishCount,
+                        onOpenMissingEnglishDrugs = onOpenMissingEnglishDrugs,
                         profileContent = profileContent
                     )
                 }
@@ -182,13 +187,17 @@ private fun AdminDestContent(
     requestsTab: RequestsTab,
     onRequestsTabSelected: (RequestsTab) -> Unit,
     onOpenRequests: (RequestsTab) -> Unit,
+    missingEnglishCount: Int,
+    onOpenMissingEnglishDrugs: () -> Unit,
     profileContent: @Composable () -> Unit
 ) {
     when (dest) {
         AdminDest.HOME -> AdminHomeContent(
             uiState = uiState,
             onPharmaciesClick = { onOpenRequests(RequestsTab.PHARMACIES) },
-            onSuppliersClick = { onOpenRequests(RequestsTab.SUPPLIERS) }
+            onSuppliersClick = { onOpenRequests(RequestsTab.SUPPLIERS) },
+            missingEnglishCount = missingEnglishCount,
+            onMissingEnglishClick = onOpenMissingEnglishDrugs
         )
         AdminDest.REQUESTS -> RequestsContent(
             pendingPharmacies = uiState.pendingPharmacies,
@@ -521,7 +530,9 @@ private fun ZoneUpdatesContent(
 private fun AdminHomeContent(
     uiState: AdminUiState,
     onPharmaciesClick: () -> Unit,
-    onSuppliersClick: () -> Unit
+    onSuppliersClick: () -> Unit,
+    missingEnglishCount: Int,
+    onMissingEnglishClick: () -> Unit
 ) {
     val currentUser by SessionManager.currentUser.collectAsStateWithLifecycle()
     val strings = LocalStrings.current
@@ -658,6 +669,22 @@ private fun AdminHomeContent(
                     onClick = onSuppliersClick
                 )
             }
+        }
+
+        // Drug catalog: drugs created from Arabic sheets that still need an English name
+        item {
+            HomeSectionHeader(title = strings.adCatalogSection)
+        }
+        item {
+            PendingSummaryCard(
+                icon = Icons.Filled.Translate,
+                label = strings.adMissingEnglishCardLabel,
+                count = missingEnglishCount,
+                tint = if (missingEnglishCount > 0) ErrorRed else SecondaryGreen,
+                bg = if (missingEnglishCount > 0) ErrorRed.copy(alpha = 0.12f) else SecondaryGreenContainer,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onMissingEnglishClick
+            )
         }
 
         // Recent registrations

@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.map
 // Without init() (e.g. desktop) dismissals only last for the session.
 object DismissedHintsStore {
     const val MARKETPLACE_BROWSE = "marketplace_browse"
-    const val INTRO_SLIDES = "intro_slides"
     const val HOME_TOUR_PHARMACY = "home_tour_pharmacy"
     const val HOME_TOUR_SUPPLIER = "home_tour_supplier"
     private const val KEY_PREFIX = "hint_dismissed_"

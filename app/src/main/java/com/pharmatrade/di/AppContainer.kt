@@ -6,6 +6,8 @@ import com.pharmatrade.feature.admin.data.repository.AdminRepositoryImpl
 import com.pharmatrade.feature.admin.domain.repository.AdminRepository
 import com.pharmatrade.feature.admin.domain.usecase.ApproveRequestUseCase
 import com.pharmatrade.feature.admin.domain.usecase.DeclineRequestUseCase
+import com.pharmatrade.feature.admin.domain.usecase.GetDrugsMissingEnglishUseCase
+import com.pharmatrade.feature.admin.domain.usecase.SaveDrugEnglishNameUseCase
 import com.pharmatrade.feature.admin.domain.usecase.GetRegistrationRequestsUseCase
 import com.pharmatrade.feature.admin.domain.usecase.GetRegistrationStatsUseCase
 import com.pharmatrade.feature.auth.data.repository.AuthRepositoryImpl
@@ -102,6 +104,8 @@ class AppContainer(context: Context) {
     val getRegistrationRequestsUseCase by lazy { GetRegistrationRequestsUseCase(adminRepository) }
     val approveRequestUseCase by lazy { ApproveRequestUseCase(adminRepository) }
     val declineRequestUseCase by lazy { DeclineRequestUseCase(adminRepository) }
+    val getDrugsMissingEnglishUseCase by lazy { GetDrugsMissingEnglishUseCase(adminRepository) }
+    val saveDrugEnglishNameUseCase by lazy { SaveDrugEnglishNameUseCase(adminRepository) }
 
     // Seller use cases
     val getSellerProfileUseCase by lazy { GetSellerProfileUseCase(sellerRepository) }

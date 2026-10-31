@@ -30,7 +30,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val container = (application as PharmaTradeApp).container
-        pendingDeepLink.value = intent.toNotificationDeepLink()
+        // Only on a fresh start: after a rotation the same intent (and its extras) comes back, and
+        // the link was already followed.
+        if (savedInstanceState == null) pendingDeepLink.value = intent.toNotificationDeepLink()
         requestNotificationPermissionIfNeeded()
         setContent {
             PharmaTradeTheme {

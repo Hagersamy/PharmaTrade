@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pharmatrade.core.common.i18n.LocalStrings
@@ -154,7 +155,16 @@ private fun CheckoutDrugLineRow(line: OrderDrugLine) {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(line.drugName, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+                // weight(fill = false): a short name stays its own size (badge right after it), a long
+                // one takes only the space left and ends in "…" instead of pushing the badge out.
+                Text(
+                    line.drugName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
                 DiscountBadge(discountPercentage = line.discountPct)
             }
             Text(
@@ -163,6 +173,7 @@ private fun CheckoutDrugLineRow(line: OrderDrugLine) {
                 color = TextSecondary
             )
         }
+        Spacer(Modifier.width(12.dp))
         Text(
             "EGP ${formatDecimal(line.lineTotal, 2)}",
             style = MaterialTheme.typography.bodyMedium,

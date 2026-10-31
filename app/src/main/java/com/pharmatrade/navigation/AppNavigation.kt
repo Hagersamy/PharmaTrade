@@ -26,7 +26,6 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import com.pharmatrade.core.common.hints.DismissedHintsStore
 import com.pharmatrade.core.common.model.UserType
 import com.pharmatrade.core.common.session.SessionManager
 import com.pharmatrade.core.ui.components.PharmaButton
@@ -35,7 +34,8 @@ import com.pharmatrade.di.AppContainer
 import com.pharmatrade.feature.admin.presentation.AdminDashboardScreen
 import com.pharmatrade.feature.admin.presentation.AdminDashboardViewModel
 import com.pharmatrade.feature.admin.presentation.AnalyticsViewModel
-import com.pharmatrade.feature.auth.presentation.intro.IntroScreen
+import com.pharmatrade.feature.admin.presentation.MissingEnglishDrugsScreen
+import com.pharmatrade.feature.admin.presentation.MissingEnglishDrugsViewModel
 import com.pharmatrade.feature.auth.presentation.login.LoginScreen
 import com.pharmatrade.feature.auth.presentation.welcome.WelcomeScreen
 import com.pharmatrade.feature.auth.presentation.login.LoginViewModel
@@ -107,7 +107,6 @@ import kotlinx.coroutines.launch
 fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<NotificationDeepLink?>) {
     val startKey = remember {
         when {
-            !SessionManager.isLoggedIn && !DismissedHintsStore.isDismissed(DismissedHintsStore.INTRO_SLIDES) -> NavKeys.Intro
             !SessionManager.isLoggedIn -> NavKeys.Welcome
             SessionManager.user?.isPending == true -> NavKeys.PendingApproval
             SessionManager.user?.isDeclined == true -> NavKeys.RegistrationDeclined
@@ -181,6 +180,21 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
         }
     )
     val notificationState by notificationViewModel.uiState.collectAsState()
+
+    // Hoisted for the same reason: the admin dashboard's badge and the list screen share it, so a
+    // save on the list lowers the badge right away. It loads nothing until an admin screen asks.
+    val missingEnglishDrugsViewModel: MissingEnglishDrugsViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer {
+                MissingEnglishDrugsViewModel(
+                    getDrugsMissingEnglish = container.getDrugsMissingEnglishUseCase,
+                    saveDrugEnglishName = container.saveDrugEnglishNameUseCase
+                )
+            }
+        }
+    )
+    val missingEnglishState by missingEnglishDrugsViewModel.uiState.collectAsState()
+
     val deepLink by pendingDeepLink
     LaunchedEffect(deepLink) {
         val link = deepLink ?: return@LaunchedEffect
@@ -203,7 +217,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
         // Session lost (logout, expired token) while inside the app → back to Welcome. Already on
         // one of the logged-out screens means there's nothing to redirect.
         val onAuthScreen = backStack.lastOrNull().let {
-            it == NavKeys.Intro || it == NavKeys.Welcome || it == NavKeys.Login || it == NavKeys.Register
+            it == NavKeys.Welcome || it == NavKeys.Login || it == NavKeys.Register
         }
         if (sessionUser == null && !onAuthScreen) {
             selectHomeTab(HomeTab.HOME)
@@ -219,16 +233,6 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
             rememberViewModelStoreNavEntryDecorator()
         ),
         entryProvider = entryProvider {
-
-            entry<NavKeys.Intro> {
-                IntroScreen(
-                    onFinish = {
-                        DismissedHintsStore.dismiss(DismissedHintsStore.INTRO_SLIDES)
-                        // Replace Intro so Back from Welcome exits instead of reopening the slides.
-                        navigator.navigate(NavKeys.Welcome, popUpTo = Navigator.PopUpTo(target = null))
-                    }
-                )
-            }
 
             entry<NavKeys.Welcome> {
                 WelcomeScreen(
@@ -375,12 +379,17 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                         }
                     }
                 )
-                RefreshOnResume { notificationViewModel.refreshUnreadCount() }
+                RefreshOnResume {
+                    notificationViewModel.refreshUnreadCount()
+                    missingEnglishDrugsViewModel.refresh()
+                }
                 AdminDashboardScreen(
                     viewModel = vm,
                     analyticsViewModel = analyticsVm,
                     unreadNotificationCount = notificationState.unreadCount,
                     onNavigateToNotifications = { navigator.navigate(NavKeys.Notifications) },
+                    missingEnglishCount = missingEnglishState.total,
+                    onOpenMissingEnglishDrugs = { navigator.navigate(NavKeys.AdminMissingEnglishDrugs) },
                     profileContent = {
                         val adminUser by SessionManager.currentUser.collectAsState()
                         ProfileScreen(
@@ -634,6 +643,13 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                 )
             }
 
+            entry<NavKeys.AdminMissingEnglishDrugs> {
+                MissingEnglishDrugsScreen(
+                    viewModel = missingEnglishDrugsViewModel,
+                    onNavigateBack = { navigator.goBack() }
+                )
+            }
+
             entry<NavKeys.Notifications> {
                 NotificationsScreen(
                     viewModel = notificationViewModel,
@@ -643,7 +659,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
                             selectHomeTab(HomeTab.MARKET)
                             navigator.popBackTo(NavKeys.Home)
                         } else {
-                            resolveNotificationDestination(notification.type, notification.notifiableId)
+                            resolveNotificationDestination(notification.type, notification.notifiableId, notification.notifiableType)
                                 ?.let { navigator.navigate(it) }
                         }
                     }
@@ -998,7 +1014,7 @@ fun AppNavigation(container: AppContainer, pendingDeepLink: MutableState<Notific
 // order or a collection) isn't specified, so they all open Home's Marketplace tab.
 private fun isMarketplaceNotification(type: String) = type.startsWith("p2p_")
 
-private fun resolveNotificationDestination(type: String, notifiableId: String?): NavKeys? =
+private fun resolveNotificationDestination(type: String, notifiableId: String?, notifiableType: String? = null): NavKeys? =
     when (type) {
         "new_order" -> notifiableId?.let { NavKeys.SupplierOrderDetail(it) }
         "order_confirmed", "shortage_reported", "order_shipped", "order_delivered" -> notifiableId?.let {
@@ -1010,8 +1026,18 @@ private fun resolveNotificationDestination(type: String, notifiableId: String?):
         "registration_approved" -> NavKeys.Home
         "registration_declined" -> NavKeys.RegistrationDeclined
         "upload_reminder" -> NavKeys.InventoryUpload
-        else -> null
+        else -> NavKeys.AdminMissingEnglishDrugs.takeIf { isDrugsMissingEnglish(type, notifiableType) }
     }
+
+// Sent to admins only; notifiable_id is the upload log, which the screen doesn't need. Besides the
+// documented type, a class-name-style type ("...DrugsMissingEnglish") or, for admins, any
+// InventoryUploadLog notification counts — the stored-list shape of this type is unconfirmed.
+private fun isDrugsMissingEnglish(type: String, notifiableType: String?): Boolean {
+    if (!SessionManager.isAdmin) return false
+    val normalized = type.lowercase().filter { it.isLetter() }
+    return normalized.endsWith("drugsmissingenglish") ||
+        notifiableType?.substringAfterLast('\\') == "InventoryUploadLog"
+}
 
 @Composable
 private fun OrderSuccessScreen(orderId: String, onNavigateHome: () -> Unit) {

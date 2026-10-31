@@ -700,20 +700,9 @@ interface Strings {
     val mkStepReady: String
     val mkStepCompleted: String
 
-    // Intro slides (first launch, before Welcome)
+    // Home guided tour (first visit to Home, per role)
     val introSkip: String
     val introNext: String
-    val introGetStarted: String
-    val introTitle1: String
-    val introBody1: String
-    val introTitle2: String
-    val introBody2: String
-    val introTitle3: String
-    val introBody3: String
-    val introTitle4: String
-    val introBody4: String
-
-    // Home guided tour (first visit to Home, per role)
     val tourDone: String
     val tourProfileTitle: String
     val tourProfileBodyPharmacy: String
@@ -736,4 +725,29 @@ interface Strings {
     val tourMarketBody: String
     val settingsAppTour: String
     val settingsShowTourAgain: String
+
+    // Admin — drugs missing English names
+    val adCatalogSection: String
+    val adMissingEnglishTitle: String
+    val adMissingEnglishCardLabel: String
+    val adMissingEnglishEmptyTitle: String
+    val adMissingEnglishEmptyMessage: String
+    fun adMissingEnglishAddedOn(date: String): String
+    val adArabicNameLabel: String
+    val adEnglishNameLabel: String
+    val adEnglishNameHint: String
+    val adMoreDetails: String
+    val adScientificNameLabel: String
+    val adManufacturerLabel: String
+    val adDosageFormLabel: String
+    val adStrengthLabel: String
+    val adBarcodeLabel: String
+    val adFieldRequired: String
+    val adFieldEnglishOnly: String
+    val adFieldTooLong: String
+    val adBarcodeTaken: String
+    val adFieldInvalid: String
+    val adDrugNameSaved: String
+    val adDrugDeleted: String
+    val adAdminsOnly: String
 }

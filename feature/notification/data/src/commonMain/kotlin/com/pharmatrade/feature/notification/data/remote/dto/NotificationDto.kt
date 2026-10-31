@@ -6,6 +6,9 @@ import com.pharmatrade.feature.notification.domain.model.Notification
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 @Serializable
 data class NotificationDto(
@@ -16,15 +19,25 @@ data class NotificationDto(
     @SerialName("notifiable_type") val notifiableType: String? = null,
     @SerialName("notifiable_id") val notifiableId: JsonElement? = null,
     @SerialName("is_read") val isRead: Boolean? = null,
-    @SerialName("created_at") val createdAt: String? = null
+    @SerialName("created_at") val createdAt: String? = null,
+    // Laravel's stored-notification shape: the push payload ("type", "notifiable_id", ...) sits
+    // under "data", and the top-level "type" is the PHP class name.
+    // JsonElement, not JsonObject: a non-object "data" must not fail the whole list.
+    @SerialName("data") val data: JsonElement? = null
 ) {
+    private fun dataString(key: String) =
+        ((data as? JsonObject)?.get(key) as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+
+    // A class name like "App\Notifications\DrugsMissingEnglish" isn't a routable type.
+    private val isClassName: Boolean get() = type?.contains('\\') == true
+
     fun toDomain() = Notification(
         id = id.rawStringOrNull() ?: id.rawIntOrZero().toString(),
-        title = title ?: "",
-        body = body ?: "",
-        type = type ?: "general",
-        notifiableType = notifiableType,
-        notifiableId = notifiableId.rawStringOrNull(),
+        title = title ?: dataString("title") ?: "",
+        body = body ?: dataString("body") ?: "",
+        type = (if (isClassName) dataString("type") else type) ?: dataString("type") ?: type ?: "general",
+        notifiableType = notifiableType ?: dataString("notifiable_type"),
+        notifiableId = notifiableId.rawStringOrNull() ?: dataString("notifiable_id"),
         isRead = isRead ?: false,
         createdAt = createdAt ?: ""
     )
