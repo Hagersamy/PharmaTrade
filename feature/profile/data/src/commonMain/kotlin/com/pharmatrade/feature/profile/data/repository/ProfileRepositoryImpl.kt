@@ -19,6 +19,7 @@ import com.pharmatrade.core.network.ApiClient
 import com.pharmatrade.core.network.FormFile
 import com.pharmatrade.core.network.dto.ApiResponse
 import com.pharmatrade.feature.profile.data.remote.dto.ProfileResponseDto
+import kotlinx.datetime.Clock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -51,7 +52,7 @@ class ProfileRepositoryImpl(
                 // (whose CDN copy can lag behind a re-upload).
                 val logoUrl = (raw as? JsonObject)?.get("data")?.findLogoUrl()
                     ?: SessionManager.user?.logoUrl
-                    ?: supplier.id.takeIf { it != "0" }?.let { "$SUPPLIER_LOGO_BASE_URL/supplier_$it.jpg" }
+                    ?: supplier.id.takeIf { it != "0" }?.let { supplierLogoUrl(it) }
                 parsed.copy(supplier = supplier.copy(logoUrl = logoUrl))
             }
             ?: parsed
@@ -159,6 +160,7 @@ class ProfileRepositoryImpl(
             ?: return Result.Error("Could not read the image. Please pick it again.")
         val file = FormFile(bytes = info.bytes, fileName = "logo.jpg", mimeType = info.mimeType ?: "image/jpeg")
         val logoUrl = api.uploadLogo(file).findLogoUrl()
+        logoCacheBuster = Clock.System.now().epochSeconds
         if (logoUrl != null) {
             SessionManager.user?.let { SessionManager.login(it.copy(logoUrl = logoUrl), SessionManager.authToken) }
         }
@@ -229,6 +231,17 @@ class ProfileRepositoryImpl(
 
     private companion object {
         // Where POST supplier/profile/logo stores logos (seen in its reply and the catalog's logo_url).
-        const val SUPPLIER_LOGO_BASE_URL = "https://res.cloudinary.com/ktzgfzpc/image/upload/suppliers/logos"
+        const val CLOUDINARY_UPLOAD_BASE_URL = "https://res.cloudinary.com/ktzgfzpc/image/upload"
+
+        // The un-versioned URL is stale after a re-upload: Cloudinary's CDN (and Coil's cache, keyed
+        // by URL) keep serving the old image there — verified 2026-11-05, supplier_1.jpg returned a
+        // different image with and without a version segment. Cloudinary serves the current asset
+        // for any "/v<n>/" segment, so a per-app-launch version fetches the latest logo once per
+        // launch while still letting Coil cache it within that launch. Bumped after every upload so
+        // a logout/login in the same launch doesn't hit a URL already cached with the old logo.
+        var logoCacheBuster: Long = Clock.System.now().epochSeconds
+
+        fun supplierLogoUrl(supplierId: String) =
+            "$CLOUDINARY_UPLOAD_BASE_URL/v$logoCacheBuster/suppliers/logos/supplier_$supplierId.jpg"
     }
 }
