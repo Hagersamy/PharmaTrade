@@ -1,5 +1,7 @@
 package com.pharmatrade.feature.seller.presentation.dashboard
 
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -310,6 +312,16 @@ private fun EditInventoryItemDialog(uiState: SellerDashboardUiState, viewModel: 
                     value = uiState.editDiscountInput,
                     onValueChange = viewModel::onEditDiscountChange,
                     label = { Text(strings.sdDiscountPctLabel) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                OutlinedTextField(
+                    value = uiState.editOrderLimitInput,
+                    onValueChange = viewModel::onEditOrderLimitChange,
+                    label = { Text(strings.sdOrderLimitLabel) },
+                    supportingText = { Text(strings.sdOrderLimitHint) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)

@@ -2,6 +2,7 @@ package com.pharmatrade.feature.drugs.data.remote.dto
 
 import com.pharmatrade.core.common.model.Drug
 import com.pharmatrade.core.common.model.DrugCategory
+import com.pharmatrade.core.network.dto.rawIntOrNull
 import com.pharmatrade.core.network.dto.rawIntOrZero
 import com.pharmatrade.core.network.dto.rawStringOrNull
 import com.pharmatrade.feature.drugs.domain.model.CatalogDrugInfo
@@ -97,6 +98,11 @@ data class InventoryItemDto(
     // Only used as a fallback when pharmacist_price is absent.
     @SerialName("effective_price") val effectivePrice: Double? = null,
     @SerialName("last_updated") val lastUpdated: String? = null,
+    // Max units a pharmacy can order per transaction — the Excel upload's "limit" column. The
+    // pharmacy catalog returns it as "order_limit"; "limit" is read too in case this endpoint
+    // mirrors the Excel name. null = no limit.
+    @SerialName("order_limit") val orderLimit: JsonElement? = null,
+    @SerialName("limit") val limit: JsonElement? = null,
     @SerialName("drug") val drug: CatalogDrugDto? = null
 ) {
     fun toDomain(): InventoryItem {
@@ -125,6 +131,7 @@ data class InventoryItemDto(
             discountPct = discount,
             effectivePrice = pharmacyPrice,
             lastUpdated = lastUpdated ?: "",
+            orderLimit = (orderLimit.rawIntOrNull() ?: limit.rawIntOrNull())?.takeIf { it > 0 },
             catalogDrug = drug?.toDomain()
         )
     }
@@ -138,7 +145,10 @@ data class InventoryItemRequest(
     @SerialName("quantity_available") val quantityAvailable: Int,
     @SerialName("unit_price") val unitPrice: Double,
     @SerialName("public_price") val publicPrice: Double,
-    @SerialName("discount_pct") val discountPct: Double
+    @SerialName("discount_pct") val discountPct: Double,
+    // No default on purpose: encodeDefaults is off, so a defaulted null would be dropped from the
+    // body. Sent explicitly (explicitNulls = true) so clearing the field removes the limit.
+    @SerialName("order_limit") val orderLimit: Int?
 )
 
 @Serializable

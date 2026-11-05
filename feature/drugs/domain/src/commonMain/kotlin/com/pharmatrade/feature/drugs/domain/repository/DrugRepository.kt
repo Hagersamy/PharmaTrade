@@ -33,6 +33,7 @@ interface DrugRepository {
         drugNameRaw: String,
         quantityAvailable: Int,
         unitPrice: Double,
-        discountPct: Double
+        discountPct: Double,
+        orderLimit: Int?
     ): Result<InventoryItem>
 }

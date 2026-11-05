@@ -197,7 +197,8 @@ class DrugRepositoryImpl(
             quantityAvailable = quantityAvailable,
             unitPrice = unitPrice,
             publicPrice = unitPrice,
-            discountPct = discountPct
+            discountPct = discountPct,
+            orderLimit = null
         )
         val response = api.createInventoryItem(request)
         val item = response.data?.toDomain() ?: return Result.Error("Server did not return the created item")
@@ -214,14 +215,16 @@ class DrugRepositoryImpl(
         drugNameRaw: String,
         quantityAvailable: Int,
         unitPrice: Double,
-        discountPct: Double
+        discountPct: Double,
+        orderLimit: Int?
     ): Result<InventoryItem> = try {
         val request = InventoryItemRequest(
             drugNameRaw = drugNameRaw,
             quantityAvailable = quantityAvailable,
             unitPrice = unitPrice,
             publicPrice = unitPrice,
-            discountPct = discountPct
+            discountPct = discountPct,
+            orderLimit = orderLimit
         )
         val response = api.updateInventoryItem(id, request)
         val item = response.data?.toDomain() ?: return Result.Error("Server did not return the updated item")

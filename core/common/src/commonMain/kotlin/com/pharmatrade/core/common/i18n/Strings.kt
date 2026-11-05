@@ -14,6 +14,7 @@ interface Strings {
     val errorInvalidPhone: String
     val errorInvalidPrice: String
     val errorInvalidDiscount: String
+    val errorInvalidOrderLimit: String
     val errorInvalidQuantity: String
     val errorSelectDrug: String
     val errorDrugAlreadyInInventory: String
@@ -422,6 +423,8 @@ interface Strings {
     val sdQuantityAvailableLabel: String
     val sdUnitPriceEgpLabel: String
     val sdDiscountPctLabel: String
+    val sdOrderLimitLabel: String
+    val sdOrderLimitHint: String
     val sdEditContentDescription: String
     fun sdListingAdded(drugName: String): String
     val sdStock: String

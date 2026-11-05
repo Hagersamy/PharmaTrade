@@ -41,6 +41,8 @@ data class SellerDashboardUiState(
     val editQuantityInput: String = "",
     val editPriceInput: String = "",
     val editDiscountInput: String = "",
+    // Max units per order; blank = no limit.
+    val editOrderLimitInput: String = "",
     val isSavingEdit: Boolean = false,
     val editError: String? = null
 )
@@ -204,6 +206,7 @@ class SellerDashboardViewModel(
             editQuantityInput = item.quantityAvailable.toString(),
             editPriceInput = item.unitPrice.toString(),
             editDiscountInput = item.discountPct.toString(),
+            editOrderLimitInput = item.orderLimit?.toString() ?: "",
             editError = null
         )
     }
@@ -216,6 +219,9 @@ class SellerDashboardViewModel(
     fun onEditQuantityChange(v: String) { _uiState.value = _uiState.value.copy(editQuantityInput = v, editError = null) }
     fun onEditPriceChange(v: String) { _uiState.value = _uiState.value.copy(editPriceInput = v, editError = null) }
     fun onEditDiscountChange(v: String) { _uiState.value = _uiState.value.copy(editDiscountInput = v, editError = null) }
+    fun onEditOrderLimitChange(v: String) {
+        if (v.all { it.isDigit() }) _uiState.value = _uiState.value.copy(editOrderLimitInput = v, editError = null)
+    }
 
     fun saveEdit() {
         val state = _uiState.value
@@ -229,6 +235,11 @@ class SellerDashboardViewModel(
         val discount = state.editDiscountInput.toDoubleOrNull() ?: run {
             _uiState.value = state.copy(editError = LanguageManager.strings.errorInvalidDiscount); return
         }
+        // Blank = no limit; otherwise a whole number above 0.
+        val orderLimitInput = state.editOrderLimitInput.trim()
+        val orderLimit = if (orderLimitInput.isEmpty()) null else orderLimitInput.toIntOrNull()?.takeIf { it > 0 } ?: run {
+            _uiState.value = state.copy(editError = LanguageManager.strings.errorInvalidOrderLimit); return
+        }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSavingEdit = true, editError = null)
             val result = updateInventoryItemUseCase(
@@ -236,7 +247,8 @@ class SellerDashboardViewModel(
                 drugNameRaw = state.editDrugNameInput,
                 quantityAvailable = quantity,
                 unitPrice = price,
-                discountPct = discount
+                discountPct = discount,
+                orderLimit = orderLimit
             )
             when (result) {
                 is Result.Success -> _uiState.value = _uiState.value.copy(

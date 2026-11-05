@@ -83,13 +83,15 @@ class UpdateInventoryItemUseCase(private val repository: DrugRepository) {
         drugNameRaw: String,
         quantityAvailable: Int,
         unitPrice: Double,
-        discountPct: Double
+        discountPct: Double,
+        orderLimit: Int?
     ): Result<InventoryItem> {
         if (id.isBlank()) return Result.Error("Missing item id")
+        if (orderLimit != null && orderLimit <= 0) return Result.Error("Order limit must be greater than 0")
         if (drugNameRaw.isBlank()) return Result.Error("Drug name is required")
         if (quantityAvailable < 0) return Result.Error("Quantity cannot be negative")
         if (unitPrice < 0) return Result.Error("Price cannot be negative")
         if (discountPct < 0 || discountPct > 100) return Result.Error("Discount must be between 0 and 100")
-        return repository.updateInventoryItem(id, drugNameRaw, quantityAvailable, unitPrice, discountPct)
+        return repository.updateInventoryItem(id, drugNameRaw, quantityAvailable, unitPrice, discountPct, orderLimit)
     }
 }

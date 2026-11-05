@@ -12,6 +12,8 @@ data class InventoryItem(
     val discountPct: Double,
     val effectivePrice: Double,
     val lastUpdated: String,
+    // Max units a pharmacy can order per transaction; null = no limit.
+    val orderLimit: Int? = null,
     val catalogDrug: CatalogDrugInfo?
 )
 

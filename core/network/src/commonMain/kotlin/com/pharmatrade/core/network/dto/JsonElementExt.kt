@@ -16,6 +16,11 @@ fun JsonElement?.rawIntOrZero(): Int {
     return primitive.intOrNull ?: primitive.content.toDoubleOrNull()?.toInt() ?: 0
 }
 
+fun JsonElement?.rawIntOrNull(): Int? {
+    val primitive = (this as? JsonPrimitive)?.takeIf { it !is JsonNull } ?: return null
+    return primitive.intOrNull ?: primitive.content.toDoubleOrNull()?.toInt()
+}
+
 fun JsonElement?.rawDoubleOrZero(): Double {
     val primitive = this as? JsonPrimitive ?: return 0.0
     return primitive.doubleOrNull ?: primitive.content.toDoubleOrNull() ?: 0.0
